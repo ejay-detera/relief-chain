@@ -24,6 +24,16 @@ export const Colors = {
   },
 } as const;
 
+export const BrandColors = {
+  green: '#6FCA4B',
+  navy: '#112E58',
+  yellow: '#E4CF10',
+  lightGray: '#EEEDED',
+  grey: '#979797',
+  budgetGradientEnd: '#6595DA',
+} as const;
+
+
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
