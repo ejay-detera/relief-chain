@@ -33,6 +33,14 @@ export const BrandColors = {
   budgetGradientEnd: '#6595DA',
 } as const;
 
+export const BorderRadius = {
+  sm: 4,
+  md: 8,
+  lg: 16,
+  xl: 24,
+  full: 9999,
+} as const;
+
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
@@ -69,6 +77,7 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+  eight: 96,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
