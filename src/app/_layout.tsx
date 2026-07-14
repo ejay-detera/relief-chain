@@ -9,7 +9,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { StartSplash } from '@/components/StartSplash/StartSplash';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
@@ -45,7 +45,7 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
+      <StartSplash />
       <Slot />
     </ThemeProvider>
   );
