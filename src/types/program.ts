@@ -11,6 +11,9 @@ export interface ProgramDraft {
   disasterTypeId: number | null;
   affectedAreas: string[];
   affectedAreaIds: number[];
+  affectedBarangays: string[];
+  affectedBarangayIds: number[];
+  districtId: number | null;
   implementingAgency: string;
   implementingAgencyId: number | null;
   fundingSource: string;

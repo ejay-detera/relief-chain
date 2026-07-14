@@ -184,9 +184,11 @@ export default function ProgramDetailsScreen() {
               <Text style={styles.gridValue}>{program.fundingSource || 'N/A'}</Text>
             </View>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Affected Areas</Text>
+              <Text style={styles.gridLabel}>Affected Location</Text>
               <Text style={styles.gridValue}>
-                {program.affectedAreas?.join(', ') || 'N/A'}
+                {program.affectedBarangays && program.affectedBarangays.length > 0
+                  ? `${program.affectedAreas?.join(', ') || ''} (${program.affectedBarangays.join(', ')})`
+                  : (program.affectedAreas?.join(', ') || 'N/A')}
               </Text>
             </View>
           </View>

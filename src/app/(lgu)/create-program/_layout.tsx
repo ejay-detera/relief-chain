@@ -18,6 +18,9 @@ const initialDraft: ProgramDraft = {
   disasterTypeId: null,
   affectedAreas: [],
   affectedAreaIds: [],
+  affectedBarangays: [],
+  affectedBarangayIds: [],
+  districtId: null,
   implementingAgency: '',
   implementingAgencyId: null,
   fundingSource: '',
@@ -78,6 +81,7 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
     areas: [],
     agencies: [],
     fundingSources: [],
+    barangays: [],
   });
 
   const fetchProgramsList = async () => {
@@ -142,6 +146,9 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
       disasterTypeId: program.disasterTypeId,
       affectedAreas: program.affectedAreas || [],
       affectedAreaIds: program.affectedAreaIds || [],
+      affectedBarangays: program.affectedBarangays || [],
+      affectedBarangayIds: program.affectedBarangayIds || [],
+      districtId: program.districtId || null,
       implementingAgency: program.implementingAgency,
       implementingAgencyId: program.implementingAgencyId,
       fundingSource: program.fundingSource,

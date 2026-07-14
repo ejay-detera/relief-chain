@@ -21,6 +21,12 @@ export type BeneficiaryRegistrationData = {
   password: string;
   confirmPassword: string;
   agreesToTerms: boolean;
+  cityId: number | null;
+  city: string;
+  districtId: number | null;
+  district: string;
+  barangayId: number | null;
+  barangay: string;
 };
 
 export const initialBeneficiaryRegistrationData: BeneficiaryRegistrationData = {
@@ -28,4 +34,10 @@ export const initialBeneficiaryRegistrationData: BeneficiaryRegistrationData = {
   mobileNumber: '', email: '', completeAddress: '', municipalityCity: '', governmentIdNumber: '',
   governmentIdDocument: null, stellarWalletAddress: '', password: '', confirmPassword: '',
   agreesToTerms: false,
+  cityId: null,
+  city: '',
+  districtId: null,
+  district: '',
+  barangayId: null,
+  barangay: '',
 };

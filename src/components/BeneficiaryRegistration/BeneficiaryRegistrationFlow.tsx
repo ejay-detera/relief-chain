@@ -63,7 +63,7 @@ export const BeneficiaryRegistrationFlow = () => {
     setIsSubmitting(true);
     try {
       const fullName = [data.firstName, data.middleInitial, data.lastName].filter(Boolean).join(' ');
-      const location = [data.completeAddress, data.municipalityCity].filter(Boolean).join(', ');
+      const location = [data.completeAddress, data.barangay, data.district, data.city].filter(Boolean).join(', ');
       const document = data.governmentIdDocument;
       if (!document) return;
       const { data: signUpData, error } = await supabase.auth.signUp({

@@ -7,15 +7,17 @@ export interface LookupData {
   areas: { id: number; city_id: number; name: string }[];
   agencies: { id: number; name: string }[];
   fundingSources: { id: number; name: string }[];
+  barangays: { id: number; area_id: number; name: string }[];
 }
 
 export const fetchLookupData = async (): Promise<LookupData> => {
-  const [dt, c, a, ag, fs] = await Promise.all([
+  const [dt, c, a, ag, fs, bg] = await Promise.all([
     supabase.from('disaster_types').select('*'),
     supabase.from('cities').select('*'),
     supabase.from('areas').select('*'),
     supabase.from('implementing_agencies').select('*'),
     supabase.from('funding_sources').select('*'),
+    supabase.from('barangays').select('*'),
   ]);
 
   return {
@@ -24,6 +26,7 @@ export const fetchLookupData = async (): Promise<LookupData> => {
     areas: a.data || [],
     agencies: ag.data || [],
     fundingSources: fs.data || [],
+    barangays: bg.data || [],
   };
 };
 
@@ -35,7 +38,8 @@ export const fetchLguPrograms = async (): Promise<any[]> => {
       disaster_types (name),
       implementing_agencies (name),
       funding_sources (name),
-      program_areas (area_id, areas (name))
+      program_areas (area_id, areas (name)),
+      program_barangays (barangay_id, barangays (name, area_id))
     `)
     .order('created_at', { ascending: false });
 
@@ -75,6 +79,9 @@ export const fetchLguPrograms = async (): Promise<any[]> => {
     created_at: item.created_at,
     affectedAreas: item.program_areas?.map((pa: any) => pa.areas?.name).filter(Boolean) || [],
     affectedAreaIds: item.program_areas?.map((pa: any) => pa.area_id).filter(Boolean) || [],
+    affectedBarangays: item.program_barangays?.map((pb: any) => pb.barangays?.name).filter(Boolean) || [],
+    affectedBarangayIds: item.program_barangays?.map((pb: any) => pb.barangay_id).filter(Boolean) || [],
+    districtId: item.program_barangays?.[0]?.barangays?.area_id || item.program_areas?.[0]?.area_id || null,
   }));
 };
 
@@ -127,6 +134,17 @@ export const createLguProgram = async (
       .from('program_areas')
       .insert(areaInserts);
     if (areaError) throw areaError;
+  }
+
+  if (draft.affectedBarangayIds.length > 0 && programData) {
+    const barangayInserts = draft.affectedBarangayIds.map((barangayId) => ({
+      program_id: programData.id,
+      barangay_id: barangayId,
+    }));
+    const { error: barangayError } = await supabase
+      .from('program_barangays')
+      .insert(barangayInserts);
+    if (barangayError) throw barangayError;
   }
 
   return true;
@@ -182,13 +200,20 @@ export const updateLguProgram = async (
 
   if (programError) throw programError;
 
-  // First, delete old areas
-  const { error: deleteError } = await supabase
+  // First, delete old areas & barangays
+  const { error: deleteAreaError } = await supabase
     .from('program_areas')
     .delete()
     .eq('program_id', id);
 
-  if (deleteError) throw deleteError;
+  if (deleteAreaError) throw deleteAreaError;
+
+  const { error: deleteBarangayError } = await supabase
+    .from('program_barangays')
+    .delete()
+    .eq('program_id', id);
+
+  if (deleteBarangayError) throw deleteBarangayError;
 
   // Then insert new ones
   if (draft.affectedAreaIds.length > 0 && programData) {
@@ -202,15 +227,26 @@ export const updateLguProgram = async (
     if (areaError) throw areaError;
   }
 
+  if (draft.affectedBarangayIds.length > 0 && programData) {
+    const barangayInserts = draft.affectedBarangayIds.map((barangayId) => ({
+      program_id: programData.id,
+      barangay_id: barangayId,
+    }));
+    const { error: barangayError } = await supabase
+      .from('program_barangays')
+      .insert(barangayInserts);
+    if (barangayError) throw barangayError;
+  }
+
   return true;
 };
 
 export const deleteLguProgram = async (id: string): Promise<boolean> => {
-  // First, delete areas
-  await supabase
-    .from('program_areas')
-    .delete()
-    .eq('program_id', id);
+  // First, delete areas & barangays
+  await Promise.all([
+    supabase.from('program_areas').delete().eq('program_id', id),
+    supabase.from('program_barangays').delete().eq('program_id', id),
+  ]);
 
   const { error } = await supabase
     .from('programs')

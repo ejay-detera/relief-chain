@@ -39,7 +39,7 @@ export const getBeneficiaryStepError = (data: BeneficiaryRegistrationData, step:
   if (step === 2) {
     if (!mobileNumberPattern.test(data.mobileNumber)) return 'Enter an 11-digit Philippine mobile number starting with 09.';
     if (!emailPattern.test(data.email.trim())) return 'Enter a valid email address.';
-    if (!data.completeAddress.trim() || !data.municipalityCity.trim()) return 'Enter your complete address and municipality or city.';
+    if (!data.completeAddress.trim() || !data.municipalityCity.trim() || !data.cityId || !data.districtId || !data.barangayId) return 'Select your complete address, city, district, and barangay.';
   }
   if (step === 3 && (!data.governmentIdNumber.trim() || !data.governmentIdDocument)) return 'Enter your government ID number and select an ID image or PDF.';
   if (step === 4) {

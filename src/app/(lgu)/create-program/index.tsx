@@ -21,12 +21,28 @@ export default function BasicInfoScreen() {
   const { draft, updateDraft, lookups, isLoadingLookups } = useCreateProgram();
 
   // Local state for city selection
-  const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
+  const [selectedCityId, setSelectedCityId] = useState<number | null>(() => {
+    if (draft.districtId) {
+      const area = lookups.areas.find(a => a.id === draft.districtId);
+      return area ? area.city_id : null;
+    }
+    return null;
+  });
+
+  React.useEffect(() => {
+    if (draft.districtId && !selectedCityId) {
+      const area = lookups.areas.find(a => a.id === draft.districtId);
+      if (area) {
+        setSelectedCityId(area.city_id);
+      }
+    }
+  }, [draft.districtId, lookups.areas]);
 
   // Modal open states
   const [disasterModalVisible, setDisasterModalVisible] = useState(false);
   const [cityModalVisible, setCityModalVisible] = useState(false);
-  const [areaModalVisible, setAreaModalVisible] = useState(false);
+  const [districtModalVisible, setDistrictModalVisible] = useState(false);
+  const [barangayModalVisible, setBarangayModalVisible] = useState(false);
   const [agencyModalVisible, setAgencyModalVisible] = useState(false);
   const [fundingModalVisible, setFundingModalVisible] = useState(false);
 
@@ -37,7 +53,9 @@ export default function BasicInfoScreen() {
     !draft.disasterTypeId ||
     !draft.implementingAgencyId ||
     !draft.fundingSourceId ||
-    draft.affectedAreaIds.length === 0;
+    !selectedCityId ||
+    !draft.districtId ||
+    draft.affectedBarangayIds.length === 0;
 
   const handleNext = () => {
     router.push('/(lgu)/create-program/budget' as any);
@@ -48,20 +66,20 @@ export default function BasicInfoScreen() {
     return city ? city.name : '';
   };
 
-  const toggleArea = (areaId: number, areaName: string) => {
-    const isSelected = draft.affectedAreaIds.includes(areaId);
+  const toggleBarangay = (barangayId: number, barangayName: string) => {
+    const isSelected = draft.affectedBarangayIds.includes(barangayId);
     let updatedIds: number[];
     let updatedNames: string[];
 
     if (isSelected) {
-      updatedIds = draft.affectedAreaIds.filter((id) => id !== areaId);
-      updatedNames = draft.affectedAreas.filter((name) => name !== areaName);
+      updatedIds = draft.affectedBarangayIds.filter((id) => id !== barangayId);
+      updatedNames = draft.affectedBarangays.filter((name) => name !== barangayName);
     } else {
-      updatedIds = [...draft.affectedAreaIds, areaId];
-      updatedNames = [...draft.affectedAreas, areaName];
+      updatedIds = [...draft.affectedBarangayIds, barangayId];
+      updatedNames = [...draft.affectedBarangays, barangayName];
     }
 
-    updateDraft({ affectedAreaIds: updatedIds, affectedAreas: updatedNames });
+    updateDraft({ affectedBarangayIds: updatedIds, affectedBarangays: updatedNames });
   };
 
   // Filter areas based on chosen city
@@ -133,19 +151,37 @@ export default function BasicInfoScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Affected Area (Multi-select based on city selection) */}
+        {/* District (Dropdown) */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Affected Areas <Text style={styles.required}>*</Text></Text>
+          <Text style={styles.label}>District <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity
             style={[styles.dropdownTrigger, !selectedCityId && styles.disabledTrigger]}
             disabled={!selectedCityId}
-            onPress={() => setAreaModalVisible(true)}>
-            <Text style={[styles.dropdownValue, draft.affectedAreas.length === 0 && styles.placeholderText]}>
-              {draft.affectedAreas.length > 0
-                ? draft.affectedAreas.join(', ')
+            onPress={() => setDistrictModalVisible(true)}>
+            <Text style={[styles.dropdownValue, !draft.districtId && styles.placeholderText]}>
+              {draft.districtId
+                ? (lookups.areas.find(a => a.id === draft.districtId)?.name || 'Select District')
                 : selectedCityId
-                ? 'Select Affected Areas'
+                ? 'Select District'
                 : 'Select a city first'}
+            </Text>
+            <Text style={styles.dropdownChevron}>▼</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Affected Barangays (Multi-select) */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Affected Barangays <Text style={styles.required}>*</Text></Text>
+          <TouchableOpacity
+            style={[styles.dropdownTrigger, !draft.districtId && styles.disabledTrigger]}
+            disabled={!draft.districtId}
+            onPress={() => setBarangayModalVisible(true)}>
+            <Text style={[styles.dropdownValue, draft.affectedBarangayIds.length === 0 && styles.placeholderText]} numberOfLines={1}>
+              {draft.affectedBarangayIds.length > 0
+                ? draft.affectedBarangays.join(', ')
+                : draft.districtId
+                ? 'Select Affected Barangays'
+                : 'Select a district first'}
             </Text>
             <Text style={styles.dropdownChevron}>▼</Text>
           </TouchableOpacity>
@@ -228,8 +264,13 @@ export default function BasicInfoScreen() {
                   style={[styles.modalItem, selectedCityId === item.id && styles.selectedItem]}
                   onPress={() => {
                     setSelectedCityId(item.id);
-                    // Clear selected areas when city changes
-                    updateDraft({ affectedAreaIds: [], affectedAreas: [] });
+                    updateDraft({
+                      districtId: null,
+                      affectedAreaIds: [],
+                      affectedAreas: [],
+                      affectedBarangayIds: [],
+                      affectedBarangays: [],
+                    });
                     setCityModalVisible(false);
                   }}>
                   <Text style={[styles.modalItemText, selectedCityId === item.id && styles.selectedItemText]}>
@@ -242,25 +283,61 @@ export default function BasicInfoScreen() {
         </View>
       </Modal>
 
-      {/* AFFECTED AREAS MULTI SELECT MODAL */}
-      <Modal visible={areaModalVisible} transparent animationType="slide">
+      {/* DISTRICT SELECT MODAL */}
+      <Modal visible={districtModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Areas in {getSelectedCityName()}</Text>
-              <TouchableOpacity onPress={() => setAreaModalVisible(false)}>
-                <Text style={styles.closeButton}>Done</Text>
+              <Text style={styles.modalTitle}>Select District in {getSelectedCityName()}</Text>
+              <TouchableOpacity onPress={() => setDistrictModalVisible(false)}>
+                <Text style={styles.closeButton}>Cancel</Text>
               </TouchableOpacity>
             </View>
             <FlatList
               data={filteredAreas}
               keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.modalItem, draft.districtId === item.id && styles.selectedItem]}
+                  onPress={() => {
+                    updateDraft({
+                      districtId: item.id,
+                      affectedAreaIds: [item.id],
+                      affectedAreas: [item.name],
+                      affectedBarangayIds: [],
+                      affectedBarangays: [],
+                    });
+                    setDistrictModalVisible(false);
+                  }}>
+                  <Text style={[styles.modalItemText, draft.districtId === item.id && styles.selectedItemText]}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* BARANGAYS MULTI SELECT MODAL */}
+      <Modal visible={barangayModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Affected Barangays</Text>
+              <TouchableOpacity onPress={() => setBarangayModalVisible(false)}>
+                <Text style={styles.closeButton}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={lookups.barangays.filter(b => b.area_id === draft.districtId)}
+              keyExtractor={(item) => item.id.toString()}
               renderItem={({ item }) => {
-                const isSelected = draft.affectedAreaIds.includes(item.id);
+                const isSelected = draft.affectedBarangayIds.includes(item.id);
                 return (
                   <TouchableOpacity
                     style={[styles.modalItem, isSelected && styles.selectedItem]}
-                    onPress={() => toggleArea(item.id, item.name)}>
+                    onPress={() => toggleBarangay(item.id, item.name)}>
                     <Text style={[styles.modalItemText, isSelected && styles.selectedItemText]}>
                       {item.name} {isSelected ? '✓' : ''}
                     </Text>
