@@ -1,7 +1,7 @@
-import { Tabs } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
-import { View, StyleSheet } from 'react-native';
 import { BrandColors } from '@/constants/theme';
+import { FontAwesome } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
 export default function LguLayout() {
   return (
@@ -70,12 +70,6 @@ export default function LguLayout() {
       />
       <Tabs.Screen
         name="explore"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="reports"
         options={{
           href: null,
         }}
