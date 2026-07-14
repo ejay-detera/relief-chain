@@ -33,6 +33,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Kiro MCP settings (contains API keys)
+.kiro/settings/
+
 # typescript
 *.tsbuildinfo
 
