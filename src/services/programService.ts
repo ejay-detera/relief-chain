@@ -70,6 +70,7 @@ export const fetchLguPrograms = async (): Promise<any[]> => {
     status: item.status === 'active' ? 'published' : (item.status || 'draft'),
     created_at: item.created_at,
     affectedAreas: item.program_areas?.map((pa: any) => pa.areas?.name).filter(Boolean) || [],
+    affectedAreaIds: item.program_areas?.map((pa: any) => pa.area_id).filter(Boolean) || [],
   }));
 };
 
@@ -131,4 +132,89 @@ export const fetchRegisteredMerchants = async (): Promise<string[]> => {
 
   if (error) throw error;
   return (data || []).map((item) => item.full_name).filter(Boolean) as string[];
+};
+
+export const updateLguProgram = async (
+  id: string,
+  draft: ProgramDraft,
+  status: 'draft' | 'published'
+): Promise<boolean> => {
+  const { data: programData, error: programError } = await supabase
+    .from('programs')
+    .update({
+      name: draft.name,
+      purpose: draft.description,
+      total_budget: draft.totalBudget,
+      amount_per_beneficiary: draft.aidPerHousehold,
+      disaster_type_id: draft.disasterTypeId,
+      implementing_agency_id: draft.implementingAgencyId,
+      funding_source_id: draft.fundingSourceId,
+      voucher_types: draft.voucherTypes,
+      voucher_value: draft.voucherValue,
+      voucher_quantity: draft.voucherQuantity,
+      voucher_expiration: draft.voucherExpiration || null,
+      redemption_type: draft.redemptionType,
+      selected_merchants: draft.selectedMerchants,
+      distribution_method: draft.distributionMethod,
+      wallet_type_toggle: draft.walletTypeToggle,
+      auto_distribute_toggle: draft.autoDistributeToggle,
+      start_date: draft.startDate || null,
+      expires_at: draft.endDate || null,
+      eligibility_criteria: draft.eligibilityCriteria,
+      supporting_documents: draft.supportingDocuments,
+      status: status === 'published' ? 'active' : 'draft',
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (programError) throw programError;
+
+  // First, delete old areas
+  const { error: deleteError } = await supabase
+    .from('program_areas')
+    .delete()
+    .eq('program_id', id);
+
+  if (deleteError) throw deleteError;
+
+  // Then insert new ones
+  if (draft.affectedAreaIds.length > 0 && programData) {
+    const areaInserts = draft.affectedAreaIds.map((areaId) => ({
+      program_id: programData.id,
+      area_id: areaId,
+    }));
+    const { error: areaError } = await supabase
+      .from('program_areas')
+      .insert(areaInserts);
+    if (areaError) throw areaError;
+  }
+
+  return true;
+};
+
+export const deleteLguProgram = async (id: string): Promise<boolean> => {
+  // First, delete areas
+  await supabase
+    .from('program_areas')
+    .delete()
+    .eq('program_id', id);
+
+  const { error } = await supabase
+    .from('programs')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
+};
+
+export const updateProgramStatus = async (id: string, status: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('programs')
+    .update({ status })
+    .eq('id', id);
+
+  if (error) throw error;
+  return true;
 };

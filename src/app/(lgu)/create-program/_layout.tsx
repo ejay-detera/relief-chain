@@ -1,14 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Alert } from 'react-native';
-import { Stack } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { ProgramDraft } from '@/types/program';
 import {
   LookupData,
-  fetchLookupData,
-  fetchLguPrograms,
   createLguProgram,
+  fetchLguPrograms,
+  fetchLookupData,
+  updateLguProgram,
 } from '@/services/programService';
+import { ProgramDraft } from '@/types/program';
+import { Stack } from 'expo-router';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 
 const initialDraft: ProgramDraft = {
   name: '',
@@ -54,6 +55,9 @@ interface CreateProgramContextProps {
   lookups: LookupData;
   isLoadingLookups: boolean;
   fetchProgramsList: () => Promise<void>;
+  editingProgramId: string | null;
+  startEditingProgram: (program: any) => void;
+  clearEditingState: () => void;
 }
 
 const CreateProgramContext = createContext<CreateProgramContextProps | undefined>(undefined);
@@ -123,16 +127,60 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
     });
   };
 
+  const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
+
+  const startEditingProgram = (program: any) => {
+    setEditingProgramId(program.id);
+    setDraft({
+      name: program.name,
+      description: program.description,
+      disasterType: program.disasterType,
+      disasterTypeId: program.disasterTypeId,
+      affectedAreas: program.affectedAreas || [],
+      affectedAreaIds: program.affectedAreaIds || [],
+      implementingAgency: program.implementingAgency,
+      implementingAgencyId: program.implementingAgencyId,
+      fundingSource: program.fundingSource,
+      fundingSourceId: program.fundingSourceId,
+      totalBudget: program.totalBudget,
+      aidPerHousehold: program.aidPerHousehold,
+      maxBeneficiaries: program.maxBeneficiaries,
+      startDate: program.startDate,
+      endDate: program.endDate,
+      eligibilityCriteria: program.eligibilityCriteria || [],
+      voucherTypes: program.voucherTypes || [],
+      voucherValue: program.voucherValue || 0,
+      voucherQuantity: program.voucherQuantity || 1,
+      voucherExpiration: program.voucherExpiration || '',
+      redemptionType: program.redemptionType || 'cash',
+      selectedMerchants: program.selectedMerchants || [],
+      distributionMethod: program.distributionMethod || 'automatic',
+      walletTypeToggle: program.walletTypeToggle || false,
+      autoDistributeToggle: program.autoDistributeToggle || true,
+      supportingDocuments: program.supportingDocuments || [],
+    });
+  };
+
+  const clearEditingState = () => {
+    setEditingProgramId(null);
+    resetDraft();
+  };
+
   const resetDraft = () => {
     setDraft(initialDraft);
   };
 
   const publishProgram = async (status: 'draft' | 'published'): Promise<boolean> => {
     try {
-      const success = await createLguProgram(draft, status, profile?.id || null);
+      let success = false;
+      if (editingProgramId) {
+        success = await updateLguProgram(editingProgramId, draft, status);
+      } else {
+        success = await createLguProgram(draft, status, profile?.id || null);
+      }
       if (success) {
         await fetchProgramsList();
-        resetDraft();
+        clearEditingState();
         return true;
       }
       return false;
@@ -155,6 +203,9 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
         lookups,
         isLoadingLookups,
         fetchProgramsList,
+        editingProgramId,
+        startEditingProgram,
+        clearEditingState,
       }}>
       {children}
     </CreateProgramContext.Provider>

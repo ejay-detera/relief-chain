@@ -1,7 +1,7 @@
-import { Tabs } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
-import { View, StyleSheet } from 'react-native';
 import { BrandColors } from '@/constants/theme';
+import { FontAwesome } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 import { CreateProgramProvider } from './create-program/_layout';
 
 export default function LguLayout() {
@@ -84,6 +84,13 @@ export default function LguLayout() {
         />
         <Tabs.Screen
           name="create-program"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="program/[id]"
           options={{
             href: null,
             tabBarStyle: { display: 'none' },
