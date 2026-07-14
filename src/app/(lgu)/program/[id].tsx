@@ -15,11 +15,11 @@ export default function ProgramDetailsScreen() {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    if (programsList.length === 0) {
+    Promise.resolve().then(() => {
       setLoading(true);
       fetchProgramsList().finally(() => setLoading(false));
-    }
-  }, []);
+    });
+  }, [fetchProgramsList]);
 
   const program = programsList.find((p) => p.id === id);
 

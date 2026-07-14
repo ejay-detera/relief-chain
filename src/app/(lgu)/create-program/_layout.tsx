@@ -8,7 +8,7 @@ import {
 } from '@/services/programService';
 import { ProgramDraft } from '@/types/program';
 import { Stack } from 'expo-router';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 
 const initialDraft: ProgramDraft = {
@@ -84,14 +84,14 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
     barangays: [],
   });
 
-  const fetchProgramsList = async () => {
+  const fetchProgramsList = useCallback(async () => {
     try {
       const data = await fetchLguPrograms();
       setProgramsList(data);
     } catch (err) {
       console.error('Error fetching programs:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let active = true;

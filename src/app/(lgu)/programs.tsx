@@ -5,7 +5,7 @@ import { useCreateProgram } from './create-program/_layout';
 import { ProgramFilterTabs, ProgramFilterType } from '@/components/LguPrograms/ProgramFilterTabs';
 import { ProgramList } from '@/components/LguPrograms/ProgramList';
 import { ProgramItem } from '@/components/LguPrograms/ProgramCard';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { BrandColors, Spacing } from '@/constants/theme';
 
 export default function LguProgramsScreen() {
   const router = useRouter();
@@ -66,7 +66,6 @@ export default function LguProgramsScreen() {
         activeOpacity={0.8}
       >
         <Text style={styles.fabIcon}>+</Text>
-        <Text style={styles.fabText}>Create Program</Text>
       </TouchableOpacity>
     </View>
   );
@@ -99,12 +98,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 96, // Place above the tab bar styles
     right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: BrandColors.green,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    borderRadius: BorderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
     elevation: 4,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
@@ -112,14 +111,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   fabIcon: {
-    fontSize: 20,
+    fontSize: 24,
     color: '#FFFFFF',
     fontWeight: 'bold',
-    marginRight: 6,
-  },
-  fabText: {
-    fontSize: 14,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: '#FFFFFF',
   },
 });

@@ -242,7 +242,29 @@ export const updateLguProgram = async (
 };
 
 export const deleteLguProgram = async (id: string): Promise<boolean> => {
-  // First, delete areas & barangays
+  // First, get all enrollments for this program
+  const { data: enrollmentsData } = await supabase
+    .from('enrollments')
+    .select('id')
+    .eq('program_id', id);
+
+  const enrollmentIds = enrollmentsData?.map((e) => e.id) || [];
+
+  if (enrollmentIds.length > 0) {
+    // Delete redemptions for those enrollments
+    await supabase
+      .from('redemptions')
+      .delete()
+      .in('enrollment_id', enrollmentIds);
+
+    // Delete enrollments
+    await supabase
+      .from('enrollments')
+      .delete()
+      .eq('program_id', id);
+  }
+
+  // Delete areas & barangays
   await Promise.all([
     supabase.from('program_areas').delete().eq('program_id', id),
     supabase.from('program_barangays').delete().eq('program_id', id),
@@ -265,4 +287,19 @@ export const updateProgramStatus = async (id: string, status: string): Promise<b
 
   if (error) throw error;
   return true;
+};
+
+export const fetchActiveProgramsWithLocations = async (): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('programs')
+    .select(`
+      *,
+      program_areas (area_id, areas (name)),
+      program_barangays (barangay_id, barangays (name, area_id))
+    `)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
 };
