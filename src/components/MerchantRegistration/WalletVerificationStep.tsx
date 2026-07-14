@@ -1,44 +1,24 @@
-import { FontAwesome } from '@expo/vector-icons';
 import { Pressable, View } from 'react-native';
 
+import { RegistrationUploadField } from '@/components/AuthRegistration/RegistrationUploadField';
 import { ThemedText } from '@/components/themed-text';
 import type { MerchantRegistrationData } from '@/types/merchant-registration';
 
 import { RegistrationField } from './RegistrationField';
 import { merchantRegistrationStyles as styles } from './styles';
 
-type WalletVerificationStepProps = {
+type Props = {
   data: MerchantRegistrationData;
   onChange: (values: Partial<MerchantRegistrationData>) => void;
   onNext: () => void;
-  onUploadPermit: () => void;
 };
 
-export function WalletVerificationStep({
-  data,
-  onChange,
-  onNext,
-  onUploadPermit,
-}: WalletVerificationStepProps) {
-  return (
-    <View style={styles.form}>
-      <RegistrationField
-        label="Stellar Wallet Address (Optional)"
-        onChangeText={(stellarWalletAddress) => onChange({ stellarWalletAddress })}
-        placeholder="G..."
-        value={data.stellarWalletAddress}
-      />
-
-      <View>
-        <ThemedText style={styles.fieldLabel}>Upload Business Permit</ThemedText>
-        <Pressable onPress={onUploadPermit} style={styles.permitInput}>
-          <FontAwesome color="rgba(151, 151, 151, 0.5)" name="file-image-o" size={22} />
-        </Pressable>
-      </View>
-
-      <Pressable onPress={onNext} style={styles.nextButton}>
-        <ThemedText style={styles.nextButtonText}>Next</ThemedText>
-      </Pressable>
-    </View>
-  );
-}
+export const WalletVerificationStep = ({ data, onChange, onNext }: Props) => (
+  <View style={styles.form}>
+    <RegistrationField label="Stellar Wallet Address (Optional)" onChangeText={(stellarWalletAddress) => onChange({ stellarWalletAddress })} placeholder="G..." value={data.stellarWalletAddress} />
+    <RegistrationUploadField asset={data.permitDocument} label="Business Permit" onSelect={(permitDocument) => onChange({ permitDocument })} />
+    <Pressable onPress={onNext} style={styles.nextButton}>
+      <ThemedText style={styles.nextButtonText}>Next</ThemedText>
+    </Pressable>
+  </View>
+);

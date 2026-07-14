@@ -1,58 +1,64 @@
-import { Buffer } from 'buffer';
-import 'react-native-get-random-values';
-if (typeof (globalThis as any).Buffer === 'undefined') (globalThis as any).Buffer = Buffer;
-
-import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, useFonts } from '@expo-google-fonts/plus-jakarta-sans';
+import {
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    useFonts,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { Sarina_400Regular } from '@expo-google-fonts/sarina';
+import { Buffer } from 'buffer';
 import { DarkTheme, DefaultTheme, Slot, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
+import 'react-native-get-random-values';
 
+import { ProfileAccessError } from '@/components/AuthSession/ProfileAccessError';
 import { StartSplash } from '@/components/StartSplash/StartSplash';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { getRoleHome, isAuthContinuationRoute, isRoleGroupForRole } from '@/utils/auth-routing';
 
-SplashScreen.preventAutoHideAsync();
+type RuntimeGlobal = typeof globalThis & { Buffer?: typeof Buffer };
+const runtimeGlobal = globalThis as RuntimeGlobal;
+if (typeof runtimeGlobal.Buffer === 'undefined') runtimeGlobal.Buffer = Buffer;
 
-function RootLayoutNav() {
+void SplashScreen.preventAutoHideAsync();
+
+const RootLayoutNav = () => {
   const colorScheme = useColorScheme();
-  const { session, profile, isLoading } = useAuth();
-  const segments = useSegments() as string[];
+  const { session, profile, isLoading, profileError } = useAuth();
+  const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments.length > 0 && segments[0] === ('(auth)' as any);
-    const isAuthContinuationRoute = ['verify-email', 'registration-success', 'forgot-password'].includes(segments[1]);
-    
+    const [group, route] = segments;
+    const inAuthGroup = group === '(auth)';
+
     if (!session) {
-      if (!inAuthGroup) {
-        router.replace('/(auth)/choose-account' as any);
-      }
-    } else if (profile) {
-      // User is signed in and profile is loaded
-      if ((inAuthGroup && !isAuthContinuationRoute) || segments.length === 0) {
-        if (profile.role === 'lgu') {
-          router.replace('/(lgu)' as any);
-        } else if (profile.role === 'merchant') {
-          router.replace('/(merchant)' as any);
-        } else {
-          router.replace('/(beneficiary)' as any);
-        }
-      }
+      if (!inAuthGroup) router.replace('/(auth)/choose-account');
+      return;
     }
-  }, [session, profile, isLoading, segments]);
+
+    if (profileError) return;
+    if (!profile) return;
+    if (inAuthGroup && isAuthContinuationRoute(route)) return;
+
+    if (!isRoleGroupForRole(group, profile.role)) {
+      router.replace(getRoleHome(profile.role));
+    }
+  }, [isLoading, profile, profileError, router, segments, session]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <StartSplash />
-      <Slot />
+      {session && profileError ? <ProfileAccessError /> : <Slot />}
     </ThemeProvider>
   );
-}
+};
 
-export default function RootLayout() {
+const RootLayout = () => {
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -61,13 +67,13 @@ export default function RootLayout() {
     Sarina_400Regular,
   });
 
-  if (!fontsLoaded) {
-    return null;
-  }
+  if (!fontsLoaded) return null;
 
   return (
     <AuthProvider>
       <RootLayoutNav />
     </AuthProvider>
   );
-}
+};
+
+export default RootLayout;

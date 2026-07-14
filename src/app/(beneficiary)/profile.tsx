@@ -1,13 +1,13 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { LogoutButton } from '@/components/shared/LogoutButton';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
+import { useStellarWallet } from '@/hooks/use-stellar-wallet';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing, BorderRadius, BottomTabInset } from '@/constants/theme';
-import { useStellarWallet } from '@/hooks/use-stellar-wallet';
-import { useAuth } from '@/context/AuthContext';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const { wallet } = useStellarWallet();
@@ -65,6 +65,8 @@ export default function ProfileScreen() {
               </View>
             </View>
           </View>
+
+          <LogoutButton />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>

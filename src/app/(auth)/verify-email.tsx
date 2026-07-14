@@ -7,8 +7,9 @@ import { EmailVerificationForm } from '@/components/AuthVerification/EmailVerifi
 import { authVerificationStyles as styles } from '@/components/AuthVerification/styles';
 import { ThemedView } from '@/components/themed-view';
 import { isSupabaseConfigured, supabase, supabaseSetupMessage } from '@/lib/supabase';
+import { isUserRole, type UserRole } from '@/types/auth';
 
-const OTP_LENGTH = 6;
+const OTP_LENGTH = 8;
 const RESEND_DURATION_SECONDS = 60;
 
 const formatCountdown = (seconds: number) => {
@@ -18,13 +19,20 @@ const formatCountdown = (seconds: number) => {
 };
 
 export default function VerifyEmailScreen() {
-  const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
+  const { email: emailParam, role: roleParam } = useLocalSearchParams<{ email?: string; role?: string }>();
+  const role: UserRole | null = isUserRole(roleParam) ? roleParam : null;
   const [code, setCode] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [secondsRemaining, setSecondsRemaining] = useState(RESEND_DURATION_SECONDS);
   const [isResending, setIsResending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const router = useRouter();
-  const email = emailParam ?? '';
+  const email = emailParam?.trim() ?? '';
+
+  useEffect(() => {
+    if (role && email) return;
+    Alert.alert('Registration details unavailable', 'Return to account selection and start registration again.');
+    router.replace('/(auth)/choose-account');
+  }, [email, role, router]);
 
   useEffect(() => {
     if (secondsRemaining === 0) return;
@@ -44,7 +52,7 @@ export default function VerifyEmailScreen() {
     const token = code.join('');
 
     if (!email || token.length !== OTP_LENGTH) {
-      Alert.alert('Verification code required', 'Enter the 6-digit code sent to your email.');
+      Alert.alert('Verification code required', 'Enter the 8-digit code sent to your email.');
       return;
     }
 
@@ -62,7 +70,8 @@ export default function VerifyEmailScreen() {
       return;
     }
 
-    router.replace('/(auth)/registration-success' as any);
+    if (!role) return;
+    router.replace({ pathname: '/(auth)/registration-success', params: { role } });
   };
 
   const resendCode = async () => {
@@ -89,6 +98,8 @@ export default function VerifyEmailScreen() {
     setSecondsRemaining(RESEND_DURATION_SECONDS);
   };
 
+  if (!role || !email) return null;
+
   return (
     <ThemedView style={styles.page}>
       <SafeAreaView style={styles.safeArea}>
@@ -99,7 +110,9 @@ export default function VerifyEmailScreen() {
           isResending={isResending}
           isVerifying={isVerifying}
           onChangeCode={updateCode}
-          onClose={() => router.replace('/(auth)/sign-in' as any)}
+          onClose={() => role
+            ? router.replace({ pathname: '/(auth)/sign-in', params: { role } })
+            : router.replace('/(auth)/choose-account')}
           onResend={resendCode}
           onVerify={verifyCode}
         />

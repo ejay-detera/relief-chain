@@ -11,7 +11,6 @@ type MerchantRegistrationStepProps = {
   onChange: (values: Partial<MerchantRegistrationData>) => void;
   onNext: () => void;
   onSubmit: () => void;
-  onUploadPermit: () => void;
   step: MerchantRegistrationStepType;
 };
 
@@ -21,7 +20,6 @@ export function MerchantRegistrationStep({
   onChange,
   onNext,
   onSubmit,
-  onUploadPermit,
   step,
 }: MerchantRegistrationStepProps) {
   switch (step) {
@@ -35,7 +33,6 @@ export function MerchantRegistrationStep({
           data={data}
           onChange={onChange}
           onNext={onNext}
-          onUploadPermit={onUploadPermit}
         />
       );
     case 4:

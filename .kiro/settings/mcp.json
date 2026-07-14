@@ -8,7 +8,10 @@
       ]
     },
     "supabase": {
-      "url": "https://mcp.supabase.com/mcp"
+      "url": "https://mcp.supabase.com/mcp",
+      "autoApprove": [
+        "search_docs"
+      ]
     }
   }
 }

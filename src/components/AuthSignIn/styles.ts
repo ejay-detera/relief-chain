@@ -94,6 +94,16 @@ export const authSignInStyles = StyleSheet.create({
     marginLeft: 12,
     paddingVertical: 0,
   },
+  passwordInput: {
+    marginLeft: 12,
+    paddingRight: 4,
+  },
+  passwordVisibilityButton: {
+    width: 38,
+    height: 45,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   accessKeyInput: {
     marginTop: 28,
   },

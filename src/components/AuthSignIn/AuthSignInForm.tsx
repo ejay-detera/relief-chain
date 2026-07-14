@@ -1,11 +1,12 @@
 import { FontAwesome } from '@expo/vector-icons';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 
 import { authSignInStyles as styles } from './styles';
 
-export type SignInMethod = 'merchantId' | 'phoneNumber';
+export type SignInMethod = 'email' | 'phoneNumber';
 
 type AuthSignInFormProps = {
   accessKey: string;
@@ -24,7 +25,7 @@ type AuthSignInFormProps = {
   registrationPrompt?: string;
 };
 
-export function AuthSignInForm({
+export const AuthSignInForm = ({
   accessKey,
   identifier,
   isLoading,
@@ -39,21 +40,23 @@ export function AuthSignInForm({
   onVerifyIdentity,
   registrationLabel = 'Register your account',
   registrationPrompt = 'New Account?',
-}: AuthSignInFormProps) {
+}: AuthSignInFormProps) => {
+  const [isAccessKeyVisible, setIsAccessKeyVisible] = useState(false);
+
   return (
     <View style={styles.card}>
       <ThemedText style={styles.title}>Welcome back!</ThemedText>
       <ThemedText style={styles.subtitle}>
-        Secure access for relief officers and verified agencies.
+        Secure access for verified Relief Chain accounts.
       </ThemedText>
 
       <View style={styles.methodSelector}>
         <Pressable
-          style={[styles.methodOption, method === 'merchantId' && styles.methodOptionActive]}
-          onPress={() => onSelectMethod('merchantId')}
+          style={[styles.methodOption, method === 'email' && styles.methodOptionActive]}
+          onPress={() => onSelectMethod('email')}
         >
-          <ThemedText style={[styles.methodText, method === 'merchantId' && styles.methodTextActive]}>
-            Merchant ID
+          <ThemedText style={[styles.methodText, method === 'email' && styles.methodTextActive]}>
+            Email
           </ThemedText>
         </Pressable>
         <Pressable
@@ -71,11 +74,11 @@ export function AuthSignInForm({
           <FontAwesome name="id-card" size={18} color="rgba(151, 151, 151, 0.5)" />
           <TextInput
             autoCapitalize="none"
-            autoComplete="username"
+            autoComplete={method === 'email' ? 'email' : 'tel'}
             editable={!isSendingRecovery}
-            keyboardType={method === 'phoneNumber' ? 'phone-pad' : 'default'}
+            keyboardType={method === 'phoneNumber' ? 'phone-pad' : 'email-address'}
             onChangeText={onIdentifierChange}
-            placeholder="Beneficiary ID"
+            placeholder={method === 'phoneNumber' ? 'Mobile number' : 'Email address'}
             placeholderTextColor="rgba(151, 151, 151, 0.5)"
             style={styles.input}
             value={identifier}
@@ -89,12 +92,22 @@ export function AuthSignInForm({
             autoComplete="current-password"
             editable={!isSendingRecovery}
             onChangeText={onAccessKeyChange}
-            placeholder="Beneficiary Access Key"
+            placeholder="Password"
             placeholderTextColor="rgba(151, 151, 151, 0.5)"
-            secureTextEntry
-            style={styles.input}
+            secureTextEntry={!isAccessKeyVisible}
+            style={[styles.input, styles.passwordInput]}
             value={accessKey}
           />
+          <Pressable
+            accessibilityLabel={isAccessKeyVisible ? 'Hide password' : 'Show password'}
+            accessibilityRole="button"
+            disabled={isSendingRecovery}
+            hitSlop={8}
+            onPress={() => setIsAccessKeyVisible((visible) => !visible)}
+            style={styles.passwordVisibilityButton}
+          >
+            <FontAwesome color="#112E58" name={isAccessKeyVisible ? 'eye' : 'eye-slash'} size={18} />
+          </Pressable>
         </View>
 
         <Pressable
@@ -134,4 +147,4 @@ export function AuthSignInForm({
       </View>
     </View>
   );
-}
+};

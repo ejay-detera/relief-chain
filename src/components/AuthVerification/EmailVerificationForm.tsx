@@ -36,7 +36,7 @@ export function EmailVerificationForm({
         <FontAwesome color="#111111" name="close" size={36} />
       </Pressable>
       <ThemedText style={styles.title}>Verify Email</ThemedText>
-      <ThemedText style={styles.message}>Check your email. We sent a 6-digit verification code to:</ThemedText>
+      <ThemedText style={styles.message}>Check your email. We sent an 8-digit verification code to:</ThemedText>
       <ThemedText style={styles.email}>{email}</ThemedText>
       <View style={styles.emailIcon}>
         <FontAwesome color="#FFFFFF" name="envelope" size={58} />

@@ -1,95 +1,137 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { Session } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { isUserRole, type AuthContextValue, type UserProfile } from '@/types/auth';
+import type { Session } from '@supabase/supabase-js';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
-export type UserRole = 'lgu' | 'beneficiary' | 'merchant';
-
-export type UserProfile = {
-  id: string;
-  role: UserRole;
-  full_name: string;
-  gov_id: string;
-  location: string;
-  stellar_pubkey?: string;
-};
-
-type AuthContextType = {
-  session: Session | null;
-  profile: UserProfile | null;
-  isLoading: boolean;
-  signOut: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthContextType>({
+const AuthContext = createContext<AuthContextValue>({
   session: null,
   profile: null,
   isLoading: true,
-  signOut: async () => {},
+  profileError: null,
+  signOut: async () => null,
 });
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+const nullableString = (value: unknown): string | null =>
+  typeof value === 'string' ? value : null;
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+const toUserProfile = (value: unknown): UserProfile | null => {
+  if (!value || typeof value !== 'object') return null;
+
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== 'string' || !isUserRole(row.role)) return null;
+
+  return {
+    id: row.id,
+    role: row.role,
+    full_name: nullableString(row.full_name),
+    gov_id: nullableString(row.gov_id),
+    location: nullableString(row.location),
+    stellar_pubkey: nullableString(row.stellar_pubkey),
+    created_at: nullableString(row.created_at),
+  };
+};
+
+const toProfileError = (error: unknown): Error =>
+  error instanceof Error ? error : new Error('Unable to load the authenticated user profile.');
+
+export const useAuth = (): AuthContextValue => useContext(AuthContext);
+
+type AuthProviderProps = { children: React.ReactNode };
+
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
+  const [profileError, setProfileError] = useState<Error | null>(null);
+  const authRevision = useRef(0);
+  const profileRequest = useRef(0);
 
   useEffect(() => {
+    let isActive = true;
+
+    const applySession = async (nextSession: Session | null) => {
+      const request = ++profileRequest.current;
+      if (!isActive) return;
+
+      setSession(nextSession);
+      setProfile(null);
+      setProfileError(null);
+
+      if (!nextSession?.user) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, role, full_name, gov_id, location, stellar_pubkey, created_at')
+          .eq('id', nextSession.user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const nextProfile = toUserProfile(data);
+        if (!nextProfile) throw new Error('No valid profile found for the authenticated user.');
+        if (!isActive || request !== profileRequest.current) return;
+
+        setProfile(nextProfile);
+        setProfileError(null);
+      } catch (error: unknown) {
+        if (!isActive || request !== profileRequest.current) return;
+        console.error('Error fetching profile:', error);
+        setProfile(null);
+        setProfileError(toProfileError(error));
+      } finally {
+        if (isActive && request === profileRequest.current) setIsLoading(false);
+      }
+    };
+
     if (!isSupabaseConfigured) {
-      setIsLoading(false);
-      return;
+      return () => {
+        isActive = false;
+        profileRequest.current += 1;
+      };
     }
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setIsLoading(false);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      authRevision.current += 1;
+      void applySession(nextSession);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
+    const initialRevision = authRevision.current;
+    void supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!isActive || initialRevision !== authRevision.current) return;
+        if (error) throw error;
+        void applySession(data.session);
+      })
+      .catch((error: unknown) => {
+        if (!isActive || initialRevision !== authRevision.current) return;
+        console.error('Error loading initial session:', error);
+        profileRequest.current += 1;
+        setSession(null);
         setProfile(null);
+        setProfileError(null);
         setIsLoading(false);
-      }
-    });
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isActive = false;
+      profileRequest.current += 1;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (error) throw error;
-      setProfile(data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  const signOut = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    return error;
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ session, profile, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, profile, isLoading, profileError, signOut }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
