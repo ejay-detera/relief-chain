@@ -1,13 +1,13 @@
-import 'react-native-get-random-values';
 import { Buffer } from 'buffer';
+import 'react-native-get-random-values';
 if (typeof (globalThis as any).Buffer === 'undefined') (globalThis as any).Buffer = Buffer;
 
-import { DarkTheme, DefaultTheme, ThemeProvider, Slot, useRouter, useSegments } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
-import { useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans';
+import { PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, useFonts } from '@expo-google-fonts/plus-jakarta-sans';
 import { Sarina_400Regular } from '@expo-google-fonts/sarina';
+import { DarkTheme, DefaultTheme, Slot, ThemeProvider, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -27,7 +27,7 @@ function RootLayoutNav() {
     
     if (!session) {
       if (!inAuthGroup) {
-        router.replace('/(auth)/sign-in' as any);
+        router.replace('/(auth)/choose-account' as any);
       }
     } else if (profile) {
       // User is signed in and profile is loaded
