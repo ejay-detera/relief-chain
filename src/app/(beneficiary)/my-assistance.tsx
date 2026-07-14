@@ -1,25 +1,38 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
+import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { ProgramVoucherCard } from '@/components/beneficiary/MyAssistance/program-voucher-card';
+import { TotalBalanceCard } from '@/components/beneficiary/MyAssistance/total-balance-card';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing, BottomTabInset, MaxContentWidth, BrandColors } from '@/constants/theme';
-import { VoucherCard } from '@/components/beneficiary/MyAssistance/voucher-card';
+import { ThemedView } from '@/components/themed-view';
+import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useBeneficiaryPrograms } from '@/hooks/use-beneficiary-programs';
 
 export default function MyAssistanceScreen() {
-  const { vouchers } = useBeneficiaryPrograms();
+  const { programs } = useBeneficiaryPrograms();
+
+  const totalBalance = programs.reduce((acc, curr) => {
+    const num = parseFloat(curr.voucherBalance.replace(/[^0-9.]/g, ''));
+    return acc + (isNaN(num) ? 0 : num);
+  }, 0);
+  const totalBalanceLabel = `₱${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>My Assistance</ThemedText>
-        </View>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {vouchers.map(voucher => (
-            <VoucherCard key={voucher.id} voucher={voucher} />
+          <LogoHeader />
+
+          <ThemedText style={styles.title}>My Assistance</ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Manage your active relief programs and redeem your available vouchers at authorized partner centers.
+          </ThemedText>
+
+          <TotalBalanceCard activeProgramCount={programs.length} totalBalance={totalBalanceLabel} />
+
+          {programs.map((program) => (
+            <ProgramVoucherCard key={program.id} program={program} />
           ))}
         </ScrollView>
       </SafeAreaView>
@@ -38,18 +51,21 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  header: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
-    paddingBottom: Spacing.four,
+  scrollContent: {
+    paddingBottom: BottomTabInset + Spacing.six,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: BrandColors.navy,
-  },
-  scrollContent: {
     paddingHorizontal: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.six,
+    marginBottom: Spacing.one,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: BrandColors.grey,
+    paddingHorizontal: Spacing.four,
+    marginBottom: Spacing.four,
+    lineHeight: 18,
   },
 });

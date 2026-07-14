@@ -22,6 +22,8 @@ export type EnrolledProgram = {
   voucherBalance: string;     // "₱5,000"
   purpose: string;
   expiresAt: string;
+  progressPercent: number;    // 0-100, placeholder until backend tracks disbursement progress
+  nextDisbursementDate: string; // e.g. "July 23, 2026", placeholder until backend tracks schedule
 };
 
 export type RedemptionRecord = {
@@ -33,4 +35,5 @@ export type RedemptionRecord = {
   remainingBalance: string;   // "₱4,550"
   txHash: string;             // Stellar transaction hash
   status: 'Completed' | 'Pending' | 'Failed';
+  direction: 'credit' | 'debit'; // credit = received (e.g. grant), debit = spent (e.g. merchant payment)
 };

@@ -1,60 +1,34 @@
-import React from 'react';
-import { StyleSheet, View, Pressable, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing, BorderRadius } from '@/constants/theme';
-import { StellarWallet } from '@/types/wallet';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { FontAwesome } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 type Props = {
-  wallet: StellarWallet | null;
-  isLoading: boolean;
+  voucherBalance: string; // e.g. "₱10,000.00", pre-formatted voucher-style total
+  onWithdraw: () => void;
+  onSend: () => void;
 };
 
-export function WalletBalanceCard({ wallet, isLoading }: Props) {
-  const handleCopy = async () => {
-    if (wallet?.publicKey) {
-      await Clipboard.setStringAsync(wallet.publicKey);
-    }
-  };
-
-  const truncateKey = (key: string) => {
-    if (!key) return '';
-    return `${key.slice(0, 5)}...${key.slice(-4)}`;
-  };
-
+export function WalletBalanceCard({ voucherBalance, onWithdraw, onSend }: Props) {
   return (
     <LinearGradient
-      colors={[BrandColors.navy, '#1a4b8c']}
+      colors={[BrandColors.green, '#4A90D9']}
       style={styles.card}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       <ThemedText style={styles.title}>Current Wallet Balance</ThemedText>
-      
-      {isLoading ? (
-        <ActivityIndicator color="white" style={styles.loader} />
-      ) : (
-        <View style={styles.balanceContainer}>
-          <ThemedText style={styles.xlmBalance}>{wallet?.xlmBalance || '0.00'} XLM</ThemedText>
-          <ThemedText style={styles.fiatBalance}>≈ ₱{(Number(wallet?.xlmBalance || 0) * 5.6).toFixed(2)}</ThemedText>
-        </View>
-      )}
+      <ThemedText style={styles.balance}>{voucherBalance}</ThemedText>
 
-      {wallet?.isActivated === false && !isLoading && (
-        <View style={styles.unfundedBadge}>
-          <ThemedText style={styles.unfundedText}>Account Unfunded (Testnet)</ThemedText>
-        </View>
-      )}
-
-      <View style={styles.footer}>
-        <View style={styles.addressContainer}>
-          <ThemedText style={styles.addressLabel}>Address:</ThemedText>
-          <ThemedText style={styles.address}>{truncateKey(wallet?.publicKey || '')}</ThemedText>
-        </View>
-        <Pressable onPress={handleCopy} style={styles.copyButton}>
-          <FontAwesome name="copy" size={16} color="white" />
+      <View style={styles.actionsRow}>
+        <Pressable onPress={onWithdraw} style={styles.withdrawButton}>
+          <FontAwesome name="credit-card" size={14} color="white" />
+          <ThemedText style={styles.actionText}>Withdraw</ThemedText>
+        </Pressable>
+        <Pressable onPress={onSend} style={styles.sendButton}>
+          <FontAwesome name="paper-plane" size={14} color="white" />
+          <ThemedText style={styles.actionText}>Send</ThemedText>
         </Pressable>
       </View>
     </LinearGradient>
@@ -69,63 +43,41 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.three,
   },
   title: {
-    color: '#rgba(255,255,255,0.8)',
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
     marginBottom: Spacing.two,
   },
-  loader: {
-    marginVertical: Spacing.four,
-    alignItems: 'flex-start',
-  },
-  balanceContainer: {
-    marginBottom: Spacing.three,
-  },
-  xlmBalance: {
+  balance: {
     color: 'white',
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: 'bold',
-  },
-  fiatBalance: {
-    color: BrandColors.green,
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  unfundedBadge: {
-    backgroundColor: '#rgba(231, 76, 60, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
     marginBottom: Spacing.three,
   },
-  unfundedText: {
-    color: '#ffcccc',
-    fontSize: 12,
-  },
-  footer: {
+  actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    columnGap: Spacing.two,
+  },
+  withdrawButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#rgba(255,255,255,0.1)',
-    padding: Spacing.two,
+    columnGap: 6,
+    backgroundColor: BrandColors.navy,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
     borderRadius: BorderRadius.md,
   },
-  addressContainer: {
+  sendButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    columnGap: 6,
+    backgroundColor: BrandColors.green,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: BorderRadius.md,
   },
-  addressLabel: {
-    color: '#rgba(255,255,255,0.7)',
-    fontSize: 12,
-  },
-  address: {
+  actionText: {
     color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  copyButton: {
-    padding: Spacing.one,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

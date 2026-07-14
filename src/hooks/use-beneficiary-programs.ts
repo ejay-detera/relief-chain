@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { DUMMY_PROGRAMS, DUMMY_VOUCHERS } from '@/constants/dummy-data';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { EnrolledProgram, Voucher } from '@/types/wallet';
+import { useEffect, useState } from 'react';
 
 export function useBeneficiaryPrograms() {
   const { session } = useAuth();
@@ -42,6 +43,9 @@ export function useBeneficiaryPrograms() {
             voucherBalance: `₱${e.voucher_balance}`,
             purpose: e.program.purpose,
             expiresAt: new Date(e.expires_at).toLocaleDateString(),
+            // Placeholder until backend tracks disbursement progress and schedule.
+            progressPercent: 65,
+            nextDisbursementDate: 'July 23, 2026',
           }));
           
           const mappedVouchers: Voucher[] = data.map((e: any) => ({
@@ -55,11 +59,18 @@ export function useBeneficiaryPrograms() {
             stellarAssetCode: 'XLM' 
           }));
           
-          setPrograms(mappedPrograms);
-          setVouchers(mappedVouchers);
+          setPrograms(mappedPrograms.length > 0 ? mappedPrograms : DUMMY_PROGRAMS);
+          setVouchers(mappedVouchers.length > 0 ? mappedVouchers : DUMMY_VOUCHERS);
+        } else {
+          setPrograms(DUMMY_PROGRAMS);
+          setVouchers(DUMMY_VOUCHERS);
         }
       } catch (e) {
-        console.error('Error fetching programs', e);
+        // Fall back to dummy data so the dashboard's Active Program section and
+        // My Assistance page never render empty when the query fails.
+        console.error('Error fetching programs, using fallback program data', e);
+        setPrograms(DUMMY_PROGRAMS);
+        setVouchers(DUMMY_VOUCHERS);
       } finally {
         setIsLoading(false);
       }

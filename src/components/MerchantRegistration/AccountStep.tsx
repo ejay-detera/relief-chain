@@ -1,4 +1,5 @@
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
@@ -17,6 +18,7 @@ type AccountStepProps = {
 };
 
 export function AccountStep({ data, isSubmitting, onChange, onSubmit }: AccountStepProps) {
+  const router = useRouter();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
@@ -42,16 +44,20 @@ export function AccountStep({ data, isSubmitting, onChange, onSubmit }: AccountS
         value={data.confirmPassword}
       />
 
-      <Pressable
-        onPress={() => onChange({ agreesToTerms: !data.agreesToTerms })}
-        style={styles.termsRow}
-      >
-        <View style={[styles.termsCheckbox, data.agreesToTerms && styles.checkboxChecked]}>
+      <View style={styles.termsRow}>
+        <Pressable
+          onPress={() => onChange({ agreesToTerms: !data.agreesToTerms })}
+          style={[styles.termsCheckbox, data.agreesToTerms && styles.checkboxChecked]}
+        >
           {data.agreesToTerms && <FontAwesome color="#FFFFFF" name="check" size={11} />}
-        </View>
-        <ThemedText style={styles.termsText}>I agree to the </ThemedText>
-        <ThemedText style={styles.termsLink}>Terms &amp; Conditions</ThemedText>
-      </Pressable>
+        </Pressable>
+        <ThemedText style={styles.termsText}>
+          I agree to the{' '}
+          <ThemedText accessibilityRole="link" onPress={() => router.push('/(auth)/terms-and-conditions')} style={styles.termsLink}>
+            Terms &amp; Conditions
+          </ThemedText>
+        </ThemedText>
+      </View>
 
       <Pressable
         disabled={isSubmitting}

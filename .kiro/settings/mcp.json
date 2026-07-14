@@ -11,6 +11,13 @@
       "url": "https://mcp.supabase.com/mcp",
       "autoApprove": [
         "search_docs"
+      ],
+      "disabledTools": [
+        "get_cost",
+        "restore_project",
+        "pause_project",
+        "create_project",
+        "confirm_cost"
       ]
     }
   }

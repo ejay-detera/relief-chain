@@ -256,6 +256,7 @@ export const merchantRegistrationStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    columnGap: 8,
     marginTop: 26,
   },
   termsText: {
@@ -273,7 +274,6 @@ export const merchantRegistrationStyles = StyleSheet.create({
   termsCheckbox: {
     width: 18,
     height: 18,
-    marginRight: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(3, 4, 94, 0.1)',
