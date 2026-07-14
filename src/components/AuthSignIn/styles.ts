@@ -75,7 +75,6 @@ export const authSignInStyles = StyleSheet.create({
   },
   form: {
     marginTop: 40,
-    rowGap: 28,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -95,11 +94,24 @@ export const authSignInStyles = StyleSheet.create({
     marginLeft: 12,
     paddingVertical: 0,
   },
+  accessKeyInput: {
+    marginTop: 28,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  forgotPasswordText: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 11,
+    lineHeight: 16,
+  },
   verifyButton: {
     alignItems: 'center',
     justifyContent: 'center',
     height: 45,
-    marginTop: 4,
+    marginTop: 24,
     backgroundColor: BrandColors.navy,
     borderColor: 'rgba(151, 151, 151, 0.5)',
     borderWidth: 1,

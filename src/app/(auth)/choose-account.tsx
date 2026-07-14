@@ -20,6 +20,13 @@ export default function ChooseAccountScreen() {
     });
   };
 
+  const handleSignIn = (role: AccountType) => {
+    router.push({
+      pathname: '/(auth)/sign-in' as any,
+      params: { role },
+    });
+  };
+
   const handleMerchantRegistration = () => {
     router.push('/(auth)/sign-up' as any);
   };
@@ -46,14 +53,14 @@ export default function ChooseAccountScreen() {
           <View style={styles.roleButtons}>
             <Pressable
               style={styles.roleButton}
-              onPress={() => handleSelectRole('lgu')}
+              onPress={() => handleSignIn('lgu')}
             >
               <ThemedText style={styles.roleButtonText}>Organization</ThemedText>
             </Pressable>
 
             <Pressable
               style={styles.roleButton}
-              onPress={() => handleSelectRole('beneficiary')}
+              onPress={() => handleSignIn('beneficiary')}
             >
               <ThemedText style={styles.roleButtonText}>Beneficiary</ThemedText>
             </Pressable>
@@ -80,7 +87,7 @@ export default function ChooseAccountScreen() {
           <View style={styles.footer}>
             <ThemedText style={styles.footerText}>New Organization? </ThemedText>
             <Pressable onPress={() => handleSelectRole('lgu')}>
-              <ThemedText style={styles.footerLink}>Register your agency</ThemedText>
+              <ThemedText style={styles.footerLink}>Register your account</ThemedText>
             </Pressable>
           </View>
         </View>

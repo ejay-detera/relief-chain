@@ -41,11 +41,16 @@ export function BusinessInformationStep({ data, onChange, onNext }: BusinessInfo
       <RegistrationField
         label="Business Name"
         onChangeText={(businessName) => onChange({ businessName })}
+        placeholder="Juan's Grocery"
+        required
         value={data.businessName}
       />
 
       <View>
-        <ThemedText style={styles.optionLabel}>Business Type:</ThemedText>
+        <View style={styles.fieldLabelRow}>
+          <ThemedText style={styles.optionLabel}>Business Type:</ThemedText>
+          <ThemedText style={styles.requiredMarker}>*</ThemedText>
+        </View>
         <View style={styles.businessOptions}>
           {businessOptions.map(({ label, type, wide }) => {
             const isSelected = data.businessTypes.includes(type);
@@ -69,6 +74,8 @@ export function BusinessInformationStep({ data, onChange, onNext }: BusinessInfo
       <RegistrationField
         label="Address"
         onChangeText={(address) => onChange({ address })}
+        placeholder="123 Main Street, Quezon City"
+        required
         value={data.address}
       />
 

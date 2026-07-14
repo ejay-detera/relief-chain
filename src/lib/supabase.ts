@@ -16,17 +16,21 @@ const ExpoSecureStoreAdapter = {
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const usesPlaceholderCredentials =
+  supabaseUrl.includes('your-project-id.supabase.co') ||
+  supabaseAnonKey === 'your-anon-key-here';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    '⚠️ Supabase credentials are missing. ' +
-    'Copy .env.example to .env and fill in your Supabase project URL and anon key.'
-  );
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey) && !usesPlaceholderCredentials;
+export const supabaseSetupMessage =
+  'Supabase is not configured. Replace the sample values in .env with your project URL and anon key, then restart Expo.';
+
+if (!isSupabaseConfigured) {
+  console.warn(`⚠️ ${supabaseSetupMessage}`);
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key',
+  isSupabaseConfigured ? supabaseUrl : 'https://placeholder.supabase.co',
+  isSupabaseConfigured ? supabaseAnonKey : 'placeholder-key',
   {
     auth: {
       storage: ExpoSecureStoreAdapter as any,

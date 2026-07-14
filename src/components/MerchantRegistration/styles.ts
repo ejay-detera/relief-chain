@@ -90,24 +90,50 @@ export const merchantRegistrationStyles = StyleSheet.create({
     marginTop: 28,
     rowGap: 13,
   },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: -1,
+  },
   fieldLabel: {
     color: '#979797',
     fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 12,
     lineHeight: 20,
-    marginBottom: -1,
+  },
+  requiredMarker: {
+    color: '#D32F2F',
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 14,
+    lineHeight: 20,
+    marginLeft: 3,
+  },
+  fieldInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 38,
+    backgroundColor: 'rgba(3, 4, 94, 0.1)',
+    borderColor: 'rgba(151, 151, 151, 0.5)',
+    borderWidth: 0.5,
+    borderRadius: 5,
   },
   fieldInput: {
+    flex: 1,
     height: 38,
     paddingHorizontal: 10,
     paddingVertical: 0,
     color: BrandColors.navy,
     fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 13,
-    backgroundColor: 'rgba(3, 4, 94, 0.1)',
-    borderColor: 'rgba(151, 151, 151, 0.5)',
-    borderWidth: 0.5,
-    borderRadius: 5,
+  },
+  fieldInputWithAction: {
+    paddingRight: 4,
+  },
+  fieldAction: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionLabel: {
     color: '#979797',
@@ -143,6 +169,31 @@ export const merchantRegistrationStyles = StyleSheet.create({
   },
   checkboxChecked: {
     backgroundColor: BrandColors.green,
+  },
+  passwordCriteria: {
+    marginTop: -5,
+    paddingHorizontal: 4,
+    rowGap: 3,
+  },
+  criteriaTitle: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  criteriaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 6,
+  },
+  criteriaText: {
+    color: '#979797',
+    fontFamily: 'PlusJakartaSans_400Regular',
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  criteriaTextMet: {
+    color: '#2E9B45',
   },
   nextButton: {
     height: 35,

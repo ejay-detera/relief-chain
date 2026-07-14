@@ -11,26 +11,34 @@ type AuthSignInFormProps = {
   accessKey: string;
   identifier: string;
   isLoading: boolean;
+  isSendingRecovery: boolean;
   method: SignInMethod;
   onAccessKeyChange: (value: string) => void;
   onIdentifierChange: (value: string) => void;
+  onForgotPassword: () => void;
   onRegister: () => void;
   onScanId: () => void;
   onSelectMethod: (method: SignInMethod) => void;
   onVerifyIdentity: () => void;
+  registrationLabel?: string;
+  registrationPrompt?: string;
 };
 
 export function AuthSignInForm({
   accessKey,
   identifier,
   isLoading,
+  isSendingRecovery,
   method,
   onAccessKeyChange,
   onIdentifierChange,
+  onForgotPassword,
   onRegister,
   onScanId,
   onSelectMethod,
   onVerifyIdentity,
+  registrationLabel = 'Register your account',
+  registrationPrompt = 'New Account?',
 }: AuthSignInFormProps) {
   return (
     <View style={styles.card}>
@@ -64,6 +72,7 @@ export function AuthSignInForm({
           <TextInput
             autoCapitalize="none"
             autoComplete="username"
+            editable={!isSendingRecovery}
             keyboardType={method === 'phoneNumber' ? 'phone-pad' : 'default'}
             onChangeText={onIdentifierChange}
             placeholder="Beneficiary ID"
@@ -73,11 +82,12 @@ export function AuthSignInForm({
           />
         </View>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, styles.accessKeyInput]}>
           <FontAwesome name="key" size={18} color="rgba(151, 151, 151, 0.5)" />
           <TextInput
             autoCapitalize="none"
             autoComplete="current-password"
+            editable={!isSendingRecovery}
             onChangeText={onAccessKeyChange}
             placeholder="Beneficiary Access Key"
             placeholderTextColor="rgba(151, 151, 151, 0.5)"
@@ -88,9 +98,18 @@ export function AuthSignInForm({
         </View>
 
         <Pressable
-          disabled={isLoading}
+          accessibilityRole="button"
+          disabled={isLoading || isSendingRecovery}
+          onPress={onForgotPassword}
+          style={[styles.forgotPasswordButton, (isLoading || isSendingRecovery) && styles.verifyButtonDisabled]}
+        >
+          {isSendingRecovery ? <ActivityIndicator color="#112E58" size="small" /> : <ThemedText style={styles.forgotPasswordText}>Forgot password?</ThemedText>}
+        </Pressable>
+
+        <Pressable
+          disabled={isLoading || isSendingRecovery}
           onPress={onVerifyIdentity}
-          style={[styles.verifyButton, isLoading && styles.verifyButtonDisabled]}
+          style={[styles.verifyButton, (isLoading || isSendingRecovery) && styles.verifyButtonDisabled]}
         >
           {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <ThemedText style={styles.verifyButtonText}>Verify Identity</ThemedText>}
         </Pressable>
@@ -108,9 +127,9 @@ export function AuthSignInForm({
       </Pressable>
 
       <View style={styles.footer}>
-        <ThemedText style={styles.footerText}>New Organization? </ThemedText>
+        <ThemedText style={styles.footerText}>{registrationPrompt} </ThemedText>
         <Pressable onPress={onRegister}>
-          <ThemedText style={styles.footerLink}>Register your agency</ThemedText>
+          <ThemedText style={styles.footerLink}>{registrationLabel}</ThemedText>
         </Pressable>
       </View>
     </View>

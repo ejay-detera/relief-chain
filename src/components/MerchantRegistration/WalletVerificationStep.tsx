@@ -23,8 +23,9 @@ export function WalletVerificationStep({
   return (
     <View style={styles.form}>
       <RegistrationField
-        label="Stellar Wallet Address"
+        label="Stellar Wallet Address (Optional)"
         onChangeText={(stellarWalletAddress) => onChange({ stellarWalletAddress })}
+        placeholder="G..."
         value={data.stellarWalletAddress}
       />
 

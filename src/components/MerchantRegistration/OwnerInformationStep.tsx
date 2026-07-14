@@ -17,17 +17,29 @@ export function OwnerInformationStep({ data, onChange, onNext }: OwnerInformatio
     <View style={styles.form}>
       <View style={styles.ownerNameRow}>
         <View style={styles.lastNameField}>
-          <ThemedText style={styles.compactFieldLabel}>Last Name</ThemedText>
+          <View style={styles.fieldLabelRow}>
+            <ThemedText style={styles.compactFieldLabel}>Last Name</ThemedText>
+            <ThemedText style={styles.requiredMarker}>*</ThemedText>
+          </View>
           <TextInput
+            autoCapitalize="words"
             onChangeText={(lastName) => onChange({ lastName })}
+            placeholder="Dela Cruz"
+            placeholderTextColor="#979797"
             style={styles.compactFieldInput}
             value={data.lastName}
           />
         </View>
         <View style={styles.firstNameField}>
-          <ThemedText style={styles.compactFieldLabel}>First Name</ThemedText>
+          <View style={styles.fieldLabelRow}>
+            <ThemedText style={styles.compactFieldLabel}>First Name</ThemedText>
+            <ThemedText style={styles.requiredMarker}>*</ThemedText>
+          </View>
           <TextInput
+            autoCapitalize="words"
             onChangeText={(firstName) => onChange({ firstName })}
+            placeholder="John"
+            placeholderTextColor="#979797"
             style={styles.compactFieldInput}
             value={data.firstName}
           />
@@ -38,6 +50,8 @@ export function OwnerInformationStep({ data, onChange, onNext }: OwnerInformatio
             autoCapitalize="characters"
             maxLength={1}
             onChangeText={(middleInitial) => onChange({ middleInitial })}
+            placeholder="A"
+            placeholderTextColor="#979797"
             style={styles.compactFieldInput}
             value={data.middleInitial}
           />
@@ -47,7 +61,9 @@ export function OwnerInformationStep({ data, onChange, onNext }: OwnerInformatio
       <RegistrationField
         keyboardType="phone-pad"
         label="Mobile Number"
-        onChangeText={(mobileNumber) => onChange({ mobileNumber })}
+        onChangeText={(mobileNumber) => onChange({ mobileNumber: mobileNumber.replace(/\D/g, '').slice(0, 11) })}
+        placeholder="09171234567"
+        required
         value={data.mobileNumber}
       />
 
@@ -55,6 +71,8 @@ export function OwnerInformationStep({ data, onChange, onNext }: OwnerInformatio
         keyboardType="email-address"
         label="Email"
         onChangeText={(email) => onChange({ email })}
+        placeholder="john@example.com"
+        required
         value={data.email}
       />
 

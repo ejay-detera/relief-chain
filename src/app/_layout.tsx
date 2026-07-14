@@ -24,6 +24,7 @@ function RootLayoutNav() {
     if (isLoading) return;
 
     const inAuthGroup = segments.length > 0 && segments[0] === ('(auth)' as any);
+    const isAuthContinuationRoute = ['verify-email', 'registration-success', 'forgot-password'].includes(segments[1]);
     
     if (!session) {
       if (!inAuthGroup) {
@@ -31,7 +32,7 @@ function RootLayoutNav() {
       }
     } else if (profile) {
       // User is signed in and profile is loaded
-      if (inAuthGroup || segments.length === 0) {
+      if ((inAuthGroup && !isAuthContinuationRoute) || segments.length === 0) {
         if (profile.role === 'lgu') {
           router.replace('/(lgu)' as any);
         } else if (profile.role === 'merchant') {

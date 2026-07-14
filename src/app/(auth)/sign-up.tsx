@@ -1,16 +1,19 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, BackHandler } from 'react-native';
 
 import { MerchantRegistrationShell } from '@/components/MerchantRegistration/MerchantRegistrationShell';
 import { MerchantRegistrationStep } from '@/components/MerchantRegistration/MerchantRegistrationStep';
-import { supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase, supabaseSetupMessage } from '@/lib/supabase';
 import {
   initialMerchantRegistrationData,
   type MerchantRegistrationData,
   type MerchantRegistrationStep as MerchantRegistrationStepType,
 } from '@/types/merchant-registration';
+import { isStrongPassword } from '@/utils/password-validation';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const mobileNumberPattern = /^09\d{9}$/;
 
 const stepTitles: Record<MerchantRegistrationStepType, string> = {
   1: 'Business Information',
@@ -23,6 +26,7 @@ export default function SignUpScreen() {
   const [data, setData] = useState<MerchantRegistrationData>(initialMerchantRegistrationData);
   const [step, setStep] = useState<MerchantRegistrationStepType>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
 
   const updateRegistration = (values: Partial<MerchantRegistrationData>) => {
     setData((current) => ({ ...current, ...values }));
@@ -39,18 +43,17 @@ export default function SignUpScreen() {
     }
 
     if (step === 2) {
-      const hasRequiredDetails = data.firstName.trim() && data.lastName.trim() && data.mobileNumber.trim();
+      const hasRequiredDetails = data.firstName.trim() && data.lastName.trim();
+      const hasValidMobileNumber = mobileNumberPattern.test(data.mobileNumber);
       const hasValidEmail = emailPattern.test(data.email.trim());
 
-      if (!hasRequiredDetails || !hasValidEmail) {
-        Alert.alert('Complete owner details', 'Enter the owner’s first and last name, mobile number, and a valid email address.');
+      if (!hasRequiredDetails || !hasValidMobileNumber || !hasValidEmail) {
+        Alert.alert(
+          'Complete owner details',
+          'Enter the owner’s first and last name, an 11-digit mobile number starting with 09, and a valid email address.'
+        );
         return false;
       }
-    }
-
-    if (step === 3 && !data.stellarWalletAddress.trim()) {
-      Alert.alert('Wallet required', 'Enter the Stellar wallet address before continuing.');
-      return false;
     }
 
     return true;
@@ -89,6 +92,14 @@ export default function SignUpScreen() {
       return;
     }
 
+    if (!isStrongPassword(data.password)) {
+      Alert.alert(
+        'Create a stronger password',
+        'Use at least 8 characters with uppercase, lowercase, a number, a special character, and no spaces.'
+      );
+      return;
+    }
+
     if (data.password !== data.confirmPassword) {
       Alert.alert('Passwords do not match', 'Enter the same password in both fields.');
       return;
@@ -99,11 +110,15 @@ export default function SignUpScreen() {
       return;
     }
 
+    if (!isSupabaseConfigured) {
+      Alert.alert('Supabase setup required', supabaseSetupMessage);
+      return;
+    }
+
     setIsSubmitting(true);
-    const fullName = [data.firstName, data.middleInitial, data.lastName].filter(Boolean).join(' ');
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { error: authError } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
@@ -111,6 +126,9 @@ export default function SignUpScreen() {
             business_name: data.businessName,
             business_types: data.businessTypes,
             mobile_number: data.mobileNumber,
+            full_name: [data.firstName, data.middleInitial, data.lastName].filter(Boolean).join(' '),
+            location: data.address,
+            stellar_pubkey: data.stellarWalletAddress || null,
           },
         },
       });
@@ -120,22 +138,10 @@ export default function SignUpScreen() {
         return;
       }
 
-      if (authData.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          role: 'merchant',
-          full_name: fullName,
-          location: data.address,
-          stellar_pubkey: data.stellarWalletAddress || null,
-        });
-
-        if (profileError) {
-          Alert.alert('Profile setup failed', profileError.message);
-          return;
-        }
-      }
-
-      Alert.alert('Account created', 'Your merchant account has been created successfully.');
+      router.replace({
+        pathname: '/(auth)/verify-email' as any,
+        params: { email: data.email.trim() },
+      });
     } finally {
       setIsSubmitting(false);
     }
