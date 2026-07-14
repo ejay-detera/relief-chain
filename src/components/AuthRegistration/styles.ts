@@ -159,7 +159,9 @@ export const registrationStyles = StyleSheet.create({
   checkboxChecked: { borderColor: BrandColors.green, backgroundColor: BrandColors.green },
   termsText: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12 },
   termsLink: { fontFamily: 'PlusJakartaSans_700Bold' },
-  passwordCriteria: { rowGap: 2 },
+  passwordCriteria: { marginTop: 4, rowGap: 2 },
+  criteriaTitle: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 10, lineHeight: 14 },
+  criteriaRow: { flexDirection: 'row', alignItems: 'center', columnGap: 6 },
   criteriaText: { color: BrandColors.grey, fontFamily: 'PlusJakartaSans_400Regular', fontSize: 10, lineHeight: 14 },
   criteriaMet: { color: BrandColors.green },
 });

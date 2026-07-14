@@ -1,4 +1,5 @@
 import { FontAwesome } from '@expo/vector-icons';
+import { useRef } from 'react';
 import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +30,36 @@ export function EmailVerificationForm({
   onVerify,
 }: EmailVerificationFormProps) {
   const isResendUnavailable = Boolean(countdown) || isResending;
+  const inputRefs = useRef<Array<TextInput | null>>([]);
+
+  const focusInput = (index: number) => {
+    if (index >= 0 && index < code.length) {
+      inputRefs.current[index]?.focus();
+    }
+  };
+
+  const handleCodeChange = (index: number, value: string) => {
+    const digits = value.replace(/\D/g, '');
+
+    if (!digits) {
+      onChangeCode(index, '');
+      return;
+    }
+
+    const digitsToApply = digits.slice(0, code.length - index);
+    digitsToApply.split('').forEach((digit, offset) => {
+      onChangeCode(index + offset, digit);
+    });
+
+    const nextIndex = Math.min(index + digitsToApply.length, code.length - 1);
+    requestAnimationFrame(() => focusInput(nextIndex));
+  };
+
+  const handleKeyPress = (index: number, key: string) => {
+    if (key === 'Backspace' && !code[index]) {
+      focusInput(index - 1);
+    }
+  };
 
   return (
     <View style={styles.verificationContent}>
@@ -45,12 +76,15 @@ export function EmailVerificationForm({
       <View style={styles.codeRow}>
         {code.map((digit, index) => (
           <TextInput
-            key={index}
+            ref={(input) => {
+              inputRefs.current[index] = input;
+            }}
             accessibilityLabel={`Verification code digit ${index + 1}`}
             autoFocus={index === 0}
             keyboardType="number-pad"
-            maxLength={1}
-            onChangeText={(value) => onChangeCode(index, value.replace(/\D/g, '').slice(-1))}
+            maxLength={index === 0 ? code.length : 1}
+            onChangeText={(value) => handleCodeChange(index, value)}
+            onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
             style={styles.codeInput}
             value={digit}
           />

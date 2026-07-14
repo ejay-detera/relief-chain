@@ -34,10 +34,6 @@ export const AccountChooserContent = ({ onRegister, onScanId, onSignIn }: Accoun
       <FontAwesome color="#FFFFFF" name="id-card" size={18} />
       <ThemedText style={styles.scanButtonText}>Scan ID</ThemedText>
     </Pressable>
-    <View style={styles.footer}>
-      <View style={styles.footerRow}><ThemedText style={styles.footerText}>New Organization? </ThemedText><Pressable onPress={() => onRegister('lgu')}><ThemedText style={styles.footerLink}>Create an account</ThemedText></Pressable></View>
-      <View style={styles.footerRow}><ThemedText style={styles.footerText}>Register as: </ThemedText><Pressable onPress={() => onRegister('beneficiary')}><ThemedText style={styles.footerLink}>Beneficiary</ThemedText></Pressable><ThemedText style={styles.footerText}> · </ThemedText><Pressable onPress={() => onRegister('merchant')}><ThemedText style={styles.footerLink}>Merchant</ThemedText></Pressable></View>
-    </View>
   </View>
 );
 

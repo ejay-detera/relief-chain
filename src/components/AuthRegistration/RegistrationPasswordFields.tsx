@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { RegistrationField } from './RegistrationField';
+import { RegistrationPasswordCriteria } from './RegistrationPasswordCriteria';
 import { registrationStyles as styles } from './styles';
 
 type Props = {
@@ -21,14 +22,16 @@ export const RegistrationPasswordFields = ({ confirmPassword, layout = 'column',
     <RegistrationField label="Confirm Password" onChangeText={(value) => onChange({ confirmPassword: value })} onToggleSecure={() => setShowConfirmation((current) => !current)} required secureTextEntry={!showConfirmation} value={confirmPassword} />
   );
 
+  const criteria = <RegistrationPasswordCriteria password={password} />;
+
   if (layout === 'row') {
     return (
       <View style={styles.passwordRow}>
-        <View style={styles.flexField}>{passwordField}</View>
+        <View style={styles.flexField}>{passwordField}{criteria}</View>
         <View style={styles.flexField}>{confirmationField}</View>
       </View>
     );
   }
 
-  return <>{passwordField}{confirmationField}</>;
+  return <>{passwordField}{criteria}{confirmationField}</>;
 };
