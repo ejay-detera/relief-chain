@@ -29,7 +29,7 @@ export default function SummaryScreen() {
 
   return (
     <View style={styles.container}>
-      <StepIndicator currentStep={8} title="Review Summary" />
+      <StepIndicator currentStep={7} title="Review Summary" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionDescription}>
@@ -151,31 +151,10 @@ export default function SummaryScreen() {
           )}
         </View>
 
-        {/* SECTION 5: DISTRIBUTION METHOD */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardHeader}>5. Distribution Settings</Text>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Method</Text>
-            <Text style={styles.detailValue}>
-              {draft.distributionMethod.charAt(0).toUpperCase() + draft.distributionMethod.slice(1)}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Wallet Type</Text>
-            <Text style={styles.detailValue}>
-              {draft.walletTypeToggle ? 'Organization Multi-sig' : 'Individual Wallet'}
-            </Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Auto distribute</Text>
-            <Text style={styles.detailValue}>{draft.autoDistributeToggle ? 'Enabled' : 'Disabled'}</Text>
-          </View>
-        </View>
-
-        {/* SECTION 6: SUPPORTING DOCUMENTS */}
+        {/* SECTION 5: SUPPORTING DOCUMENTS */}
         {draft.supportingDocuments.length > 0 && (
           <View style={styles.summaryCard}>
-            <Text style={styles.cardHeader}>6. Supporting Documents</Text>
+            <Text style={styles.cardHeader}>5. Supporting Documents</Text>
             {draft.supportingDocuments.map((item, index) => (
               <View key={index} style={styles.bulletRow}>
                 <Text style={styles.bullet}>📄</Text>

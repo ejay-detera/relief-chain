@@ -110,7 +110,7 @@ export default function VoucherScreen() {
       return; // Block progression
     }
     setDateError('');
-    router.push('/(lgu)/create-program/distribution' as any);
+    router.push('/(lgu)/create-program/documents' as any);
   };
 
   const handleBack = () => {

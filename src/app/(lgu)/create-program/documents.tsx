@@ -57,7 +57,7 @@ export default function DocumentsScreen() {
 
   return (
     <View style={styles.container}>
-      <StepIndicator currentStep={7} title="Supporting Documents" />
+      <StepIndicator currentStep={6} title="Supporting Documents" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionDescription}>

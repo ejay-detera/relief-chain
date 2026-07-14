@@ -8,7 +8,7 @@ interface StepIndicatorProps {
   title: string;
 }
 
-export function StepIndicator({ currentStep, totalSteps = 8, title }: StepIndicatorProps) {
+export function StepIndicator({ currentStep, totalSteps = 7, title }: StepIndicatorProps) {
   const progressPercentage = (currentStep / totalSteps) * 100;
 
   return (

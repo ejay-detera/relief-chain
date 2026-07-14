@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BrandColors, Spacing } from '@/constants/theme';
-import type { UserProfile } from '@/types/auth';
 import { createDisbursement } from '@/services/disbursementService';
+import type { UserProfile } from '@/types/auth';
 
 import { DatabaseProgram, Step1ProgramSelect } from './Step1ProgramSelect';
 import { Step2ProgramSummary } from './Step2ProgramSummary';

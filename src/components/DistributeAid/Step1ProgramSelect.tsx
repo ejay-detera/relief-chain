@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing, BorderRadius } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { fetchActiveProgramsWithLocations } from '@/services/programService';
 
 export type DatabaseProgram = {
