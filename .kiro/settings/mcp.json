@@ -4,9 +4,11 @@
       "url": "https://mcp.figma.com/mcp",
       "autoApprove": [
         "get_screenshot",
-        "get_design_context",
         "get_design_context"
       ]
+    },
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp"
     }
   }
 }

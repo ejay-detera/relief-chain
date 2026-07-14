@@ -1,9 +1,11 @@
 import { FontAwesome } from '@expo/vector-icons';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import type { MerchantRegistrationData } from '@/types/merchant-registration';
 
+import { PasswordCriteria } from './PasswordCriteria';
 import { RegistrationField } from './RegistrationField';
 import { merchantRegistrationStyles as styles } from './styles';
 
@@ -15,18 +17,28 @@ type AccountStepProps = {
 };
 
 export function AccountStep({ data, isSubmitting, onChange, onSubmit }: AccountStepProps) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+
   return (
     <View style={styles.form}>
       <RegistrationField
         label="Password"
         onChangeText={(password) => onChange({ password })}
-        secureTextEntry
+        onToggleSecureTextEntry={() => setIsPasswordVisible((visible) => !visible)}
+        placeholder="Create a password"
+        required
+        secureTextEntry={!isPasswordVisible}
         value={data.password}
       />
+      <PasswordCriteria password={data.password} />
       <RegistrationField
         label="Confirm Password"
         onChangeText={(confirmPassword) => onChange({ confirmPassword })}
-        secureTextEntry
+        onToggleSecureTextEntry={() => setIsConfirmPasswordVisible((visible) => !visible)}
+        placeholder="Re-enter your password"
+        required
+        secureTextEntry={!isConfirmPasswordVisible}
         value={data.confirmPassword}
       />
 
