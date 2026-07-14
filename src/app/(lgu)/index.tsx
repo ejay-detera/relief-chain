@@ -12,9 +12,11 @@ import { QuickActionGrid } from '@/components/Dashboard/QuickActionGrid';
 import { ProgramCard } from '@/components/Dashboard/ProgramCard';
 import { ActivityRow } from '@/components/Dashboard/ActivityRow';
 
+import { useRouter } from 'expo-router';
 import { Program, ActivityItem, QuickAction } from '@/types/dashboard';
 
 export default function HomeDashboard() {
+  const router = useRouter();
   const [programs] = useState<Program[]>([
     {
       id: '1',
@@ -46,10 +48,30 @@ export default function HomeDashboard() {
   ]);
 
   const actions: QuickAction[] = [
-    { id: '1', label: 'Create Program', iconName: 'plus' },
-    { id: '2', label: 'Verify Beneficiaries', iconName: 'search' },
-    { id: '3', label: 'Distribute Aids', iconName: 'heart' },
-    { id: '4', label: 'Reports', iconName: 'file-text' },
+    {
+      id: '1',
+      label: 'Create Program',
+      iconName: 'plus',
+      onPress: () => router.push('/(lgu)/create-program' as any),
+    },
+    {
+      id: '2',
+      label: 'Verify Beneficiaries',
+      iconName: 'search',
+      onPress: () => router.push('/(lgu)/beneficiaries' as any),
+    },
+    {
+      id: '3',
+      label: 'Distribute Aids',
+      iconName: 'heart',
+      onPress: () => router.push('/(lgu)/pay-scan' as any),
+    },
+    {
+      id: '4',
+      label: 'Reports',
+      iconName: 'file-text',
+      onPress: () => router.push('/(lgu)/reports' as any),
+    },
   ];
 
   return (

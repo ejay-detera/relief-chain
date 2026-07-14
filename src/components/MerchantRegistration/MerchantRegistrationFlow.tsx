@@ -67,7 +67,7 @@ export const MerchantRegistrationFlow = () => {
     setIsSubmitting(true);
     try {
       const fullName = [data.firstName, data.middleInitial, data.lastName].filter(Boolean).join(' ');
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: { data: {
@@ -82,7 +82,11 @@ export const MerchantRegistrationFlow = () => {
         Alert.alert('Account creation failed', error.message);
         return;
       }
-      router.replace({ pathname: '/(auth)/verify-email', params: { email: data.email.trim(), role: 'merchant' } });
+      if (signUpData?.session) {
+        router.replace({ pathname: '/(auth)/registration-success', params: { role: 'merchant' } });
+      } else {
+        router.replace({ pathname: '/(auth)/verify-email', params: { email: data.email.trim(), role: 'merchant' } });
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Please try again.';
       Alert.alert('Account creation failed', message);
