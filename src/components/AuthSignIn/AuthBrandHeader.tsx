@@ -4,18 +4,24 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors } from '@/constants/theme';
 
-export function AuthBrandHeader() {
+type AuthBrandHeaderProps = {
+  logoSize?: 'default' | 'large';
+};
+
+export function AuthBrandHeader({ logoSize = 'default' }: AuthBrandHeaderProps) {
+  const isLarge = logoSize === 'large';
+
   return (
     <View style={styles.container}>
       <View style={styles.logoLockup}>
         <Image
           source={require('@/assets/public/Logo-Icon.svg')}
-          style={styles.logo}
+          style={[styles.logo, isLarge && styles.logoLarge]}
           contentFit="contain"
         />
         <View style={styles.wordmark}>
-          <ThemedText style={styles.relief}>Relief</ThemedText>
-          <ThemedText style={styles.chain}>Chain</ThemedText>
+          <ThemedText style={[styles.relief, isLarge && styles.reliefLarge]}>Relief</ThemedText>
+          <ThemedText style={[styles.chain, isLarge && styles.chainLarge]}>Chain</ThemedText>
         </View>
       </View>
       <ThemedText style={styles.tagline}>
@@ -37,7 +43,12 @@ const styles = StyleSheet.create({
   logo: {
     width: 92,
     height: 71,
-    marginRight: 12,
+    marginRight: 10,
+  },
+  logoLarge: {
+    width: 120,
+    height: 130,
+    marginRight: 5,
   },
   wordmark: {
     justifyContent: 'center',
@@ -48,6 +59,10 @@ const styles = StyleSheet.create({
     fontSize: 36,
     lineHeight: 39,
   },
+  reliefLarge: {
+    fontSize: 42,
+    lineHeight: 45,
+  },
   chain: {
     color: BrandColors.green,
     fontFamily: 'Sarina_400Regular',
@@ -55,6 +70,12 @@ const styles = StyleSheet.create({
     lineHeight: 37,
     marginTop: -4,
     marginLeft: 18,
+  },
+  chainLarge: {
+    fontSize: 40,
+    lineHeight: 43,
+    marginTop: -5,
+    marginLeft: 20,
   },
   tagline: {
     color: BrandColors.navy,

@@ -54,9 +54,9 @@ export const merchantRegistrationStyles = StyleSheet.create({
     marginHorizontal: -10,
   },
   progressCircle: {
-    width: 35,
-    height: 35,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
@@ -64,6 +64,9 @@ export const merchantRegistrationStyles = StyleSheet.create({
     borderColor: '#009900',
   },
   progressCircleComplete: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
     backgroundColor: '#009900',
   },
   progressCircleCurrent: {

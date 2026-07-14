@@ -1,7 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
