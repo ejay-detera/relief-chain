@@ -20,6 +20,10 @@ export interface ProgramDraft {
   maxBeneficiaries: number;
   startDate: string;
   endDate: string;
+  registrationOpen: string;
+  registrationClose: string;
+  distributionStart: string;
+  distributionEnd: string;
   eligibilityCriteria: string[];
   voucherTypes: string[];
   voucherValue: number;

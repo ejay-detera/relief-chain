@@ -218,12 +218,36 @@ export default function ProgramDetailsScreen() {
           <Text style={styles.sectionTitle}>Schedule</Text>
           <View style={styles.detailGrid}>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Start Date</Text>
+              <Text style={styles.gridLabel}>Program Start Date</Text>
               <Text style={styles.gridValue}>{formatHumanDate(program.startDate)}</Text>
             </View>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Deadline / Expiry</Text>
+              <Text style={styles.gridLabel}>Program End Date</Text>
               <Text style={styles.gridValue}>{formatHumanDate(program.endDate)}</Text>
+            </View>
+          </View>
+          <View style={styles.detailGrid}>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Registration Open</Text>
+              <Text style={styles.gridValue}>
+                {program.registrationOpen ? formatHumanDate(program.registrationOpen) : 'Open Indefinitely'}
+              </Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Registration Close</Text>
+              <Text style={styles.gridValue}>
+                {program.registrationClose ? formatHumanDate(program.registrationClose) : 'Open Indefinitely'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.detailGrid}>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Distribution Start</Text>
+              <Text style={styles.gridValue}>{formatHumanDate(program.distributionStart)}</Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Distribution Deadline</Text>
+              <Text style={styles.gridValue}>{formatHumanDate(program.distributionEnd)}</Text>
             </View>
           </View>
         </View>
@@ -310,6 +334,17 @@ export default function ProgramDetailsScreen() {
                 <Text style={styles.bulletText}>{item}</Text>
               </View>
             ))}
+
+            {/* Auto-Eligibility Notice */}
+            {!program.registrationOpen && !program.registrationClose && (
+              <View style={styles.autoEligibilityNotice}>
+                <Text style={styles.noticeIcon}>ℹ️</Text>
+                <Text style={styles.noticeText}>
+                  <Text style={styles.noticeBoldText}>Auto-Eligibility: </Text>
+                  Registration period is open indefinitely. Any beneficiary passing the eligibility criteria is automatically eligible.
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -595,5 +630,30 @@ const styles = StyleSheet.create({
   btnIcon: {
     fontSize: 14,
     marginRight: 6,
+  },
+  autoEligibilityNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E3F2FD',
+    borderColor: '#BBDEFB',
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.three,
+    marginTop: Spacing.three,
+  },
+  noticeIcon: {
+    fontSize: 16,
+    marginRight: 8,
+    marginTop: 1,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#0D47A1', // Dark blue text
+    lineHeight: 18,
+  },
+  noticeBoldText: {
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
 });

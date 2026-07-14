@@ -17,6 +17,10 @@ export interface ProgramItem {
   maxBeneficiaries: number;
   startDate: string;
   endDate: string;
+  registrationOpen: string;
+  registrationClose: string;
+  distributionStart: string;
+  distributionEnd: string;
   eligibilityCriteria: string[];
   voucherTypes: string[];
   voucherValue: number;
