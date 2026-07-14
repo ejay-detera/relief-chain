@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Alert } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, BackHandler } from 'react-native';
 
 import { MerchantRegistrationShell } from '@/components/MerchantRegistration/MerchantRegistrationShell';
 import { MerchantRegistrationStep } from '@/components/MerchantRegistration/MerchantRegistrationStep';
@@ -9,6 +9,8 @@ import {
   type MerchantRegistrationData,
   type MerchantRegistrationStep as MerchantRegistrationStepType,
 } from '@/types/merchant-registration';
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const stepTitles: Record<MerchantRegistrationStepType, string> = {
   1: 'Business Information',
@@ -26,9 +28,56 @@ export default function SignUpScreen() {
     setData((current) => ({ ...current, ...values }));
   };
 
+  const validateCurrentStep = () => {
+    if (step === 1) {
+      const hasRequiredDetails = data.businessName.trim() && data.businessTypes.length > 0 && data.address.trim();
+
+      if (!hasRequiredDetails) {
+        Alert.alert('Complete business details', 'Enter a business name, select at least one business type, and provide an address.');
+        return false;
+      }
+    }
+
+    if (step === 2) {
+      const hasRequiredDetails = data.firstName.trim() && data.lastName.trim() && data.mobileNumber.trim();
+      const hasValidEmail = emailPattern.test(data.email.trim());
+
+      if (!hasRequiredDetails || !hasValidEmail) {
+        Alert.alert('Complete owner details', 'Enter the owner’s first and last name, mobile number, and a valid email address.');
+        return false;
+      }
+    }
+
+    if (step === 3 && !data.stellarWalletAddress.trim()) {
+      Alert.alert('Wallet required', 'Enter the Stellar wallet address before continuing.');
+      return false;
+    }
+
+    return true;
+  };
+
   const advanceStep = () => {
+    if (!validateCurrentStep()) return;
+
     setStep((current) => Math.min(current + 1, 4) as MerchantRegistrationStepType);
   };
+
+  const goToCompletedStep = (targetStep: MerchantRegistrationStepType) => {
+    if (targetStep <= step) {
+      setStep(targetStep);
+    }
+  };
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (step === 1) return false;
+
+      setStep((current) => (current - 1) as MerchantRegistrationStepType);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [step]);
 
   const handlePermitUpload = () => {
     Alert.alert('Upload Business Permit', 'Business-permit upload will be available when document verification is connected.');
@@ -93,7 +142,11 @@ export default function SignUpScreen() {
   };
 
   return (
-    <MerchantRegistrationShell step={step} title={stepTitles[step]}>
+    <MerchantRegistrationShell
+      onStepPress={goToCompletedStep}
+      step={step}
+      title={stepTitles[step]}
+    >
       <MerchantRegistrationStep
         data={data}
         isSubmitting={isSubmitting}

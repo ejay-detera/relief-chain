@@ -12,11 +12,17 @@ import { merchantRegistrationStyles as styles } from './styles';
 
 type MerchantRegistrationShellProps = {
   children: ReactNode;
+  onStepPress: (step: MerchantRegistrationStep) => void;
   step: MerchantRegistrationStep;
   title: string;
 };
 
-export function MerchantRegistrationShell({ children, step, title }: MerchantRegistrationShellProps) {
+export function MerchantRegistrationShell({
+  children,
+  onStepPress,
+  step,
+  title,
+}: MerchantRegistrationShellProps) {
   return (
     <ThemedView style={styles.page}>
       <SafeAreaView style={styles.safeArea}>
@@ -25,13 +31,13 @@ export function MerchantRegistrationShell({ children, step, title }: MerchantReg
           style={styles.safeArea}
         >
           <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-            <AuthBrandHeader />
+            <AuthBrandHeader logoSize="large" />
             <View style={styles.card}>
               <ThemedText style={styles.title}>{title}</ThemedText>
               <ThemedText style={styles.description}>
                 Register your account to manage disaster relief programs and receive financial assistance securely.
               </ThemedText>
-              <MerchantProgress step={step} />
+              <MerchantProgress onStepPress={onStepPress} step={step} />
               {children}
             </View>
           </ScrollView>
