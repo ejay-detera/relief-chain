@@ -63,10 +63,40 @@ export const BeneficiaryRegistrationFlow = () => {
     setIsSubmitting(true);
     try {
       const fullName = [data.firstName, data.middleInitial, data.lastName].filter(Boolean).join(' ');
-      const location = [data.completeAddress, data.municipalityCity].filter(Boolean).join(', ');
+      const location = [data.completeAddress, data.barangay, data.district, data.city].filter(Boolean).join(', ');
       const document = data.governmentIdDocument;
-      if (!document) return;
-      const { error } = await supabase.auth.signUp({
+      if (!document) {
+        Alert.alert('Document required', 'Please upload a government ID.');
+        return;
+      }
+
+      // 1. Upload ID document to Supabase storage 'valid_ids' bucket
+      const fileExt = document.name.split('.').pop() || 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = fileName;
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: document.uri,
+        name: fileName,
+        type: document.mimeType || 'image/jpeg',
+      } as any);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('valid_ids')
+        .upload(filePath, formData, {
+          contentType: document.mimeType || 'image/jpeg',
+        });
+
+      if (uploadError) {
+        Alert.alert('ID Upload failed', uploadError.message);
+        return;
+      }
+
+      const govIdUrl = uploadData?.path || filePath;
+
+      // 2. Perform Supabase authentication sign up with metadata
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: { data: {
@@ -75,15 +105,18 @@ export const BeneficiaryRegistrationFlow = () => {
           first_name: data.firstName.trim(), last_name: data.lastName.trim(),
           middle_initial: data.middleInitial.trim() || null, mobile_number: data.mobileNumber,
           sex: data.sex, civil_status: data.civilStatus, complete_address: data.completeAddress.trim(),
-          municipality_city: data.municipalityCity.trim(), government_id_document_name: document.name,
-          government_id_document_mime_type: document.mimeType,
+          municipality_city: data.municipalityCity.trim(), gov_id_url: govIdUrl,
         } },
       });
       if (error) {
         Alert.alert('Account creation failed', error.message);
         return;
       }
-      router.replace({ pathname: '/(auth)/verify-email', params: { email: data.email.trim(), role: 'beneficiary' } });
+      if (signUpData?.session) {
+        router.replace({ pathname: '/(auth)/registration-success', params: { role: 'beneficiary' } });
+      } else {
+        router.replace({ pathname: '/(auth)/verify-email', params: { email: data.email.trim(), role: 'beneficiary' } });
+      }
     } catch (error: unknown) {
       Alert.alert('Account creation failed', error instanceof Error ? error.message : 'Please try again.');
     } finally {

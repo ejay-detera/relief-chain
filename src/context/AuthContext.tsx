@@ -28,6 +28,17 @@ const toUserProfile = (value: unknown): UserProfile | null => {
     location: nullableString(row.location),
     stellar_pubkey: nullableString(row.stellar_pubkey),
     created_at: nullableString(row.created_at),
+    first_name: nullableString(row.first_name),
+    last_name: nullableString(row.last_name),
+    middle_initial: nullableString(row.middle_initial),
+    mobile_number: nullableString(row.mobile_number),
+    sex: nullableString(row.sex),
+    civil_status: nullableString(row.civil_status),
+    birthdate: nullableString(row.birthdate),
+    gov_id_url: nullableString(row.gov_id_url),
+    complete_address: nullableString(row.complete_address),
+    municipality_city: nullableString(row.municipality_city),
+    verification_status: nullableString(row.verification_status) as UserProfile['verification_status'],
   };
 };
 
@@ -66,7 +77,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, role, full_name, gov_id, location, stellar_pubkey, created_at')
+          .select('id, role, full_name, gov_id, location, stellar_pubkey, created_at, first_name, last_name, middle_initial, mobile_number, sex, civil_status, birthdate, gov_id_url, complete_address, municipality_city, verification_status')
           .eq('id', nextSession.user.id)
           .maybeSingle();
 
