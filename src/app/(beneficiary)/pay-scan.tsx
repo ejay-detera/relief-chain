@@ -1,73 +1,136 @@
-import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontAwesome } from '@expo/vector-icons';
+
+import { QrViewfinder } from '@/components/beneficiary/PayScan/qr-viewfinder';
+import { ScanHeader } from '@/components/beneficiary/PayScan/scan-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BrandColors, Spacing, BorderRadius } from '@/constants/theme';
+import { BrandColors, Spacing } from '@/constants/theme';
 
 export default function PayScanScreen() {
+  const router = useRouter();
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<'back' | 'front'>('back');
+  const hasScannedRef = useRef(false);
+
+  const handleBarcodeScanned = (result: BarcodeScanningResult) => {
+    if (hasScannedRef.current) return;
+    hasScannedRef.current = true;
+
+    Alert.alert('QR Code Scanned', `Voucher redemption is not yet available.\n\nScanned data: ${result.data}`, [
+      { text: 'OK', onPress: () => { hasScannedRef.current = false; } },
+    ]);
+  };
+
+  if (!permission) {
+    return <ThemedView style={styles.blackContainer} />;
+  }
+
+  if (!permission.granted) {
+    // Design-only mockup shown before the user grants camera access. The background photo
+    // and dim overlay are purely decorative here and are never shown once the real camera is live.
+    return (
+      <View style={styles.blackContainer}>
+        <Image
+          contentFit="cover"
+          source={require('@/assets/public/background-payscan.png')}
+          style={styles.backgroundImage}
+        />
+        <View style={styles.dimOverlay} />
+
+        <SafeAreaView style={styles.overlay}>
+          <ScanHeader onBack={() => router.back()} onFlipCamera={() => {}} showFlipButton={false} />
+          <View style={styles.viewfinderContainer}>
+            <QrViewfinder />
+          </View>
+        </SafeAreaView>
+
+        <SafeAreaView style={styles.permissionFooter}>
+          <ThemedText style={styles.cameraText}>Camera access is required to scan QR codes.</ThemedText>
+          <Pressable onPress={requestPermission} style={styles.button}>
+            <ThemedText style={styles.buttonText}>Enable Camera</ThemedText>
+          </Pressable>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>Scan to Pay</ThemedText>
-          <ThemedText style={styles.subtitle}>Scan a merchant's QR code to redeem your voucher or send XLM.</ThemedText>
-        </View>
-
-        <View style={styles.cameraPlaceholder}>
-          <FontAwesome name="camera" size={64} color={BrandColors.lightGray} />
-          <ThemedText style={styles.cameraText}>Camera access required</ThemedText>
-        </View>
-
-        <Pressable style={styles.button}>
-          <ThemedText style={styles.buttonText}>Enable Camera</ThemedText>
-        </Pressable>
-      </SafeAreaView>
-    </ThemedView>
+    <View style={styles.blackContainer}>
+      <CameraView
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        facing={facing}
+        onBarcodeScanned={handleBarcodeScanned}
+        style={styles.camera}
+      >
+        <SafeAreaView style={styles.overlay}>
+          <ScanHeader
+            onBack={() => router.back()}
+            onFlipCamera={() => setFacing((current) => (current === 'back' ? 'front' : 'back'))}
+          />
+          <View style={styles.viewfinderContainer}>
+            <QrViewfinder />
+          </View>
+        </SafeAreaView>
+      </CameraView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  blackContainer: {
     flex: 1,
     backgroundColor: 'black',
   },
-  safeArea: {
+  camera: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
   },
-  header: {
-    marginTop: Spacing.six,
-    marginBottom: Spacing.eight,
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: Spacing.two,
+  dimOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#rgba(255,255,255,0.7)',
-  },
-  cameraPlaceholder: {
+  overlay: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    borderRadius: BorderRadius.lg,
+    justifyContent: 'space-between',
+  },
+  viewfinderContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.eight,
+    paddingBottom: Spacing.eight,
+  },
+  permissionFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.four,
   },
   cameraText: {
-    color: BrandColors.lightGray,
-    marginTop: Spacing.four,
+    color: 'white',
     fontSize: 14,
+    textAlign: 'center',
+    marginBottom: Spacing.three,
   },
   button: {
     backgroundColor: BrandColors.green,
     padding: Spacing.four,
-    borderRadius: BorderRadius.md,
+    borderRadius: 12,
     alignItems: 'center',
     marginBottom: Spacing.eight,
   },

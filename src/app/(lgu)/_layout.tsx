@@ -2,79 +2,105 @@ import { BrandColors } from '@/constants/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { CreateProgramProvider } from './create-program/_layout';
 
 export default function LguLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: 'white',
-        tabBarInactiveTintColor: 'white',
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
-              <FontAwesome name="home" size={24} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="programs"
-        options={{
-          title: 'Programs',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
-              <FontAwesome name="handshake-o" size={24} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="pay-scan"
-        options={{
-          title: 'Pay / Scan',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
-              <FontAwesome name="qrcode" size={24} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="beneficiaries"
-        options={{
-          title: 'Beneficiaries',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
-              <FontAwesome name="users" size={24} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
-              <FontAwesome name="cog" size={24} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          href: null,
-        }}
-      />
-    </Tabs>
+    <CreateProgramProvider>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarItemStyle: styles.tabBarItem,
+          tabBarIconStyle: styles.tabBarIconWrapper,
+          tabBarShowLabel: false,
+          tabBarActiveTintColor: 'white',
+          tabBarInactiveTintColor: 'white',
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Dashboard',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
+                <FontAwesome name="home" size={24} color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="programs"
+          options={{
+            title: 'Programs',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
+                <FontAwesome name="handshake-o" size={24} color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="pay-scan"
+          options={{
+            title: 'Disbursements',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
+                <FontAwesome name="history" size={24} color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="beneficiaries"
+          options={{
+            title: 'Beneficiaries',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
+                <FontAwesome name="users" size={24} color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: 'Settings',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
+                <FontAwesome name="cog" size={24} color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="explore"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="create-program"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="edit-profile"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="program/[id]"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+      </Tabs>
+    </CreateProgramProvider>
   );
 }
 
@@ -82,13 +108,35 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: BrandColors.green,
     borderRadius: 30,
-    marginHorizontal: 16,
-    marginBottom: 20,
+    left: 16,
+    right: 16,
+    bottom: 20,
     height: 60,
+    paddingHorizontal: 6,
+    paddingTop: 0,
+    paddingBottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
     position: 'absolute',
     borderTopWidth: 0,
     elevation: 0,
     shadowOpacity: 0,
+    overflow: 'hidden',
+  },
+  tabBarItem: {
+    height: 60,
+    minHeight: 60,
+    paddingVertical: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabBarIconWrapper: {
+    marginTop: 0,
+    marginBottom: 0,
+    height: 40,
+    width: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   iconContainer: {
     width: 44,

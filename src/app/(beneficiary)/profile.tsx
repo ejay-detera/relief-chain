@@ -1,3 +1,10 @@
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { ProfileDetailRow } from '@/components/beneficiary/Profile/profile-detail-row';
+import { ProfileHeader } from '@/components/beneficiary/Profile/profile-header';
+import { QrModal } from '@/components/beneficiary/shared/qr-modal';
 import { LogoutButton } from '@/components/shared/LogoutButton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -5,70 +12,45 @@ import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/
 import { useAuth } from '@/context/AuthContext';
 import { useStellarWallet } from '@/hooks/use-stellar-wallet';
 import { FontAwesome } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 
 export default function ProfileScreen() {
   const { wallet } = useStellarWallet();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
+  const [isQrVisible, setIsQrVisible] = useState(false);
 
-  const handleCopy = async () => {
-    if (wallet?.publicKey) {
-      await Clipboard.setStringAsync(wallet.publicKey);
-    }
-  };
+  const mobileNumber = typeof session?.user?.user_metadata?.mobile_number === 'string'
+    ? session.user.user_metadata.mobile_number
+    : 'Not set';
+
+  const truncatedWallet = wallet?.publicKey
+    ? `${wallet.publicKey.slice(0, 6)}...${wallet.publicKey.slice(-6)}`
+    : 'Loading...';
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>Profile</ThemedText>
-        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <LogoHeader />
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.card}>
-            <View style={styles.avatarPlaceholder}>
-              <FontAwesome name="user" size={40} color="white" />
-            </View>
-            <ThemedText style={styles.name}>{profile?.full_name || 'Loading...'}</ThemedText>
-            
-            <View style={styles.verifiedBadge}>
-              <FontAwesome name="check-circle" size={14} color={BrandColors.green} />
-              <ThemedText style={styles.verifiedText}>Verified Beneficiary</ThemedText>
-            </View>
-          </View>
+          <ProfileHeader fullName={profile?.full_name ?? null} />
 
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Connected Wallet</ThemedText>
-            <View style={styles.walletCard}>
-              <View style={styles.walletInfo}>
-                <ThemedText style={styles.walletLabel}>Stellar Address (Testnet)</ThemedText>
-                <ThemedText style={styles.walletAddress} numberOfLines={1}>{wallet?.publicKey || 'Loading...'}</ThemedText>
-              </View>
-              <Pressable onPress={handleCopy} style={styles.copyButton}>
-                <FontAwesome name="copy" size={20} color={BrandColors.navy} />
-              </Pressable>
-            </View>
-          </View>
-          
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Personal Information</ThemedText>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Location</ThemedText>
-                <ThemedText style={styles.infoValue}>{profile?.location || 'Not set'}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Gov ID</ThemedText>
-                <ThemedText style={styles.infoValue}>{profile?.gov_id || 'Not verified'}</ThemedText>
-              </View>
-            </View>
+          <View style={styles.panel}>
+            <ProfileDetailRow iconName="id-card" label="Government ID" value={profile?.gov_id || 'Not verified'} />
+            <ProfileDetailRow iconName="link" label="Stellar Wallet Address" value={truncatedWallet} />
+            <ProfileDetailRow iconName="phone" label="Mobile Number" value={mobileNumber} />
+
+            <Pressable onPress={() => setIsQrVisible(true)} style={styles.qrButton}>
+              <FontAwesome color="white" name="qrcode" size={16} />
+              <ThemedText style={styles.qrButtonText}>Show my QR</ThemedText>
+            </Pressable>
           </View>
 
           <LogoutButton />
         </ScrollView>
       </SafeAreaView>
+
+      <QrModal onClose={() => setIsQrVisible(false)} publicKey={wallet?.publicKey} visible={isQrVisible} />
     </ThemedView>
   );
 }
@@ -81,111 +63,30 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
-    paddingBottom: Spacing.four,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: BrandColors.navy,
-  },
   scrollContent: {
     paddingHorizontal: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.six,
   },
-  card: {
+  panel: {
     backgroundColor: 'white',
     borderRadius: BorderRadius.lg,
-    padding: Spacing.six,
-    alignItems: 'center',
+    padding: Spacing.four,
     marginBottom: Spacing.four,
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
   },
-  avatarPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: BrandColors.lightGray,
+  qrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.three,
+    columnGap: 8,
+    backgroundColor: BrandColors.green,
+    borderRadius: BorderRadius.full,
+    paddingVertical: 12,
+    marginTop: Spacing.two,
   },
-  name: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: BrandColors.navy,
-    marginBottom: Spacing.one,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-  },
-  verifiedText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: BrandColors.green,
-  },
-  section: {
-    marginBottom: Spacing.four,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: BrandColors.navy,
-    marginBottom: Spacing.three,
-  },
-  walletCard: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.four,
-    alignItems: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-  },
-  walletInfo: {
-    flex: 1,
-    marginRight: Spacing.three,
-  },
-  walletLabel: {
-    fontSize: 12,
-    color: BrandColors.grey,
-    marginBottom: 4,
-  },
-  walletAddress: {
-    fontSize: 13,
-    color: BrandColors.navy,
-    fontWeight: '500',
-  },
-  copyButton: {
-    padding: Spacing.two,
-  },
-  infoCard: {
-    backgroundColor: 'white',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.four,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
-  },
-  infoLabel: {
+  qrButtonText: {
+    color: 'white',
     fontSize: 14,
-    color: BrandColors.grey,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: BrandColors.navy,
-    fontWeight: '500',
+    fontWeight: 'bold',
   },
 });

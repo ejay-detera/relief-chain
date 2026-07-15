@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { DUMMY_TRANSACTIONS } from '@/constants/dummy-data';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { RedemptionRecord } from '@/types/wallet';
+import { useEffect, useState } from 'react';
 
 export function useBeneficiaryRedemptions() {
   const { session } = useAuth();
@@ -32,11 +33,15 @@ export function useBeneficiaryRedemptions() {
             remainingBalance: r.remaining_balance ? `₱${r.remaining_balance}` : '---',
             txHash: r.tx_hash || 'Pending...',
             status: r.status,
+            direction: 'debit',
           }));
-          setRedemptions(mapped);
+          setRedemptions(mapped.length > 0 ? mapped : DUMMY_TRANSACTIONS);
+        } else {
+          setRedemptions(DUMMY_TRANSACTIONS);
         }
       } catch (e) {
-        console.error('Error fetching redemptions', e);
+        console.error('Error fetching redemptions, using fallback transaction data', e);
+        setRedemptions(DUMMY_TRANSACTIONS);
       } finally {
         setIsLoading(false);
       }

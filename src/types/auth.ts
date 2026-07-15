@@ -10,6 +10,20 @@ export type UserProfile = {
   location: string | null;
   stellar_pubkey: string | null;
   created_at: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  middle_initial?: string | null;
+  mobile_number?: string | null;
+  sex?: string | null;
+  civil_status?: string | null;
+  birthdate?: string | null;
+  gov_id_url?: string | null;
+  complete_address?: string | null;
+  municipality_city?: string | null;
+  verification_status?: 'Pending' | 'Verified' | 'Rejected' | null;
+  city_id?: number | null;
+  area_id?: number | null;
+  barangay_id?: number | null;
 };
 
 export type AuthContextValue = {
@@ -18,6 +32,7 @@ export type AuthContextValue = {
   isLoading: boolean;
   profileError: Error | null;
   signOut: () => Promise<AuthError | null>;
+  refreshProfile: () => Promise<void>;
 };
 
 export const PASSWORD_RECOVERY_OTP_LENGTH = 8;

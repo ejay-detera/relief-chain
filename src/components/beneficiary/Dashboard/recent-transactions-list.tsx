@@ -1,9 +1,8 @@
-import React from 'react';
-import { StyleSheet, View, Pressable } from 'react-native';
-import { Link } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing, BorderRadius } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { RedemptionRecord } from '@/types/wallet';
+import { Link } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 type Props = {
   redemptions: RedemptionRecord[];
@@ -26,11 +25,14 @@ export function RecentTransactionsList({ redemptions }: Props) {
       <View style={styles.list}>
         {redemptions.slice(0, 3).map((item) => (
           <View key={item.id} style={styles.row}>
+            <View style={[styles.avatar, item.direction === 'credit' && styles.avatarCredit]} />
             <View style={styles.info}>
               <ThemedText style={styles.merchant}>{item.merchant}</ThemedText>
               <ThemedText style={styles.date}>{item.date}</ThemedText>
             </View>
-            <ThemedText style={styles.amount}>-{item.amount}</ThemedText>
+            <ThemedText style={[styles.amount, item.direction === 'credit' && styles.amountCredit]}>
+              {item.direction === 'credit' ? '+' : '-'}{item.amount}
+            </ThemedText>
           </View>
         ))}
       </View>
@@ -73,6 +75,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f5f5f5',
   },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: BrandColors.grey,
+    marginRight: Spacing.three,
+  },
+  avatarCredit: {
+    backgroundColor: BrandColors.green,
+  },
   info: {
     flex: 1,
   },
@@ -90,5 +102,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#E74C3C',
+  },
+  amountCredit: {
+    color: BrandColors.green,
   },
 });
