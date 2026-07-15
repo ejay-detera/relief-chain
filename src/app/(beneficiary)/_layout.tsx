@@ -1,7 +1,8 @@
-import { BrandColors } from '@/constants/theme';
+import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight } from '@/constants/theme';
 import { Image } from 'expo-image';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabIconProps = {
   focused: boolean;
@@ -15,11 +16,13 @@ const TabIcon = ({ focused, source }: TabIconProps) => (
 );
 
 export default function BeneficiaryLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { bottom: insets.bottom + FloatingTabBarGap }],
         tabBarItemStyle: styles.tabBarItem,
         tabBarIconStyle: styles.tabBarIconWrapper,
         tabBarShowLabel: false,
@@ -85,8 +88,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     left: 16,
     right: 16,
-    bottom: 20,
-    height: 60,
+    height: FloatingTabBarHeight,
     paddingHorizontal: 6,
     paddingTop: 0,
     paddingBottom: 0,

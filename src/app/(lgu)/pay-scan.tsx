@@ -2,15 +2,16 @@ import { FontAwesome } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DistributeAidWizard } from '@/components/DistributeAid/DistributeAidWizard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { Disbursement, fetchDisbursements } from '@/services/disbursementService';
 
 export default function DistributeScreen() {
+  const insets = useSafeAreaInsets();
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [pastDistributions, setPastDistributions] = useState<Disbursement[]>([]);
@@ -108,7 +109,10 @@ export default function DistributeScreen() {
           data={filteredDistributions}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[
+            styles.list,
+            { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.six },
+          ]}
           ListEmptyComponent={
             loading ? (
               <View style={styles.center}>
@@ -124,7 +128,13 @@ export default function DistributeScreen() {
         />
 
         {/* FAB - Distribute Aid */}
-        <Pressable onPress={() => setShowWizard(true)} style={styles.fab}>
+        <Pressable
+          onPress={() => setShowWizard(true)}
+          style={[
+            styles.fab,
+            { bottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.three },
+          ]}
+        >
           <FontAwesome name="plus" size={20} color="white" />
         </Pressable>
 
@@ -181,7 +191,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 96, // Place above the tab bar styles
     right: 16,
     width: 56,
     height: 56,
@@ -218,7 +227,6 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: Spacing.four,
     gap: Spacing.three,
-    paddingBottom: 100,
   },
   card: {
     backgroundColor: 'white',

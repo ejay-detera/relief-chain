@@ -3,13 +3,13 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 
-type ProgramsSummaryProps = { activePrograms: number; vouchersProcessed: number };
+type ProgramsSummaryProps = { activePrograms: number; vouchersProcessed: number | null };
 
 export const ProgramsSummary = ({ activePrograms, vouchersProcessed }: ProgramsSummaryProps) => (
   <View style={styles.container}>
     <View style={styles.stats}>
       <View style={styles.statCard}><ThemedText style={styles.statNumber}>{activePrograms}</ThemedText><ThemedText style={styles.statLabel}>Active Programs</ThemedText></View>
-      <View style={styles.statCard}><ThemedText style={styles.statNumber}>{vouchersProcessed.toLocaleString('en-PH')}</ThemedText><ThemedText style={styles.statLabel}>Vouchers Processed</ThemedText></View>
+      <View style={styles.statCard}><ThemedText style={styles.statNumber}>{vouchersProcessed?.toLocaleString('en-PH') ?? '—'}</ThemedText><ThemedText style={styles.statLabel}>Vouchers Processed</ThemedText></View>
     </View>
     <View style={styles.settlement}><ThemedText style={styles.settlementLabel}>Next Settlement</ThemedText><ThemedText style={styles.settlementDate}>Tomorrow</ThemedText></View>
   </View>

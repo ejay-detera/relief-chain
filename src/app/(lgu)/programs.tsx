@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useCreateProgram } from './create-program/_layout';
+import { ProgramItem } from '@/components/LguPrograms/ProgramCard';
 import { ProgramFilterTabs, ProgramFilterType } from '@/components/LguPrograms/ProgramFilterTabs';
 import { ProgramList } from '@/components/LguPrograms/ProgramList';
-import { ProgramItem } from '@/components/LguPrograms/ProgramCard';
-import { BrandColors, Spacing } from '@/constants/theme';
+import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCreateProgram } from './create-program/_layout';
 
 export default function LguProgramsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { programsList, fetchProgramsList, clearEditingState } = useCreateProgram();
 
@@ -34,7 +36,7 @@ export default function LguProgramsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Aid Programs</Text>
         <Text style={styles.headerSubtitle}>
@@ -58,7 +60,10 @@ export default function LguProgramsScreen() {
 
       {/* FAB - Create Program */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[
+          styles.fab,
+          { bottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.three },
+        ]}
         onPress={() => {
           clearEditingState();
           router.push('/(lgu)/create-program' as any);
@@ -67,7 +72,7 @@ export default function LguProgramsScreen() {
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -96,7 +101,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 96, // Place above the tab bar styles
     right: 16,
     width: 56,
     height: 56,

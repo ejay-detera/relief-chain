@@ -1,46 +1,36 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ActiveProgramsCard } from '@/components/MerchantDashboard/ActiveProgramsCard';
 import { MerchantBottomNavigation } from '@/components/MerchantDashboard/MerchantBottomNavigation';
-import { MerchantDashboardHeader } from '@/components/MerchantDashboard/MerchantDashboardHeader';
-import { ReceivePaymentCard } from '@/components/MerchantDashboard/ReceivePaymentCard';
-import { RecentPayments } from '@/components/MerchantDashboard/RecentPayments';
-import { SalesSummaryCard } from '@/components/MerchantDashboard/SalesSummaryCard';
-import { WalletBalanceCard } from '@/components/MerchantDashboard/WalletBalanceCard';
-import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
+import { MerchantProfileContent } from '@/components/MerchantProfile/MerchantProfileContent';
+import { FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import type { MerchantPayment, MerchantProgram } from '@/types/merchant-dashboard';
 
-const MerchantProfileScreen = () => {
-  const { profile } = useAuth();
-  const router = useRouter();
-  const [payments] = useState<MerchantPayment[]>([{ id: 'payment-1', payerName: 'Puregold Supermarket', occurredAt: 'Today, 10:45 AM', amount: 1500 }, { id: 'payment-2', payerName: 'Elena Rodriguez', occurredAt: 'Oct 24, 09:12 AM', amount: 10000 }]);
-  const [programs] = useState<MerchantProgram[]>([{ id: 'dswd-ayuda', name: 'DSWD Ayuda', completion: 65, description: 'Emergency cash assistance for eligible households.', merchantId: '123-009-3', status: 'Active' }, { id: 'lgu-relief', name: 'LGU Relief', completion: 65, description: 'Community relief vouchers from your local government.', merchantId: '123-009-3', status: 'Active' }]);
-  const showComingSoon = (feature: string) => Alert.alert(feature, 'This feature will be available soon.');
-
-  return <SafeAreaView edges={['top']} style={styles.safeArea}><View style={styles.screen}>
-    <MerchantDashboardHeader onNotificationsPress={() => showComingSoon('Notifications')} />
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Aling Nena’s Sari-Sari Store'}</ThemedText>
-      <WalletBalanceCard onSettlementsPress={() => showComingSoon('Settlements')} onWithdrawPress={() => showComingSoon('Withdraw')} />
-      <ReceivePaymentCard onPress={() => showComingSoon('Receive Payment')} />
-      <SalesSummaryCard />
-      <RecentPayments onViewAll={() => showComingSoon('Payment History')} payments={payments} />
-      <ActiveProgramsCard onBrowsePress={() => router.push('/(merchant)/programs')} programs={programs} />
-    </ScrollView>
-    <MerchantBottomNavigation onProfilePress={() => showComingSoon('Merchant Profile')} onReceivePress={() => showComingSoon('Receive Payment')} />
-  </View></SafeAreaView>;
+const metadataString = (metadata: unknown, key: string): string | null => {
+  if (!metadata || typeof metadata !== 'object') return null;
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+};
+const createHandle = (name: string) => {
+  const slug = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24);
+  return `@${slug || 'merchant'}`;
 };
 
+const MerchantProfileScreen = () => {
+  const { profile, session } = useAuth();
+  const insets = useSafeAreaInsets();
+  const metadata: unknown = session?.user.user_metadata;
+  const profileName = [profile?.first_name, profile?.last_name].filter((part): part is string => Boolean(part)).join(' ');
+  const fullName = profile?.full_name?.trim() || metadataString(metadata, 'full_name') || profileName || 'Merchant Account';
+  const merchantId = profile?.id || session?.user.id || 'Not available';
+  const walletAddress = profile?.stellar_pubkey || metadataString(metadata, 'stellar_pubkey') || 'Not available';
+  const mobileNumber = profile?.mobile_number || session?.user.phone || metadataString(metadata, 'mobile_number') || 'Not available';
+  return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
+    <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }} showsVerticalScrollIndicator={false}>
+      <MerchantProfileContent fullName={fullName} handle={createHandle(fullName)} merchantId={merchantId} mobileNumber={mobileNumber} walletAddress={walletAddress} />
+    </ScrollView>
+    <MerchantBottomNavigation active="profile" />
+  </View></SafeAreaView>;
+};
 export default MerchantProfileScreen;
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  screen: { flex: 1 },
-  content: { gap: Spacing.three, padding: Spacing.three, paddingBottom: BottomTabInset + Spacing.five },
-  storeName: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 18 },
-});
+const styles = StyleSheet.create({ safeArea: { backgroundColor: '#FFFFFF', flex: 1 }, screen: { flex: 1 } });

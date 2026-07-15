@@ -1,15 +1,18 @@
-import { Tabs } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import { View, StyleSheet } from 'react-native';
+import { Tabs } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BrandColors } from '@/constants/theme';
+import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight } from '@/constants/theme';
 
 export default function AppTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { bottom: insets.bottom + FloatingTabBarGap }],
         tabBarShowLabel: false,
         tabBarActiveTintColor: 'white',
         tabBarInactiveTintColor: 'white',
@@ -83,9 +86,9 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: BrandColors.green,
     borderRadius: 30,
-    marginHorizontal: 16,
-    marginBottom: 20,
-    height: 60,
+    left: 16,
+    right: 16,
+    height: FloatingTabBarHeight,
     position: 'absolute',
     borderTopWidth: 0,
     elevation: 0,

@@ -13,7 +13,7 @@ const roleGroups: Record<UserRole, RoleGroup> = {
 const roleHomes: Record<UserRole, Href> = {
   lgu: '/(lgu)',
   beneficiary: '/(beneficiary)',
-  merchant: '/(merchant)/profile' as Href,
+  merchant: '/(merchant)' as Href,
 };
 
 const authContinuationRoutes = new Set(['verify-email', 'registration-success', 'forgot-password']);

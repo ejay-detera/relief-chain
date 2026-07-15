@@ -1,16 +1,19 @@
-import { BrandColors } from '@/constants/theme';
+import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight } from '@/constants/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateProgramProvider } from './create-program/_layout';
 
 export default function LguLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <CreateProgramProvider>
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarStyle: styles.tabBar,
+          tabBarStyle: [styles.tabBar, { bottom: insets.bottom + FloatingTabBarGap }],
           tabBarItemStyle: styles.tabBarItem,
           tabBarIconStyle: styles.tabBarIconWrapper,
           tabBarShowLabel: false,
@@ -82,6 +85,7 @@ export default function LguLayout() {
           name="create-program"
           options={{
             href: null,
+            sceneStyle: { paddingTop: insets.top },
             tabBarStyle: { display: 'none' },
           }}
         />
@@ -96,6 +100,7 @@ export default function LguLayout() {
           name="program/[id]"
           options={{
             href: null,
+            sceneStyle: { paddingTop: insets.top },
             tabBarStyle: { display: 'none' },
           }}
         />
@@ -110,8 +115,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     left: 16,
     right: 16,
-    bottom: 20,
-    height: 60,
+    height: FloatingTabBarHeight,
     paddingHorizontal: 6,
     paddingTop: 0,
     paddingBottom: 0,

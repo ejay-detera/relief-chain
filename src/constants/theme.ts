@@ -80,5 +80,7 @@ export const Spacing = {
   eight: 96,
 } as const;
 
+export const FloatingTabBarGap = 10;
+export const FloatingTabBarHeight = 60;
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
