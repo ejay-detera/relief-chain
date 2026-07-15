@@ -5,6 +5,7 @@ import { Alert, BackHandler } from 'react-native';
 import { RegistrationShell } from '@/components/AuthRegistration/RegistrationShell';
 import { isSupabaseConfigured, supabase, supabaseSetupMessage } from '@/lib/supabase';
 import { initialBeneficiaryRegistrationData, type BeneficiaryRegistrationData, type BeneficiaryRegistrationStep as Step } from '@/types/beneficiary-registration';
+import { readDocumentForUpload } from '@/utils/document-upload';
 import { getBeneficiaryStepError } from '@/utils/registration-validation';
 
 import { BeneficiaryAccountStep } from './BeneficiaryAccountStep';
@@ -74,19 +75,15 @@ export const BeneficiaryRegistrationFlow = () => {
       const fileExt = document.name.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = fileName;
-
-      const formData = new FormData();
-      formData.append('file', {
-        uri: document.uri,
-        name: fileName,
-        type: document.mimeType || 'image/jpeg',
-      } as any);
+      const uploadPayload = await readDocumentForUpload(document).catch(() => {
+        Alert.alert('ID document unavailable', 'Please select your government ID again and complete registration without restarting the app.');
+        return null;
+      });
+      if (!uploadPayload) return;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('valid_ids')
-        .upload(filePath, formData, {
-          contentType: document.mimeType || 'image/jpeg',
-        });
+        .upload(filePath, uploadPayload.body, { contentType: uploadPayload.contentType });
 
       if (uploadError) {
         Alert.alert('ID Upload failed', uploadError.message);
