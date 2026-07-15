@@ -79,12 +79,6 @@ export default function LguLayout() {
           }}
         />
         <Tabs.Screen
-          name="reports"
-          options={{
-            href: null,
-          }}
-        />
-        <Tabs.Screen
           name="create-program"
           options={{
             href: null,
