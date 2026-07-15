@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DistributeAidWizard } from '@/components/DistributeAid/DistributeAidWizard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BrandColors, Spacing, BorderRadius } from '@/constants/theme';
-import { DistributeAidWizard } from '@/components/DistributeAid/DistributeAidWizard';
-import { fetchDisbursements, Disbursement } from '@/services/disbursementService';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { Disbursement, fetchDisbursements } from '@/services/disbursementService';
 
 export default function DistributeScreen() {
   const [showWizard, setShowWizard] = useState(false);
@@ -158,6 +158,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    backgroundColor: '#FAFAFC',
   },
   header: {
     paddingHorizontal: Spacing.four,

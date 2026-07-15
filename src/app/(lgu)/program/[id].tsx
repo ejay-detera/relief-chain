@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useCreateProgram } from '../create-program/_layout';
-import { deleteLguProgram, updateProgramStatus } from '@/services/programService';
+import { ProgramApplicantsSection } from '@/components/LguPrograms/ProgramApplicantsSection';
 import { resolveProgramStatus } from '@/components/LguPrograms/ProgramCard';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { deleteLguProgram, updateProgramStatus } from '@/services/programService';
 import { FontAwesome } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCreateProgram } from '../create-program/_layout';
 
 export default function ProgramDetailsScreen() {
   const router = useRouter();
@@ -325,6 +326,9 @@ export default function ProgramDetailsScreen() {
             </View>
           </View>
         </View>
+
+        {/* Applicants (pending/approved/rejected Enrollments for this Program) */}
+        <ProgramApplicantsSection programId={program.id} />
 
         {/* Eligibility criteria list */}
         {program.eligibilityCriteria && program.eligibilityCriteria.length > 0 && (

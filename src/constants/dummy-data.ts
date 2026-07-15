@@ -3,39 +3,13 @@
 // instead of empty states, per project convention (no API calls until backend integration
 // is fully wired; these values mirror the design's sample content).
 
-import type { EnrolledProgram, RedemptionRecord, StellarWallet, Voucher } from '@/types/wallet';
+import type { RedemptionRecord, StellarWallet } from '@/types/wallet';
 
 export const DUMMY_WALLET: StellarWallet = {
   publicKey: 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWX',
   xlmBalance: '1786.00',
   isActivated: true,
 };
-
-export const DUMMY_PROGRAMS: EnrolledProgram[] = [
-  {
-    id: 'dummy-program-1',
-    name: 'Livelihood Grant Phase 2',
-    approvalStatus: 'Approved',
-    voucherBalance: '₱10,000',
-    purpose: 'Livelihood Assistance',
-    expiresAt: 'July 23, 2026',
-    progressPercent: 65,
-    nextDisbursementDate: 'July 23, 2026',
-  },
-];
-
-export const DUMMY_VOUCHERS: Voucher[] = [
-  {
-    id: 'dummy-voucher-1',
-    category: 'Cash',
-    amount: '₱10,000',
-    program: 'Livelihood Grant Phase 2',
-    purpose: 'Livelihood Assistance',
-    expiresAt: 'July 23, 2026',
-    status: 'Available',
-    stellarAssetCode: 'CASH',
-  },
-];
 
 export const DUMMY_TRANSACTIONS: RedemptionRecord[] = [
   {
@@ -73,17 +47,3 @@ export const DUMMY_TRANSACTIONS: RedemptionRecord[] = [
   },
 ];
 
-export type DummyOrganization = {
-  id: string;
-  name: string;
-  category: string;
-  location: string;
-  distanceKm: number;
-};
-
-export const DUMMY_ORGANIZATIONS: DummyOrganization[] = [
-  { id: 'org-1', name: 'City Social Welfare Office', category: 'Government', location: 'Cebu City', distanceKm: 1.2 },
-  { id: 'org-2', name: 'Red Cross Cebu Chapter', category: 'NGO', location: 'Cebu City', distanceKm: 2.8 },
-  { id: 'org-3', name: 'Barangay Relief Center', category: 'Local Government', location: 'Mandaue City', distanceKm: 4.5 },
-  { id: 'org-4', name: 'Caritas Philippines', category: 'NGO', location: 'Lapu-Lapu City', distanceKm: 6.1 },
-];

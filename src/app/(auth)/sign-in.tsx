@@ -14,6 +14,12 @@ const registrationPrompts: Record<UserRole, string> = {
   lgu: 'New Organization?', beneficiary: 'New Beneficiary?', merchant: 'New Merchant?',
 };
 
+// Mirrors the labels shown on the Choose Account screen (AccountChooserContent),
+// used to phrase the wrong-account-type error in the same terms the user picked.
+const accountTypeLabels: Record<UserRole, string> = {
+  lgu: 'Organization', beneficiary: 'Beneficiary', merchant: 'Merchant',
+};
+
 const SignInScreen = () => {
   const params = useLocalSearchParams<{ email?: string; role?: string }>();
   const [identifier, setIdentifier] = useState(params.email ?? '');
@@ -41,12 +47,41 @@ const SignInScreen = () => {
     }
 
     setIsLoading(true);
-    const credentials = method === 'email'
-      ? { email: identifier.trim(), password: accessKey }
-      : { phone: identifier.trim(), password: accessKey };
-    const { error } = await supabase.auth.signInWithPassword(credentials);
-    setIsLoading(false);
-    if (error) Alert.alert('Identity Verification Failed', error.message);
+    try {
+      const credentials = method === 'email'
+        ? { email: identifier.trim(), password: accessKey }
+        : { phone: identifier.trim(), password: accessKey };
+      const { data, error } = await supabase.auth.signInWithPassword(credentials);
+      if (error) {
+        Alert.alert('Identity Verification Failed', error.message);
+        return;
+      }
+
+      // If the user picked a specific account type on the Choose Account screen,
+      // confirm the signed-in account actually has that role before letting the
+      // root layout's role-based redirect take over.
+      if (role && data.user) {
+        const { data: profileRow, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (profileError || !profileRow || profileRow.role !== role) {
+          await supabase.auth.signOut();
+          Alert.alert(
+            'Wrong Account Type',
+            `This account is not registered as a ${accountTypeLabels[role]}. Choose the correct account type and try again.`
+          );
+          return;
+        }
+      }
+    } catch (unexpectedError) {
+      console.error('Unexpected sign-in error:', unexpectedError);
+      Alert.alert('Something Went Wrong', 'We could not complete sign-in. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = async () => {

@@ -21,6 +21,9 @@ export type UserProfile = {
   complete_address?: string | null;
   municipality_city?: string | null;
   verification_status?: 'Pending' | 'Verified' | 'Rejected' | null;
+  city_id?: number | null;
+  area_id?: number | null;
+  barangay_id?: number | null;
 };
 
 export type AuthContextValue = {
@@ -29,6 +32,7 @@ export type AuthContextValue = {
   isLoading: boolean;
   profileError: Error | null;
   signOut: () => Promise<AuthError | null>;
+  refreshProfile: () => Promise<void>;
 };
 
 export const PASSWORD_RECOVERY_OTP_LENGTH = 8;

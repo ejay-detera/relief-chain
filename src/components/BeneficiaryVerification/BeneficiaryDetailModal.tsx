@@ -1,12 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing, BorderRadius } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import {
+    BeneficiaryApplication,
+    fetchBeneficiaryApplications,
+    updateEnrollmentStatus,
+} from '@/services/enrollmentService';
 import type { UserProfile } from '@/types/auth';
 
 type Props = {
@@ -19,6 +24,38 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loadingUrl, setLoadingUrl] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [applications, setApplications] = useState<BeneficiaryApplication[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
+
+  const loadApplications = async (beneficiaryId: string) => {
+    setLoadingApplications(true);
+    try {
+      const data = await fetchBeneficiaryApplications(beneficiaryId);
+      setApplications(data);
+    } catch (err) {
+      console.error('Error fetching beneficiary applications:', err);
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!beneficiary) return;
+    void loadApplications(beneficiary.id);
+  }, [beneficiary]);
+
+  const handleApplicationDecision = async (enrollmentId: string, status: 'Approved' | 'Rejected') => {
+    setUpdatingApplicationId(enrollmentId);
+    try {
+      await updateEnrollmentStatus(enrollmentId, status);
+      if (beneficiary) await loadApplications(beneficiary.id);
+    } catch (err) {
+      console.error('Error updating application status:', err);
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -109,6 +146,66 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
                     {beneficiary.verification_status || 'Pending'}
                   </ThemedText>
                 </ThemedText>
+              </View>
+            </View>
+
+            {/* Program Applications (Enrollments submitted by this Beneficiary) */}
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Program Applications</ThemedText>
+              <View style={styles.infoCard}>
+                {loadingApplications ? (
+                  <ActivityIndicator color={BrandColors.navy} size="small" />
+                ) : applications.length === 0 ? (
+                  <ThemedText style={styles.noFileText}>No program applications yet.</ThemedText>
+                ) : (
+                  applications.map((application) => {
+                    const isUpdating = updatingApplicationId === application.enrollmentId;
+                    const statusColor =
+                      application.approvalStatus === 'Approved'
+                        ? BrandColors.green
+                        : application.approvalStatus === 'Rejected'
+                          ? '#D32F2F'
+                          : BrandColors.yellow;
+
+                    return (
+                      <View key={application.enrollmentId} style={styles.applicationRow}>
+                        <View style={styles.applicationHeaderRow}>
+                          <ThemedText style={styles.applicationProgramName}>{application.programName}</ThemedText>
+                          <ThemedText style={[styles.applicationStatus, { color: statusColor }]}>
+                            {application.approvalStatus}
+                          </ThemedText>
+                        </View>
+                        {application.approvalStatus === 'Approved' && (
+                          <ThemedText style={styles.applicationVoucher}>
+                            Voucher: ₱{application.voucherBalance.toLocaleString()}
+                          </ThemedText>
+                        )}
+                        {application.approvalStatus === 'Pending' && (
+                          <View style={styles.applicationActionsRow}>
+                            <Pressable
+                              disabled={isUpdating}
+                              onPress={() => handleApplicationDecision(application.enrollmentId, 'Rejected')}
+                              style={[styles.applicationActionButton, styles.applicationRejectButton]}
+                            >
+                              <ThemedText style={styles.applicationRejectText}>Reject</ThemedText>
+                            </Pressable>
+                            <Pressable
+                              disabled={isUpdating}
+                              onPress={() => handleApplicationDecision(application.enrollmentId, 'Approved')}
+                              style={[styles.applicationActionButton, styles.applicationApproveButton]}
+                            >
+                              {isUpdating ? (
+                                <ActivityIndicator color="white" size="small" />
+                              ) : (
+                                <ThemedText style={styles.applicationApproveText}>Approve</ThemedText>
+                              )}
+                            </Pressable>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
               </View>
             </View>
 
@@ -391,6 +488,63 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: BrandColors.grey,
     fontStyle: 'italic',
+  },
+  applicationRow: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+    paddingVertical: Spacing.two,
+  },
+  applicationHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  applicationProgramName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: BrandColors.navy,
+    flex: 1,
+    marginRight: Spacing.two,
+  },
+  applicationStatus: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  applicationVoucher: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: BrandColors.green,
+    marginTop: 2,
+  },
+  applicationActionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  applicationActionButton: {
+    flex: 1,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  applicationRejectButton: {
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+  },
+  applicationRejectText: {
+    color: '#D32F2F',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  applicationApproveButton: {
+    backgroundColor: '#0E8B2C',
+  },
+  applicationApproveText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   footer: {
     backgroundColor: 'white',

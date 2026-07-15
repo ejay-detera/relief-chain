@@ -22,6 +22,7 @@ export type EnrolledProgram = {
   voucherBalance: string;     // "₱5,000"
   purpose: string;
   expiresAt: string;
+  createdAt: string;           // ISO timestamp; used to determine the most recent Approved enrollment
   progressPercent: number;    // 0-100, placeholder until backend tracks disbursement progress
   nextDisbursementDate: string; // e.g. "July 23, 2026", placeholder until backend tracks schedule
 };

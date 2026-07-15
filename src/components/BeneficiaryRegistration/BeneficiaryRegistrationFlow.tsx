@@ -106,6 +106,7 @@ export const BeneficiaryRegistrationFlow = () => {
           middle_initial: data.middleInitial.trim() || null, mobile_number: data.mobileNumber,
           sex: data.sex, civil_status: data.civilStatus, complete_address: data.completeAddress.trim(),
           municipality_city: data.municipalityCity.trim(), gov_id_url: govIdUrl,
+          city_id: data.cityId, area_id: data.districtId, barangay_id: data.barangayId,
         } },
       });
       if (error) {

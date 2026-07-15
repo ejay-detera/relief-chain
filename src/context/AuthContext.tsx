@@ -9,10 +9,14 @@ const AuthContext = createContext<AuthContextValue>({
   isLoading: true,
   profileError: null,
   signOut: async () => null,
+  refreshProfile: async () => undefined,
 });
 
 const nullableString = (value: unknown): string | null =>
   typeof value === 'string' ? value : null;
+
+const nullableNumber = (value: unknown): number | null =>
+  typeof value === 'number' ? value : null;
 
 const toUserProfile = (value: unknown): UserProfile | null => {
   if (!value || typeof value !== 'object') return null;
@@ -39,6 +43,9 @@ const toUserProfile = (value: unknown): UserProfile | null => {
     complete_address: nullableString(row.complete_address),
     municipality_city: nullableString(row.municipality_city),
     verification_status: nullableString(row.verification_status) as UserProfile['verification_status'],
+    city_id: nullableNumber(row.city_id),
+    area_id: nullableNumber(row.area_id),
+    barangay_id: nullableNumber(row.barangay_id),
   };
 };
 
@@ -56,6 +63,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [profileError, setProfileError] = useState<Error | null>(null);
   const authRevision = useRef(0);
   const profileRequest = useRef(0);
+  const sessionRef = useRef<Session | null>(null);
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, role, full_name, gov_id, location, stellar_pubkey, created_at, first_name, last_name, middle_initial, mobile_number, sex, civil_status, birthdate, gov_id_url, complete_address, municipality_city, verification_status, city_id, area_id, barangay_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const nextProfile = toUserProfile(data);
+    if (!nextProfile) throw new Error('No valid profile found for the authenticated user.');
+    return nextProfile;
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -64,6 +86,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const request = ++profileRequest.current;
       if (!isActive) return;
 
+      sessionRef.current = nextSession;
       setSession(nextSession);
       setProfile(null);
       setProfileError(null);
@@ -75,16 +98,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, role, full_name, gov_id, location, stellar_pubkey, created_at, first_name, last_name, middle_initial, mobile_number, sex, civil_status, birthdate, gov_id_url, complete_address, municipality_city, verification_status')
-          .eq('id', nextSession.user.id)
-          .maybeSingle();
-
-        if (error) throw error;
-
-        const nextProfile = toUserProfile(data);
-        if (!nextProfile) throw new Error('No valid profile found for the authenticated user.');
+        const nextProfile = await fetchProfile(nextSession.user.id);
         if (!isActive || request !== profileRequest.current) return;
 
         setProfile(nextProfile);
@@ -133,15 +147,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       profileRequest.current += 1;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     return error;
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    if (!currentSession?.user) return;
+
+    try {
+      const nextProfile = await fetchProfile(currentSession.user.id);
+      setProfile(nextProfile);
+      setProfileError(null);
+    } catch (error: unknown) {
+      console.error('Error refreshing profile:', error);
+      setProfileError(toProfileError(error));
+    }
+  }, [fetchProfile]);
+
   return (
-    <AuthContext.Provider value={{ session, profile, isLoading, profileError, signOut }}>
+    <AuthContext.Provider value={{ session, profile, isLoading, profileError, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
