@@ -14,26 +14,28 @@ import { ThemedText } from '@/components/themed-text';
 import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useMerchantMetrics } from '@/hooks/use-merchant-metrics';
-import type { MerchantPayment, MerchantProgram } from '@/types/merchant-dashboard';
+import { useMerchantPrograms } from '@/hooks/use-merchant-programs';
+import type { MerchantPayment } from '@/types/merchant-dashboard';
 
 const MerchantDashboardScreen = () => {
   const { profile } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isLoading, metrics } = useMerchantMetrics();
+  const { isLoading: isMetricsLoading, metrics } = useMerchantMetrics();
+  const { error: programsError, isLoading: areProgramsLoading, programs, refresh } = useMerchantPrograms();
   const [payments] = useState<MerchantPayment[]>([{ id: 'payment-1', payerName: 'Puregold Supermarket', occurredAt: 'Today, 10:45 AM', amount: 1500 }, { id: 'payment-2', payerName: 'Elena Rodriguez', occurredAt: 'Oct 24, 09:12 AM', amount: 10000 }]);
-  const [programs] = useState<MerchantProgram[]>([{ id: 'dswd-ayuda', name: 'DSWD Ayuda', completion: 65, description: 'Emergency cash assistance for eligible households.', merchantId: '123-009-3', status: 'Active' }, { id: 'lgu-relief', name: 'LGU Relief', completion: 65, description: 'Community relief vouchers from your local government.', merchantId: '123-009-3', status: 'Active' }]);
+  const activePrograms = programs.filter((program) => program.status === 'active');
   const showComingSoon = (feature: string) => Alert.alert(feature, 'This feature will be available soon.');
 
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <MerchantDashboardHeader onNotificationsPress={() => showComingSoon('Notifications')} />
     <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }]} showsVerticalScrollIndicator={false}>
-      <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Aling Nena’s Sari-Sari Store'}</ThemedText>
+      <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Merchant Account'}</ThemedText>
       <WalletBalanceCard onSettlementsPress={() => showComingSoon('Settlements')} onWithdrawPress={() => showComingSoon('Withdraw')} />
       <ReceivePaymentCard onPress={() => router.push('/(merchant)/receive')} />
-      <SalesSummaryCard isLoading={isLoading} metrics={metrics} />
+      <SalesSummaryCard isLoading={isMetricsLoading} metrics={metrics} />
       <RecentPayments onViewAll={() => showComingSoon('Payment History')} payments={payments} />
-      <ActiveProgramsCard onBrowsePress={() => router.push('/(merchant)/programs')} programs={programs} />
+      <ActiveProgramsCard error={programsError} isLoading={areProgramsLoading} onBrowsePress={() => router.push('/(merchant)/programs')} onRetry={() => void refresh()} programs={activePrograms} />
     </ScrollView>
     <MerchantBottomNavigation active="dashboard" />
   </View></SafeAreaView>;
