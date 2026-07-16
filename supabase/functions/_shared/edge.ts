@@ -153,6 +153,7 @@ export const parseJsonBody = async <T>(request: Request): Promise<T> => {
 
 /** The authenticated collaborators handed to an Edge handler. */
 export interface EdgeRequestScope {
+  readonly request: Request;
   readonly context: EdgeContext;
   readonly client: TypedSupabaseClient;
   readonly session: EdgeSession;
@@ -178,7 +179,7 @@ export const handleEdgeRequest = async (
     const { client, session } = await authenticateRequest(request, context.runtime, {
       correlationId,
     });
-    return await handler({ context, client, session, correlationId });
+    return await handler({ request, context, client, session, correlationId });
   } catch (error) {
     safeLog('edge request failed', { correlationId, error });
     return errorResponse(toFinancialError(error, correlationId));
