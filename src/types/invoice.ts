@@ -3,7 +3,7 @@ import type { FinancialError } from '@/types/errors';
 
 // Re-export the canonical wire transport type so invoice consumers can depend on
 // the domain type barrel (`@/types/invoice`) rather than the shared codec path.
-export type { InvoiceTransport } from '../../shared/invoice-codec';
+export type { InvoiceTransport } from '../../shared/invoice-codec.ts';
 
 export type InvoiceKind = 'cash' | 'voucher';
 export type InvoiceLifecycleStatus =

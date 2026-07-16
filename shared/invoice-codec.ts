@@ -32,8 +32,8 @@ import type {
     PilotAssetCode,
     StellarNetwork,
     StroopAmount,
-} from '../src/types/blockchain';
-import type { InvoiceKind, InvoiceV1 } from '../src/types/invoice';
+} from '../src/types/blockchain.ts';
+import type { InvoiceKind, InvoiceV1 } from '../src/types/invoice.ts';
 
 // ---------------------------------------------------------------------------
 // Protocol constants (frozen wire format).
@@ -238,7 +238,7 @@ export const canonicalInvoiceBytes = (invoice: UnsignedInvoiceV1): Uint8Array =>
 
 /** The SHA-256 digest (lowercase hex) of the canonical unsigned bytes. */
 export const computeInvoiceId = (invoice: UnsignedInvoiceV1): string =>
-  toHex(new Uint8Array(hash(canonicalInvoiceBytes(invoice))));
+  toHex(new Uint8Array(hash(canonicalInvoiceBytes(invoice) as any)));
 
 // ---------------------------------------------------------------------------
 // Field validation (fail-closed).
@@ -411,7 +411,7 @@ export const signInvoice = (
   if (keypair.publicKey() !== unsigned.invoiceSigner) {
     throw new InvoiceCodecError('invalid_field', 'invoiceSigner does not match the signing secret key.');
   }
-  const signature = new Uint8Array(keypair.sign(canonicalInvoiceBytes(unsigned)));
+  const signature = new Uint8Array(keypair.sign(canonicalInvoiceBytes(unsigned) as any));
   const merchantSignature = toBase64(signature);
   return parseInvoiceObject({ ...unsigned, asset: { ...unsigned.asset }, merchantSignature });
 };
@@ -438,7 +438,7 @@ export const verifyInvoiceSignature = (invoice: InvoiceV1): boolean => {
     return false;
   }
   const { merchantSignature: _signature, ...unsigned } = invoice;
-  return keypair.verify(canonicalInvoiceBytes(unsigned), signatureBytes);
+  return keypair.verify(canonicalInvoiceBytes(unsigned) as any, signatureBytes as any);
 };
 
 /** Throws {@link InvoiceCodecError} unless the signature verifies. */

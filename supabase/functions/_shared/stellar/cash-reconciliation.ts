@@ -906,3 +906,163 @@ export {
     summarizeRecipientStatuses
 } from './distribution.ts';
 
+// ---------------------------------------------------------------------------
+// Merchant Payment projector and builders.
+// ---------------------------------------------------------------------------
+
+export interface MerchantPaymentStore {
+  confirmPayment(params: {
+    paymentIntentId: string;
+    transactionHash: string;
+    confirmedLedger: number;
+    ledgerTransactionId: string;
+    correlationId: string;
+  }): Promise<void>;
+  insertSettlement(params: {
+    organizationId: string;
+    paymentIntentId: string;
+    merchantId: string;
+    settlementWalletId: string;
+    amountStroops: number;
+    transactionHash: string;
+    confirmedLedger: number;
+    ledgerTransactionId: string;
+    correlationId: string;
+  }): Promise<void>;
+}
+
+export interface MerchantCashBalanceInput {
+  readonly organizationId: string;
+  readonly programId?: string | null;
+  readonly merchantId: string;
+  readonly assetCode: string;
+  readonly assetIssuer: string;
+  readonly settledBalanceStroops: number;
+  readonly grossSettledStroops: number;
+  readonly refundedStroops: number;
+  readonly pendingCashoutStroops: number;
+  readonly completedCashoutStroops: number;
+  readonly confirmedSettlementCount: number;
+  readonly reconciliationRunId: string;
+  readonly asOfLedger: number;
+  readonly reconciledAt: string;
+  readonly network: WalletNetwork;
+  readonly runStatus: 'completed' | 'partial';
+  readonly projectionVersion: number;
+  readonly staleWindowSeconds?: number;
+}
+
+export const buildMerchantCashBalanceRow = (
+  input: MerchantCashBalanceInput,
+): Database['public']['Tables']['merchant_balance_projection']['Insert'] => {
+  const isStale = input.runStatus === 'partial';
+  return {
+    organization_id: input.organizationId,
+    program_id: input.programId ?? null,
+    merchant_id: input.merchantId,
+    network: input.network,
+    asset_code: input.assetCode,
+    asset_issuer: input.assetIssuer,
+    settled_balance_stroops: input.settledBalanceStroops,
+    gross_settled_stroops: input.grossSettledStroops,
+    refunded_stroops: input.refundedStroops,
+    pending_cashout_stroops: input.pendingCashoutStroops,
+    completed_cashout_stroops: input.completedCashoutStroops,
+    confirmed_settlement_count: input.confirmedSettlementCount,
+    latest_transaction_hash: null,
+    latest_ledger_transaction_id: null,
+    latest_contract_event_id: null,
+    reconciliation_run_id: input.reconciliationRunId,
+    as_of_ledger: input.asOfLedger,
+    reconciled_at: input.reconciledAt,
+    stale_after: staleAfterIso(input.reconciledAt, input.staleWindowSeconds),
+    is_stale: isStale,
+    stale_since: isStale ? input.reconciledAt : null,
+    is_quarantined: false,
+    quarantine_issue_id: null,
+    projection_version: input.projectionVersion,
+  };
+};
+
+const merchantMismatchResult = (
+  paymentIntentId: string,
+  intent: FinancialIntentRecord,
+  observed: ObservedLedgerTransaction,
+  detail: string,
+): ProjectionResult => ({
+  kind: 'mismatch',
+  mismatch: {
+    issueType: 'projection_mismatch',
+    severity: 'critical',
+    subjectType: 'payment_intent',
+    subjectIdentifier: paymentIntentId,
+    projectionTable: 'merchant_balance_projection',
+    programId: intent.program_id,
+    projectionKey: { payment_intent_id: paymentIntentId },
+    expectedState: { detail, intent_amount_stroops: intent.amount_stroops },
+    observedState: { transaction_hash: observed.transactionHash, successful: observed.successful },
+  },
+});
+
+export const createMerchantSettlementProjector = (deps: {
+  payments: MerchantPaymentStore;
+  serviceClient: any;
+}): ReconciliationProjector => ({
+  async project(input: ProjectionInput): Promise<ProjectionResult> {
+    const { intent, ledger, run } = input;
+    if (intent === null || intent.operation_type !== 'cash_payment') {
+      return { kind: 'unchanged' };
+    }
+
+    const { data: paymentIntent, error: paymentIntentError } = await deps.serviceClient
+      .from('payment_intents')
+      .select('*')
+      .eq('financial_intent_id', intent.id)
+      .maybeSingle();
+
+    if (paymentIntentError || !paymentIntent) {
+      return merchantMismatchResult(intent.id, intent, ledger, 'payment_intent_row_missing');
+    }
+
+    if (paymentIntent.status === 'confirmed') {
+      if (paymentIntent.transaction_hash === ledger.transactionHash) {
+        return { kind: 'unchanged' };
+      }
+      return merchantMismatchResult(paymentIntent.id, intent, ledger, 'confirmed_hash_conflict');
+    }
+
+    if (paymentIntent.status !== 'submitted') {
+      return merchantMismatchResult(paymentIntent.id, intent, ledger, `payment_intent_not_submittable:${paymentIntent.status}`);
+    }
+
+    await deps.payments.confirmPayment({
+      paymentIntentId: paymentIntent.id,
+      transactionHash: ledger.transactionHash,
+      confirmedLedger: ledger.ledgerSequence,
+      ledgerTransactionId: input.ledgerTransactionId,
+      correlationId: run.correlationId,
+    });
+
+    await deps.payments.insertSettlement({
+      organizationId: intent.organization_id,
+      paymentIntentId: paymentIntent.id,
+      merchantId: paymentIntent.merchant_id,
+      settlementWalletId: paymentIntent.settlement_wallet_id,
+      amountStroops: Number(intent.amount_stroops),
+      transactionHash: ledger.transactionHash,
+      confirmedLedger: ledger.ledgerSequence,
+      ledgerTransactionId: input.ledgerTransactionId,
+      correlationId: run.correlationId,
+    });
+
+    safeLog('merchant payment confirmed by reconciliation', {
+      correlationId: run.correlationId,
+      paymentIntentId: paymentIntent.id,
+      transactionHash: ledger.transactionHash,
+    });
+
+    return { kind: 'unchanged' };
+  }
+});
+
+

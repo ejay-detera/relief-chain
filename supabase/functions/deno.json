@@ -1,6 +1,8 @@
 {
   "imports": {
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2.110.2",
-    "@stellar/stellar-sdk": "npm:@stellar/stellar-sdk@16.0.1"
+    "@stellar/stellar-sdk": "npm:@stellar/stellar-sdk@16.0.1",
+    "@/types/blockchain": "../../src/types/blockchain.ts",
+    "@/types/errors": "../../src/types/errors.ts"
   }
 }

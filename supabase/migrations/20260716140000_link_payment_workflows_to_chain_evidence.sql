@@ -286,19 +286,21 @@ begin
       using errcode = '23514';
   end if;
 
-  if tg_table_name = 'refunds' and not exists (
-    select 1
-    from public.financial_intents intent
-    where intent.id = evidence.financial_intent_id
-      and intent.operation_type = 'refund'
-      and intent.organization_id = new.organization_id
-      and intent.program_id is not distinct from new.program_id
-      and intent.beneficiary_identity_id = new.beneficiary_identity_id
-      and intent.amount_stroops = new.amount_stroops
-      and intent.correlation_id = new.correlation_id
-  ) then
-    raise exception 'confirmed refund requires matching immutable financial intent evidence'
-      using errcode = '23514';
+  if tg_table_name = 'refunds' then
+    if not exists (
+      select 1
+      from public.financial_intents intent
+      where intent.id = evidence.financial_intent_id
+        and intent.operation_type = 'refund'
+        and intent.organization_id = new.organization_id
+        and intent.program_id is not distinct from new.program_id
+        and intent.beneficiary_identity_id = new.beneficiary_identity_id
+        and intent.amount_stroops = new.amount_stroops
+        and intent.correlation_id = new.correlation_id
+    ) then
+      raise exception 'confirmed refund requires matching immutable financial intent evidence'
+        using errcode = '23514';
+    end if;
   end if;
 
   if requires_contract_event then
