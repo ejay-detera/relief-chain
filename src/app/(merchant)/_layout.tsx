@@ -6,6 +6,7 @@ const MerchantLayout = () => (
     <Stack.Screen name="receive" />
     <Stack.Screen name="profile" />
     <Stack.Screen name="programs" />
+    <Stack.Screen name="security" />
   </Stack>
 );
 

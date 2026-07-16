@@ -12,9 +12,11 @@ import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/
 import { useAuth } from '@/context/AuthContext';
 import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const { state: walletState, isLoading: isWalletLoading } = usePilotWallet();
   const { profile, session } = useAuth();
   const [isQrVisible, setIsQrVisible] = useState(false);
@@ -48,6 +50,17 @@ export default function ProfileScreen() {
               <ThemedText style={styles.qrButtonText}>Show my QR</ThemedText>
             </Pressable>
           </View>
+
+          <Pressable onPress={() => router.push('/(beneficiary)/wallet-recovery' as any)} style={styles.recoveryRow}>
+            <View style={styles.recoveryRowLeft}>
+              <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+              <View>
+                <ThemedText style={styles.recoveryTitle}>Wallet & recovery</ThemedText>
+                <ThemedText style={styles.recoverySubtitle}>Payment approval and recovery options</ThemedText>
+              </View>
+            </View>
+            <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+          </Pressable>
 
           <LogoutButton />
         </ScrollView>
@@ -91,5 +104,31 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  recoveryRow: {
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: BorderRadius.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.four,
+    padding: Spacing.four,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+  },
+  recoveryRowLeft: {
+    alignItems: 'center',
+    columnGap: 12,
+    flexDirection: 'row',
+  },
+  recoveryTitle: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 14,
+  },
+  recoverySubtitle: {
+    color: BrandColors.grey,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    fontSize: 12,
+    marginTop: 2,
   },
 });

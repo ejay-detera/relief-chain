@@ -51,10 +51,11 @@ export const getAssuranceSnapshot = async (): Promise<MfaOperationResult<Assuran
     value: {
       currentLevel: normalizeLevel(data.currentLevel),
       nextLevel: normalizeLevel(data.nextLevel),
-      authMethods: (data.currentAuthenticationMethods ?? []).map((entry) => ({
-        method: entry.method,
-        timestamp: entry.timestamp,
-      })),
+      authMethods: (data.currentAuthenticationMethods ?? []).map((entry) =>
+        typeof entry === 'string'
+          ? { method: entry, timestamp: 0 }
+          : { method: entry.method, timestamp: entry.timestamp },
+      ),
     },
   };
 };

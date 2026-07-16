@@ -32,6 +32,19 @@ const SettingsScreen = () => {
               </View>
               <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
             </Pressable>
+
+            <Pressable onPress={() => router.push('/(lgu)/security' as any)} style={[styles.menuRow, styles.menuRowSpacing]}>
+              <View style={styles.menuRowLeft}>
+                <View style={styles.menuIconCircle}>
+                  <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+                </View>
+                <View>
+                  <ThemedText style={styles.menuRowTitle}>Security & MFA</ThemedText>
+                  <ThemedText style={styles.menuRowSubtitle}>Authenticator and step-up for financial actions</ThemedText>
+                </View>
+              </View>
+              <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+            </Pressable>
           </View>
 
           <LogoutButton />
@@ -56,6 +69,9 @@ const styles = StyleSheet.create({
     backgroundColor: BrandColors.lightGray,
     borderRadius: BorderRadius.lg,
     padding: Spacing.three,
+  },
+  menuRowSpacing: {
+    marginTop: Spacing.three,
   },
   menuRowLeft: {
     flexDirection: 'row',

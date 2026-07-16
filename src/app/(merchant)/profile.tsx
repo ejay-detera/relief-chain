@@ -1,9 +1,12 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MerchantBottomNavigation } from '@/components/MerchantDashboard/MerchantBottomNavigation';
 import { MerchantProfileContent } from '@/components/MerchantProfile/MerchantProfileContent';
-import { FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 
 const metadataString = (metadata: unknown, key: string): string | null => {
@@ -17,6 +20,7 @@ const createHandle = (name: string) => {
 };
 
 const MerchantProfileScreen = () => {
+  const router = useRouter();
   const { profile, session } = useAuth();
   const insets = useSafeAreaInsets();
   const metadata: unknown = session?.user.user_metadata;
@@ -28,9 +32,35 @@ const MerchantProfileScreen = () => {
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }} showsVerticalScrollIndicator={false}>
       <MerchantProfileContent fullName={fullName} handle={createHandle(fullName)} merchantId={merchantId} mobileNumber={mobileNumber} walletAddress={walletAddress} />
+      <Pressable onPress={() => router.push('/(merchant)/security' as any)} style={styles.securityRow}>
+        <View style={styles.securityRowLeft}>
+          <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+          <View>
+            <ThemedText style={styles.securityTitle}>Security & MFA</ThemedText>
+            <ThemedText style={styles.securitySubtitle}>Authenticator and step-up for financial actions</ThemedText>
+          </View>
+        </View>
+        <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+      </Pressable>
     </ScrollView>
     <MerchantBottomNavigation active="profile" />
   </View></SafeAreaView>;
 };
 export default MerchantProfileScreen;
-const styles = StyleSheet.create({ safeArea: { backgroundColor: '#FFFFFF', flex: 1 }, screen: { flex: 1 } });
+const styles = StyleSheet.create({
+  safeArea: { backgroundColor: '#FFFFFF', flex: 1 },
+  screen: { flex: 1 },
+  securityRow: {
+    alignItems: 'center',
+    backgroundColor: BrandColors.lightGray,
+    borderRadius: BorderRadius.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: Spacing.four,
+    marginTop: Spacing.two,
+    padding: Spacing.three,
+  },
+  securityRowLeft: { alignItems: 'center', columnGap: 12, flexDirection: 'row' },
+  securityTitle: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 14 },
+  securitySubtitle: { color: BrandColors.grey, fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, marginTop: 2 },
+});
