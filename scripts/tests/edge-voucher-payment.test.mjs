@@ -104,8 +104,12 @@ const merchant = sdk.Keypair.random();
 const issuerKeypair = sdk.Keypair.random();
 const ISSUER = issuerKeypair.publicKey();
 
-const CONTRACT_ID = 'C' + 'A'.repeat(55);
-const SAC = 'C' + 'B'.repeat(55);
+// Valid contract strkeys (a bare 'C' + repeated base32 char does NOT decode to
+// a real contract address; stellar-sdk's Address.fromString rejects it). These
+// deterministic all-constant contract ids keep the fixtures stable while
+// remaining parseable by the real XDR/auth-entry code paths.
+const CONTRACT_ID = sdk.StrKey.encodeContract(Buffer.alloc(32, 0x0a));
+const SAC = sdk.StrKey.encodeContract(Buffer.alloc(32, 0x0b));
 const PROGRAM_REF = 'a'.repeat(64);
 const ENTITLEMENT_ID = 'b'.repeat(64);
 const MERCHANT_ID = 'c'.repeat(64);

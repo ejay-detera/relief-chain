@@ -24,10 +24,12 @@
 // transpiled in-memory and imported as data: URLs, @supabase/supabase-js is
 // stubbed, and @stellar/stellar-sdk resolves to the real package.
 
+import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
