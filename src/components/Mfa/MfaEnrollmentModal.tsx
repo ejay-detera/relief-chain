@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -34,12 +34,14 @@ export const MfaEnrollmentModal = ({
 }: Props) => {
   const [code, setCode] = useState('');
 
-  useEffect(() => {
-    if (!visible) setCode('');
-  }, [visible]);
-
   return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      onShow={() => setCode('')}
+      transparent
+      visible={visible}
+    >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <ThemedText style={styles.title}>Set up authenticator app</ThemedText>

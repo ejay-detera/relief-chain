@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -36,12 +36,14 @@ export const StepUpModal = ({
 }: Props) => {
   const [code, setCode] = useState('');
 
-  useEffect(() => {
-    if (!visible) setCode('');
-  }, [visible]);
-
   return (
-    <Modal animationType="fade" onRequestClose={onCancel} transparent visible={visible}>
+    <Modal
+      animationType="fade"
+      onRequestClose={onCancel}
+      onShow={() => setCode('')}
+      transparent
+      visible={visible}
+    >
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <ThemedText style={styles.title}>Confirm it’s you</ThemedText>
