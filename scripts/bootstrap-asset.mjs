@@ -5,11 +5,14 @@ import {
     assertAccountSeparation,
     assertTestnetEnvironment,
     BootstrapConfigurationError,
+    DEFAULT_HORIZON_URL,
     defaultDerivePublicKey,
     planTopology,
     RCPHP_DISCLOSURE,
     redactDiagnostic,
+    ROLE_DEFINITIONS,
     STELLAR_PUBLIC_KEY,
+    STELLAR_SECRET_SEED,
     STELLAR_TESTNET_NETWORK,
     STELLAR_TESTNET_NETWORK_PASSPHRASE
 } from './bootstrap-topology.mjs';
@@ -431,6 +434,149 @@ export async function defaultProvisionOnChain() {
   );
 }
 
+// --- Live on-chain provisioner (real testnet submission) -------------------
+//
+// Submits the planned issuer flags, sponsored holder trustlines, issuer
+// trustline authorizations, and RCPHP issuance to Stellar testnet using the
+// secret seeds already loaded into the environment by the topology bootstrap.
+// Every step is check-then-act so a re-run resumes safely without duplicating
+// state. Secret seeds are read only from the injected environment and are never
+// logged; submission failures are surfaced with redacted Horizon result codes.
+
+function requireRoleSecret(environment, role) {
+  const definition = ROLE_DEFINITIONS.find((entry) => entry.role === role);
+  const secret = definition ? optionalValue(environment[definition.envVar]) : undefined;
+  if (!secret || !STELLAR_SECRET_SEED.test(secret)) {
+    throw new BootstrapConfigurationError(
+      `A valid secret seed for role ${role} is required for live provisioning; run the topology bootstrap first.`,
+    );
+  }
+  return secret;
+}
+
+function findRcphpBalanceLine(account, issuer) {
+  return (
+    account.balances.find(
+      (line) => line.asset_code === RCPHP_ASSET_CODE && line.asset_issuer === issuer,
+    ) ?? null
+  );
+}
+
+export async function liveProvisionOnChain({ plan, environment = process.env } = {}) {
+  const { Horizon, Keypair, TransactionBuilder, Operation, Asset, BASE_FEE, AuthRequiredFlag } = await import(
+    '@stellar/stellar-sdk'
+  );
+  const networkPassphrase = STELLAR_TESTNET_NETWORK_PASSPHRASE;
+  const horizonUrl = optionalValue(environment.STELLAR_HORIZON_URL) ?? DEFAULT_HORIZON_URL;
+  const server = new Horizon.Server(horizonUrl);
+  const fee = String(BASE_FEE * 100);
+
+  const issuerPublicKey = plan.asset.issuer;
+  const asset = new Asset(RCPHP_ASSET_CODE, issuerPublicKey);
+  const issuerKeypair = Keypair.fromSecret(requireRoleSecret(environment, 'issuer'));
+  const sponsorKeypair = Keypair.fromSecret(requireRoleSecret(environment, 'sponsor'));
+
+  const steps = [];
+  const record = (step, status) => steps.push({ step, status });
+
+  const submit = async (sourceKeypair, addOperations, signers) => {
+    const account = await server.loadAccount(sourceKeypair.publicKey());
+    const builder = new TransactionBuilder(account, { fee, networkPassphrase });
+    addOperations(builder);
+    const transaction = builder.setTimeout(180).build();
+    for (const signer of signers) transaction.sign(signer);
+    return server.submitTransaction(transaction);
+  };
+
+  const explain = (error) => {
+    const resultCodes = error?.response?.data?.extras?.result_codes;
+    const detail = resultCodes ? JSON.stringify(resultCodes) : error?.message ?? String(error);
+    return redactDiagnostic(detail, environment);
+  };
+
+  const runStep = async (stepName, action) => {
+    try {
+      await action();
+      record(stepName, 'ok');
+      return true;
+    } catch (error) {
+      console.error(`[bootstrap-asset] ${stepName} failed: ${explain(error)}`);
+      record(stepName, 'failed');
+      return false;
+    }
+  };
+
+  // 1. Issuer sets AUTH_REQUIRED so only provisioned accounts can hold RCPHP.
+  const flagsOk = await runStep('set_issuer_flags', async () => {
+    const issuerAccount = await server.loadAccount(issuerPublicKey);
+    if (issuerAccount.flags?.auth_required) return;
+    await submit(issuerKeypair, (builder) => builder.addOperation(Operation.setOptions({ setFlags: AuthRequiredFlag })), [
+      issuerKeypair,
+    ]);
+  });
+  if (!flagsOk) return steps;
+
+  // 2. Create each aid-holding trustline, sponsored by the fee/reserve sponsor.
+  for (const trustline of plan.trustlines) {
+    const holderKeypair = Keypair.fromSecret(requireRoleSecret(environment, trustline.role));
+    const ok = await runStep(`trustline_${trustline.role}`, async () => {
+      const holderAccount = await server.loadAccount(trustline.publicKey);
+      if (findRcphpBalanceLine(holderAccount, issuerPublicKey)) return;
+      await submit(
+        sponsorKeypair,
+        (builder) =>
+          builder
+            .addOperation(
+              Operation.beginSponsoringFutureReserves({
+                sponsoredId: trustline.publicKey,
+                source: sponsorKeypair.publicKey(),
+              }),
+            )
+            .addOperation(Operation.changeTrust({ asset, source: trustline.publicKey }))
+            .addOperation(Operation.endSponsoringFutureReserves({ source: trustline.publicKey })),
+        [sponsorKeypair, holderKeypair],
+      );
+    });
+    if (!ok) return steps;
+  }
+
+  // 3. Under AUTH_REQUIRED the issuer must authorize each holder trustline.
+  for (const entry of plan.authorization) {
+    const ok = await runStep(`authorize_${entry.role}`, async () => {
+      const holderAccount = await server.loadAccount(entry.holder);
+      const line = findRcphpBalanceLine(holderAccount, issuerPublicKey);
+      if (line && line.is_authorized) return;
+      await submit(
+        issuerKeypair,
+        (builder) =>
+          builder.addOperation(
+            Operation.setTrustLineFlags({ trustor: entry.holder, asset, flags: { authorized: true } }),
+          ),
+        [issuerKeypair],
+      );
+    });
+    if (!ok) return steps;
+  }
+
+  // 4. Issue RCPHP from the issuer into the distribution source.
+  await runStep(`issue_${plan.asset.code}`, async () => {
+    const distributionAccount = await server.loadAccount(plan.issuance.to);
+    const line = findRcphpBalanceLine(distributionAccount, issuerPublicKey);
+    const current = line ? Number.parseFloat(line.balance) : 0;
+    if (current >= Number.parseFloat(plan.issuance.amount)) return;
+    await submit(
+      issuerKeypair,
+      (builder) =>
+        builder.addOperation(
+          Operation.payment({ destination: plan.issuance.to, asset, amount: plan.issuance.amount, source: issuerPublicKey }),
+        ),
+      [issuerKeypair],
+    );
+  });
+
+  return steps;
+}
+
 // --- Orchestration ---------------------------------------------------------
 
 export async function runAssetBootstrap({
@@ -496,7 +642,7 @@ export async function runAssetBootstrap({
 async function main() {
   const execute = process.argv.includes('--execute');
   try {
-    const { report } = await runAssetBootstrap({ execute });
+    const { report } = await runAssetBootstrap({ execute, provisionOnChain: liveProvisionOnChain });
     console.log(formatAssetReport(report));
     const failed = report.steps.some((step) => step.status !== 'ok');
     process.exitCode = failed ? 1 : 0;
