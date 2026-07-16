@@ -98,9 +98,9 @@ async function main() {
     // only requires aid_type = 'cash', not an active status.
     const program = (await db.query(
       `insert into public.programs (name, organization_id, aid_type, created_by,
-         total_budget, amount_per_beneficiary, asset_code)
-       values ($1,$2,'cash',$3,10000,100,'RCPHP') returning id`,
-      [`Cash Demo Program ${runId}`, org.id, adminUserId],
+         total_budget, amount_per_beneficiary, asset_code, asset_issuer)
+       values ($1,$2,'cash',$3,10000,100,'RCPHP',$4) returning id`,
+      [`Cash Demo Program ${runId}`, org.id, adminUserId, 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7'],
     )).rows[0];
 
     await db.query(

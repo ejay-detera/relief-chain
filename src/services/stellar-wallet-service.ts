@@ -165,6 +165,28 @@ export const signPreparedCashTransaction = async (
 };
 
 /**
+ * Signs the EXACT sponsored-trustline transaction the server returned for wallet
+ * provisioning. The local signer must equal `expectedSigner` (this wallet) or
+ * signing is refused. The wallet signs its own `changeTrust`; the server adds the
+ * sponsor signature and the issuer authorization. Returns the signed transaction
+ * XDR (Requirements 3.3, 3.6, 16.2).
+ */
+export const signPreparedProvisionTransaction = async (
+  userId: string,
+  expectedSigner: string,
+  unsignedTxXdr: string,
+  networkPassphrase: string,
+): Promise<string> => {
+  const keypair = await loadNamespacedKeypair(userId);
+  if (keypair.publicKey() !== expectedSigner) {
+    throw new Error('The local signer does not match the wallet being provisioned.');
+  }
+  const transaction = TransactionBuilder.fromXDR(unsignedTxXdr, networkPassphrase);
+  transaction.sign(keypair);
+  return transaction.toXDR();
+};
+
+/**
  * Signs ONLY the EXACT prepared Soroban authorization entry the server returned,
  * authorizing the beneficiary's contract invocation for a voucher redemption.
  * The local signer must equal `expectedSigner` (the beneficiary wallet) or

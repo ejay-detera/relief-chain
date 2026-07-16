@@ -54,13 +54,15 @@ export const createHorizonCashLookup = (horizon: GuardedHorizonClient): CashTran
       return null;
     }
     try {
+      // NOTE: on the Horizon SDK transaction record the ledger SEQUENCE is
+      // exposed as `ledger_attr` (a number); `ledger` is an async link fetcher.
       const record = (await horizon.server
         .transactions()
         .transaction(transactionHash)
         .call()) as unknown as {
         hash: string;
         successful: boolean;
-        ledger: number;
+        ledger_attr: number;
         created_at: string;
         envelope_xdr: string;
         result_xdr?: string;
@@ -70,7 +72,7 @@ export const createHorizonCashLookup = (horizon: GuardedHorizonClient): CashTran
         found: true,
         successful: Boolean(record.successful),
         transactionHash: record.hash,
-        ledgerSequence: record.ledger,
+        ledgerSequence: record.ledger_attr,
         ledgerClosedAt: record.created_at,
         envelopeXdr: record.envelope_xdr,
         resultCode: record.result_code ?? null,

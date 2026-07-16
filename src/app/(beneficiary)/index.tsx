@@ -10,6 +10,7 @@ import { ErrorState } from '@/components/shared/error-state';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 
+import { ActivateWalletCard } from '@/components/WalletProvision/ActivateWalletCard';
 import { ActiveProgramCard } from '@/components/beneficiary/Dashboard/active-program-card';
 import { DashboardGreeting } from '@/components/beneficiary/Dashboard/dashboard-greeting';
 import { QuickActionGrid } from '@/components/beneficiary/Dashboard/quick-action-grid';
@@ -30,8 +31,9 @@ import { ZERO_STROOPS } from '@/utils/format-stroops';
 
 export default function BeneficiaryDashboard() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { state: walletState } = usePilotWallet();
+  const userId = session?.user.id ?? null;
   const { balance, refresh: refreshBalance } = useBeneficiaryBalances();
   const { entitlements, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
   const { redemptions } = useBeneficiaryRedemptions();
@@ -76,6 +78,17 @@ export default function BeneficiaryDashboard() {
             onWithdraw={() => setIsCashOutVisible(true)}
             onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
           />
+
+          {userId && publicKey && walletState?.status === 'binding_required' && (
+            <ActivateWalletCard
+              userId={userId}
+              walletAddress={publicKey}
+              onProvisioned={() => {
+                void refreshBalance();
+                void refreshEntitlements();
+              }}
+            />
+          )}
 
           <QuickActionGrid
             onShowQr={() => setIsQrVisible(true)}

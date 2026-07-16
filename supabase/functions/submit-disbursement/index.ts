@@ -152,6 +152,36 @@ const submitDisbursement = async (scope: EdgeRequestScope): Promise<Response> =>
     },
   });
 
+  if (works.length === 0) {
+    throw FinancialErrorException.of('validation_failed', 'No eligible recipients to submit.', { correlationId });
+  }
+
+  const nowIso = () => new Date().toISOString();
+  const setJobStatus = async (
+    status: 'queued' | 'submitting' | 'reconciling' | 'partial_failed',
+    extra: Record<string, unknown> = {},
+  ): Promise<void> => {
+    const { error } = await service.from('distribution_jobs').update({ status, ...extra }).eq('id', jobId);
+    if (error) {
+      throw FinancialErrorException.of('dependency_unavailable', `Unable to advance job to ${status}.`, {
+        correlationId,
+        retryable: true,
+      });
+    }
+  };
+
+  // Advance the job to `submitting` through the valid state machine before any
+  // on-chain work: awaiting_approval -> queued -> submitting (authorize) or
+  // partial_failed/queued -> submitting (retry).
+  if (job.status === 'awaiting_approval') {
+    await setJobStatus('queued', { approved_by: session.userId, approved_at: nowIso() });
+    await setJobStatus('submitting', { started_at: nowIso() });
+  } else if (job.status === 'queued') {
+    await setJobStatus('submitting', { started_at: nowIso() });
+  } else if (job.status === 'partial_failed') {
+    await setJobStatus('submitting');
+  }
+
   const report = await runDistributionExecution({
     works,
     processor,
@@ -160,35 +190,36 @@ const submitDisbursement = async (scope: EdgeRequestScope): Promise<Response> =>
 
   // Reflect submission results into the durable recipient rows. Confirmation
   // remains reconciliation-owned; here we only move pending -> submitted/failed.
+  // Recipient state machine: pending -> prepared -> submitted (no direct jump).
+  // A retry recipient starts `failed`; failed -> prepared is also valid.
   for (const submitted of report.submitted) {
     await service
       .from('distribution_recipients')
-      .update({ status: 'submitted', transaction_hash: submitted.transactionHash, submitted_at: new Date().toISOString() })
+      .update({ status: 'prepared' })
       .eq('id', submitted.recipientId)
-      .eq('status', 'pending');
+      .in('status', ['pending', 'failed']);
+    await service
+      .from('distribution_recipients')
+      .update({ status: 'submitted', transaction_hash: submitted.transactionHash })
+      .eq('id', submitted.recipientId)
+      .eq('status', 'prepared');
   }
   for (const failure of report.failed) {
     await service
       .from('distribution_recipients')
       .update({ status: 'failed', failure_code: failure.failureCode, failure_reason: failure.failureReason })
       .eq('id', failure.recipientId)
-      .in('status', ['pending', 'submitted']);
+      .in('status', ['pending', 'prepared', 'submitted']);
   }
 
-  // Advance the job: record the authorization and move it into reconciliation.
+  // From `submitting`, move to `reconciling` (something submitted) or
+  // `partial_failed` (all failed) — both valid single-step transitions.
   const jobStatus = report.submitted.length > 0 ? 'reconciling' : 'partial_failed';
-  await service
-    .from('distribution_jobs')
-    .update({
-      status: jobStatus,
-      approved_by: session.userId,
-      approved_at: new Date().toISOString(),
-      started_at: new Date().toISOString(),
-      submitted_count: report.submitted.length,
-      failed_count: report.failed.length,
-      pending_count: 0,
-    })
-    .eq('id', jobId);
+  await setJobStatus(jobStatus, {
+    submitted_count: report.submitted.length,
+    failed_count: report.failed.length,
+    pending_count: 0,
+  });
 
   return jsonResponse(
     {
