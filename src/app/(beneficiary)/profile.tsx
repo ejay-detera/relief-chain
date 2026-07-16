@@ -10,12 +10,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { useStellarWallet } from '@/hooks/use-stellar-wallet';
+import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { FontAwesome } from '@expo/vector-icons';
 import { useState } from 'react';
 
 export default function ProfileScreen() {
-  const { wallet } = useStellarWallet();
+  const { state: walletState, isLoading: isWalletLoading } = usePilotWallet();
   const { profile, session } = useAuth();
   const [isQrVisible, setIsQrVisible] = useState(false);
 
@@ -23,9 +23,12 @@ export default function ProfileScreen() {
     ? session.user.user_metadata.mobile_number
     : 'Not set';
 
-  const truncatedWallet = wallet?.publicKey
-    ? `${wallet.publicKey.slice(0, 6)}...${wallet.publicKey.slice(-6)}`
-    : 'Loading...';
+  const publicKey = pilotWalletPublicKey(walletState);
+  const truncatedWallet = publicKey
+    ? `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`
+    : isWalletLoading
+      ? 'Loading...'
+      : 'Not available';
 
   return (
     <ThemedView style={styles.container}>
@@ -37,7 +40,7 @@ export default function ProfileScreen() {
 
           <View style={styles.panel}>
             <ProfileDetailRow iconName="id-card" label="Government ID" value={profile?.gov_id || 'Not verified'} />
-            <ProfileDetailRow iconName="link" label="Stellar Wallet Address" value={truncatedWallet} />
+            <ProfileDetailRow iconName="link" label="Testnet Wallet Address (No real monetary value)" value={truncatedWallet} />
             <ProfileDetailRow iconName="phone" label="Mobile Number" value={mobileNumber} />
 
             <Pressable onPress={() => setIsQrVisible(true)} style={styles.qrButton}>
@@ -50,7 +53,7 @@ export default function ProfileScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <QrModal onClose={() => setIsQrVisible(false)} publicKey={wallet?.publicKey} visible={isQrVisible} />
+      <QrModal onClose={() => setIsQrVisible(false)} publicKey={publicKey ?? undefined} visible={isQrVisible} />
     </ThemedView>
   );
 }

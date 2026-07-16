@@ -11,25 +11,20 @@ import { ErrorState } from '@/components/shared/error-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { entitlementForProgram, useBeneficiaryEntitlements } from '@/hooks/use-beneficiary-entitlements';
 import { useBeneficiaryPrograms } from '@/hooks/use-beneficiary-programs';
 
 export default function MyAssistanceScreen() {
   const router = useRouter();
   const { programs, isLoading, error, refetch } = useBeneficiaryPrograms();
+  const { entitlements, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
 
   useFocusEffect(
     useCallback(() => {
       void refetch();
-    }, [refetch])
+      void refreshEntitlements();
+    }, [refetch, refreshEntitlements])
   );
-
-  const totalBalance = error
-    ? 0
-    : programs.reduce((acc, curr) => {
-        const num = parseFloat(curr.voucherBalance.replace(/[^0-9.]/g, ''));
-        return acc + (isNaN(num) ? 0 : num);
-      }, 0);
-  const totalBalanceLabel = `₱${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const hasNoAssistance = !isLoading && !error && programs.length === 0;
 
@@ -65,10 +60,15 @@ export default function MyAssistanceScreen() {
 
           {!isLoading && !error && programs.length > 0 && (
             <>
-              <TotalBalanceCard activeProgramCount={programs.length} totalBalance={totalBalanceLabel} />
+              <TotalBalanceCard activeProgramCount={programs.length} state={entitlements} />
 
               {programs.map((program) => (
-                <ProgramVoucherCard key={program.id} program={program} />
+                <ProgramVoucherCard
+                  key={program.id}
+                  program={program}
+                  entitlement={entitlementForProgram(entitlements, program.id)}
+                  balanceState={entitlements}
+                />
               ))}
             </>
           )}

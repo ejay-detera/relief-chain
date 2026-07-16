@@ -10,6 +10,20 @@ export interface LookupData {
   barangays: { id: number; area_id: number; name: string }[];
 }
 
+const replaceProgramGeography = async (
+  programId: string,
+  areaIds: number[],
+  barangayIds: number[],
+): Promise<void> => {
+  const { error } = await supabase.rpc('replace_program_geography', {
+    p_program_id: programId,
+    p_area_ids: areaIds,
+    p_barangay_ids: barangayIds,
+  });
+
+  if (error) throw error;
+};
+
 export const fetchLookupData = async (): Promise<LookupData> => {
   const [dt, c, a, ag, fs, bg] = await Promise.all([
     supabase.from('disaster_types').select('*'),
@@ -125,26 +139,12 @@ export const createLguProgram = async (
 
   if (programError) throw programError;
 
-  if (draft.affectedAreaIds.length > 0 && programData) {
-    const areaInserts = draft.affectedAreaIds.map((areaId) => ({
-      program_id: programData.id,
-      area_id: areaId,
-    }));
-    const { error: areaError } = await supabase
-      .from('program_areas')
-      .insert(areaInserts);
-    if (areaError) throw areaError;
-  }
-
-  if (draft.affectedBarangayIds.length > 0 && programData) {
-    const barangayInserts = draft.affectedBarangayIds.map((barangayId) => ({
-      program_id: programData.id,
-      barangay_id: barangayId,
-    }));
-    const { error: barangayError } = await supabase
-      .from('program_barangays')
-      .insert(barangayInserts);
-    if (barangayError) throw barangayError;
+  if (programData) {
+    await replaceProgramGeography(
+      programData.id,
+      draft.affectedAreaIds,
+      draft.affectedBarangayIds,
+    );
   }
 
   return true;
@@ -200,76 +200,20 @@ export const updateLguProgram = async (
 
   if (programError) throw programError;
 
-  // First, delete old areas & barangays
-  const { error: deleteAreaError } = await supabase
-    .from('program_areas')
-    .delete()
-    .eq('program_id', id);
-
-  if (deleteAreaError) throw deleteAreaError;
-
-  const { error: deleteBarangayError } = await supabase
-    .from('program_barangays')
-    .delete()
-    .eq('program_id', id);
-
-  if (deleteBarangayError) throw deleteBarangayError;
-
-  // Then insert new ones
-  if (draft.affectedAreaIds.length > 0 && programData) {
-    const areaInserts = draft.affectedAreaIds.map((areaId) => ({
-      program_id: programData.id,
-      area_id: areaId,
-    }));
-    const { error: areaError } = await supabase
-      .from('program_areas')
-      .insert(areaInserts);
-    if (areaError) throw areaError;
-  }
-
-  if (draft.affectedBarangayIds.length > 0 && programData) {
-    const barangayInserts = draft.affectedBarangayIds.map((barangayId) => ({
-      program_id: programData.id,
-      barangay_id: barangayId,
-    }));
-    const { error: barangayError } = await supabase
-      .from('program_barangays')
-      .insert(barangayInserts);
-    if (barangayError) throw barangayError;
+  if (programData) {
+    await replaceProgramGeography(
+      programData.id,
+      draft.affectedAreaIds,
+      draft.affectedBarangayIds,
+    );
   }
 
   return true;
 };
 
 export const deleteLguProgram = async (id: string): Promise<boolean> => {
-  // First, get all enrollments for this program
-  const { data: enrollmentsData } = await supabase
-    .from('enrollments')
-    .select('id')
-    .eq('program_id', id);
-
-  const enrollmentIds = enrollmentsData?.map((e) => e.id) || [];
-
-  if (enrollmentIds.length > 0) {
-    // Delete redemptions for those enrollments
-    await supabase
-      .from('redemptions')
-      .delete()
-      .in('enrollment_id', enrollmentIds);
-
-    // Delete enrollments
-    await supabase
-      .from('enrollments')
-      .delete()
-      .eq('program_id', id);
-  }
-
-  // Delete areas & barangays
-  await Promise.all([
-    supabase.from('program_areas').delete().eq('program_id', id),
-    supabase.from('program_barangays').delete().eq('program_id', id),
-  ]);
-
+  // Related draft rows cascade. A financial-history reference intentionally
+  // blocks deletion instead of deleting or rewriting a confirmed redemption.
   const { error } = await supabase
     .from('programs')
     .delete()

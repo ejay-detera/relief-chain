@@ -38,9 +38,10 @@ export default function DistributeScreen() {
     await Clipboard.setStringAsync(hash);
   };
 
-  const handleNewDisbursementSuccess = (newDisb: Disbursement) => {
-    setPastDistributions((prev) => [newDisb, ...prev]);
+  const handleJobCompleted = () => {
     setShowWizard(false);
+    // Refresh history from reconciled server state rather than a client-fabricated row.
+    void loadDisbursements();
   };
 
   const filteredDistributions = pastDistributions.filter((d) =>
@@ -148,7 +149,7 @@ export default function DistributeScreen() {
           <SafeAreaView style={styles.wizardContainer}>
             <DistributeAidWizard
               onClose={() => setShowWizard(false)}
-              onSuccess={handleNewDisbursementSuccess}
+              onCompleted={handleJobCompleted}
             />
           </SafeAreaView>
         </Modal>

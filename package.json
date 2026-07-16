@@ -24,6 +24,7 @@
     "expo-image": "~57.0.0",
     "expo-linear-gradient": "~57.0.0",
     "expo-linking": "~57.0.2",
+    "expo-local-authentication": "~57.0.1",
     "expo-router": "~57.0.4",
     "expo-secure-store": "~57.0.0",
     "expo-splash-screen": "~57.0.2",
@@ -49,6 +50,8 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
+    "fast-check": "3.23.2",
+    "pg": "8.13.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -57,7 +60,15 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "preflight": "node ./scripts/validation-runner.mjs preflight",
+    "lint": "node ./scripts/validation-runner.mjs lint",
+    "type-check": "node ./scripts/validation-runner.mjs type-check",
+    "test:unit": "node ./scripts/validation-runner.mjs unit",
+    "test:property": "node ./scripts/validation-runner.mjs property",
+    "test:integration": "node ./scripts/validation-runner.mjs integration",
+    "test:mobile-smoke": "node ./scripts/validation-runner.mjs mobile-smoke",
+    "test:validation-runner": "node --test ./scripts/tests/validation-runner.test.mjs",
+    "validate": "node ./scripts/validation-runner.mjs all"
   },
   "private": true
 }

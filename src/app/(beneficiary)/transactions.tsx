@@ -1,23 +1,19 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TransactionRow } from '@/components/beneficiary/Transactions/transaction-row';
+import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
 import { useBeneficiaryRedemptions } from '@/hooks/use-beneficiary-redemptions';
-import { useStellarWallet } from '@/hooks/use-stellar-wallet';
 
 export default function TransactionsScreen() {
   const router = useRouter();
-  const { payments } = useStellarWallet();
-  const { redemptions } = useBeneficiaryRedemptions();
-
-  // Combine Stellar payments (XLM transfers) with Supabase redemptions (Voucher uses)
-  // For now, we'll just show redemptions if they exist, otherwise fallback to Stellar payments.
-  const dataToShow = redemptions.length > 0 ? redemptions : payments;
+  const { redemptions, isLoading, error, refresh } = useBeneficiaryRedemptions();
 
   return (
     <ThemedView style={styles.container}>
@@ -30,7 +26,24 @@ export default function TransactionsScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {dataToShow.map(record => (
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color={BrandColors.navy} size="large" />
+            </View>
+          )}
+
+          {!isLoading && error && (
+            <ErrorState message="We couldn't load your transactions." onRetry={refresh} />
+          )}
+
+          {!isLoading && !error && redemptions.length === 0 && (
+            <EmptyState
+              description="Your confirmed transactions will appear here once you receive or spend assistance."
+              title="No Transactions Yet"
+            />
+          )}
+
+          {!isLoading && !error && redemptions.map(record => (
             <TransactionRow key={record.id} record={record} />
           ))}
         </ScrollView>
@@ -68,5 +81,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: BottomTabInset + Spacing.six,
+  },
+  loadingContainer: {
+    paddingVertical: Spacing.six,
+    alignItems: 'center',
   },
 });
