@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,63 +32,70 @@ export default function HomeDashboard() {
   ]);
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchRecentVerifications = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, created_at')
+        .eq('role', 'beneficiary')
+        .eq('verification_status', 'Verified')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      const verificationActivities: ActivityItem[] = (data || []).map((p) => {
+        let timeLabel = 'Recently';
+        if (p.created_at) {
+          const diffMs = Date.now() - new Date(p.created_at).getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMins / 60);
+          const diffDays = Math.floor(diffHours / 24);
+
+          if (diffMins < 1) timeLabel = 'Just now';
+          else if (diffMins < 60) timeLabel = `${diffMins}m ago`;
+          else if (diffHours < 24) timeLabel = `${diffHours}h ago`;
+          else timeLabel = `${diffDays}d ago`;
+        }
+
+        return {
+          id: p.id,
+          userName: p.full_name || 'Anonymous',
+          action: `${p.full_name || 'Anonymous'} Verified`,
+          timestamp: timeLabel,
+          avatarVariant: 'person',
+        };
+      });
+
+      if (verificationActivities.length === 0) {
+        setActivities([
+          {
+            id: 'empty',
+            userName: '',
+            action: 'No verified beneficiaries yet',
+            timestamp: '-',
+            avatarVariant: 'person',
+          }
+        ]);
+      } else {
+        setActivities(verificationActivities);
+      }
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchRecentVerifications = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, created_at')
-          .eq('role', 'beneficiary')
-          .eq('verification_status', 'Verified')
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (error) throw error;
-
-        const verificationActivities: ActivityItem[] = (data || []).map((p) => {
-          let timeLabel = 'Recently';
-          if (p.created_at) {
-            const diffMs = Date.now() - new Date(p.created_at).getTime();
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMins / 60);
-            const diffDays = Math.floor(diffHours / 24);
-
-            if (diffMins < 1) timeLabel = 'Just now';
-            else if (diffMins < 60) timeLabel = `${diffMins}m ago`;
-            else if (diffHours < 24) timeLabel = `${diffHours}h ago`;
-            else timeLabel = `${diffDays}d ago`;
-          }
-
-          return {
-            id: p.id,
-            userName: p.full_name || 'Anonymous',
-            action: `${p.full_name || 'Anonymous'} Verified`,
-            timestamp: timeLabel,
-            avatarVariant: 'person',
-          };
-        });
-
-        if (verificationActivities.length === 0) {
-          setActivities([
-            {
-              id: 'empty',
-              userName: '',
-              action: 'No verified beneficiaries yet',
-              timestamp: '-',
-              avatarVariant: 'person',
-            }
-          ]);
-        } else {
-          setActivities(verificationActivities);
-        }
-      } catch (err) {
-        console.error('Error fetching activities:', err);
-      }
-    };
-
     fetchRecentVerifications();
-  }, []);
+  }, [fetchRecentVerifications]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchRecentVerifications();
+    setRefreshing(false);
+  }, [fetchRecentVerifications]);
 
   const actions: QuickAction[] = [
     {
@@ -120,7 +127,18 @@ export default function HomeDashboard() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[BrandColors.navy]}
+              tintColor={BrandColors.navy}
+            />
+          }
+        >
           <LogoHeader />
 
           <View style={styles.welcomeSection}>

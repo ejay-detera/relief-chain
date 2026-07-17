@@ -5,7 +5,7 @@ import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import type { MerchantMetrics } from '@/types/merchant-metrics';
 
 type Props = { isLoading: boolean; metrics: MerchantMetrics | null };
-const formatSales = (value: number) => `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatSales = (value: number) => `${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RCPHP`;
 
 export const SalesSummaryCard = ({ isLoading, metrics }: Props) => {
   const unavailable = isLoading || !metrics;

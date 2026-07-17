@@ -1,0 +1,21 @@
+[package]
+name = "voucher"
+description = "Relief Chain isolated Soroban voucher escrow contract (testnet pilot)."
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+# Test-only: produce genuine Ed25519 invoice signatures that the contract's
+# host-side `ed25519_verify` accepts. Never compiled into the contract WASM.
+ed25519-dalek = "2"

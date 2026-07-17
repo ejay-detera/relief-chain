@@ -1,16 +1,41 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ReconciliationBadge } from '@/components/shared/reconciliation-badge';
 import { ThemedText } from '@/components/themed-text';
+import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import type { BeneficiaryProgramEntitlement, ProjectionState } from '@/types/projection';
 import { EnrolledProgram } from '@/types/wallet';
+import { formatStroops } from '@/utils/format-stroops';
 
 type Props = {
   program: EnrolledProgram;
+  /** Reconciled entitlement for the active program, or null if none is reconciled yet. */
+  entitlement: BeneficiaryProgramEntitlement | null;
+  /** The parent projection state, used to explain why a balance is not shown. */
+  balanceState: ProjectionState<BeneficiaryProgramEntitlement[]>;
   onPress?: () => void;
 };
 
-export function ActiveProgramCard({ program, onPress }: Props) {
+const balancePlaceholder = (status: ProjectionState<unknown>['status']): string => {
+  switch (status) {
+    case 'loading':
+      return 'Loading…';
+    case 'unavailable':
+      return 'Unavailable';
+    case 'quarantined':
+      return 'Under review';
+    default:
+      return 'No reconciled balance';
+  }
+};
+
+export function ActiveProgramCard({ program, entitlement, balanceState, onPress }: Props) {
+  const balanceLabel = entitlement
+    ? `${formatStroops(entitlement.availableStroops)} ${PILOT_ASSET_CODE}`
+    : balancePlaceholder(balanceState.status);
+
   return (
     <View style={styles.container}>
       <ThemedText style={styles.sectionTitle}>Active Program</ThemedText>
@@ -23,16 +48,13 @@ export function ActiveProgramCard({ program, onPress }: Props) {
           </Pressable>
         </View>
 
-        <View style={styles.progressRow}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${program.progressPercent}%` }]} />
-          </View>
-          <ThemedText style={styles.progressLabel}>{program.progressPercent}%</ThemedText>
-        </View>
+        <ThemedText style={styles.balanceLabel}>Reconciled Balance</ThemedText>
+        <ThemedText style={styles.balanceValue}>{balanceLabel}</ThemedText>
+        <ReconciliationBadge state={balanceState} transactionHash={entitlement?.latestTransactionHash} />
 
-        <View style={styles.disbursementPill}>
+        <View style={styles.expiryPill}>
           <FontAwesome name="calendar" size={12} color={BrandColors.navy} />
-          <ThemedText style={styles.disbursementText}>Next Disbursement: {program.nextDisbursementDate}</ThemedText>
+          <ThemedText style={styles.expiryText}>Expires: {program.expiresAt}</ThemedText>
         </View>
       </View>
     </View>
@@ -60,7 +82,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.one,
+    marginBottom: Spacing.two,
   },
   name: {
     fontSize: 14,
@@ -69,31 +91,18 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: Spacing.two,
   },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: Spacing.two,
-    marginTop: Spacing.two,
-    marginBottom: Spacing.three,
+  balanceLabel: {
+    fontSize: 11,
+    color: BrandColors.grey,
+    marginBottom: 2,
   },
-  progressTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: BrandColors.lightGray,
-    overflow: 'hidden',
+  balanceValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: BrandColors.navy,
+    marginBottom: 2,
   },
-  progressFill: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: BrandColors.green,
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: BrandColors.green,
-  },
-  disbursementPill: {
+  expiryPill: {
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: Spacing.two,
@@ -102,8 +111,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     alignSelf: 'flex-start',
+    marginTop: Spacing.three,
   },
-  disbursementText: {
+  expiryText: {
     fontSize: 12,
     fontWeight: '600',
     color: BrandColors.navy,

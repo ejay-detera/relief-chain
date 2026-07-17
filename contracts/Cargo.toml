@@ -1,0 +1,32 @@
+# Soroban voucher contract workspace.
+#
+# One immutable WASM is deployed as a separate contract instance per activated
+# voucher program (design: "Voucher Contract" -> "Repository Layout"). The
+# workspace pins a single soroban-sdk version so the audited WASM hash is
+# reproducible across builds.
+[workspace]
+resolver = "2"
+members = ["voucher"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.81"
+
+[workspace.dependencies]
+# Pinned for reproducible, auditable WASM. Testnet Protocol 22.
+soroban-sdk = "=22.0.8"
+
+# Release profile tuned for small, deterministic contract WASM. `overflow-checks`
+# is REQUIRED: the contract relies on checked i128 arithmetic to preserve the
+# financial conservation invariants even in optimized builds.
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true

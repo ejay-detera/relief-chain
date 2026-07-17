@@ -97,6 +97,13 @@ export default function LguLayout() {
           }}
         />
         <Tabs.Screen
+          name="security"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
           name="program/[id]"
           options={{
             href: null,

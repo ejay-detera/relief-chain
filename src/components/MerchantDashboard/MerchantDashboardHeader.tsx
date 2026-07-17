@@ -5,18 +5,26 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 
-type MerchantDashboardHeaderProps = { onNotificationsPress: () => void };
+type MerchantDashboardHeaderProps = {
+  onNotificationsPress: () => void;
+  onShowQr: () => void;
+};
 
-export const MerchantDashboardHeader = ({ onNotificationsPress }: MerchantDashboardHeaderProps) => (
+export const MerchantDashboardHeader = ({ onNotificationsPress, onShowQr }: MerchantDashboardHeaderProps) => (
   <View style={styles.header}>
     <Image contentFit="contain" source={require('@/assets/images/logo-glow.png')} style={styles.logo} />
     <View style={styles.wordmark}>
       <ThemedText style={styles.relief}>Relief</ThemedText>
       <ThemedText style={styles.chain}>Chain</ThemedText>
     </View>
-    <Pressable accessibilityLabel="Open notifications" accessibilityRole="button" hitSlop={8} onPress={onNotificationsPress} style={styles.notification}>
-      <MaterialCommunityIcons color="#FFFFFF" name="bell-outline" size={22} />
-    </Pressable>
+    <View style={styles.rightActions}>
+      <Pressable accessibilityLabel="Show QR code" accessibilityRole="button" hitSlop={8} onPress={onShowQr} style={styles.qrAction}>
+        <MaterialCommunityIcons color={BrandColors.navy} name="qrcode" size={22} />
+      </Pressable>
+      <Pressable accessibilityLabel="Open notifications" accessibilityRole="button" hitSlop={8} onPress={onNotificationsPress} style={styles.notification}>
+        <MaterialCommunityIcons color="#FFFFFF" name="bell-outline" size={22} />
+      </Pressable>
+    </View>
   </View>
 );
 
@@ -26,5 +34,7 @@ const styles = StyleSheet.create({
   wordmark: { marginLeft: Spacing.two },
   relief: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15, lineHeight: 17 },
   chain: { color: BrandColors.green, fontFamily: 'Sarina_400Regular', fontSize: 15, lineHeight: 18, marginLeft: Spacing.two },
-  notification: { alignItems: 'center', backgroundColor: BrandColors.navy, borderRadius: BorderRadius.md, height: 32, justifyContent: 'center', marginLeft: 'auto', width: 34 },
+  rightActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  qrAction: { alignItems: 'center', justifyContent: 'center', height: 32, width: 34 },
+  notification: { alignItems: 'center', backgroundColor: BrandColors.navy, borderRadius: BorderRadius.md, height: 32, justifyContent: 'center', width: 34 },
 });

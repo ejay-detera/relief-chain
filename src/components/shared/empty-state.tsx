@@ -7,8 +7,8 @@ import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 type EmptyStateProps = {
   title: string;
   description: string;
-  actionLabel: string;
-  onAction: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
 };
 
 export function EmptyState({ title, description, actionLabel, onAction }: EmptyStateProps) {
@@ -19,9 +19,11 @@ export function EmptyState({ title, description, actionLabel, onAction }: EmptyS
       </View>
       <ThemedText style={styles.title}>{title}</ThemedText>
       <ThemedText style={styles.description}>{description}</ThemedText>
-      <TouchableOpacity accessibilityRole="button" onPress={onAction} style={styles.action}>
-        <ThemedText style={styles.actionLabel}>{actionLabel}</ThemedText>
-      </TouchableOpacity>
+      {actionLabel && onAction ? (
+        <TouchableOpacity accessibilityRole="button" onPress={onAction} style={styles.action}>
+          <ThemedText style={styles.actionLabel}>{actionLabel}</ThemedText>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

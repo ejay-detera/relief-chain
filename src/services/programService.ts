@@ -10,6 +10,20 @@ export interface LookupData {
   barangays: { id: number; area_id: number; name: string }[];
 }
 
+const replaceProgramGeography = async (
+  programId: string,
+  areaIds: number[],
+  barangayIds: number[],
+): Promise<void> => {
+  const { error } = await supabase.rpc('replace_program_geography', {
+    p_program_id: programId,
+    p_area_ids: areaIds,
+    p_barangay_ids: barangayIds,
+  });
+
+  if (error) throw error;
+};
+
 export const fetchLookupData = async (): Promise<LookupData> => {
   const [dt, c, a, ag, fs, bg] = await Promise.all([
     supabase.from('disaster_types').select('*'),
@@ -89,10 +103,24 @@ export const createLguProgram = async (
   draft: ProgramDraft,
   status: 'draft' | 'published',
   createdBy: string | null
-): Promise<boolean> => {
+): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
+  if (!createdBy) throw new Error("User must be logged in to create a program");
+
+  // Fetch the user's organization ID
+  const { data: memData, error: memError } = await supabase
+    .from('organization_memberships')
+    .select('organization_id')
+    .eq('user_id', createdBy)
+    .eq('is_active', true)
+    .limit(1)
+    .single();
+
+  if (memError || !memData) throw new Error("User does not have an active organization membership");
+
   const { data: programData, error: programError } = await supabase
     .from('programs')
     .insert({
+      organization_id: memData.organization_id,
       name: draft.name,
       purpose: draft.description,
       total_budget: draft.totalBudget,
@@ -119,35 +147,23 @@ export const createLguProgram = async (
       supporting_documents: draft.supportingDocuments,
       status: status === 'published' ? 'active' : 'draft',
       created_by: createdBy,
+      asset_code: 'RCPHP',
+      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7',
     })
-    .select()
+    .select('id, organization_id')
     .single();
 
   if (programError) throw programError;
 
-  if (draft.affectedAreaIds.length > 0 && programData) {
-    const areaInserts = draft.affectedAreaIds.map((areaId) => ({
-      program_id: programData.id,
-      area_id: areaId,
-    }));
-    const { error: areaError } = await supabase
-      .from('program_areas')
-      .insert(areaInserts);
-    if (areaError) throw areaError;
+  if (programData) {
+    await replaceProgramGeography(
+      programData.id,
+      draft.affectedAreaIds,
+      draft.affectedBarangayIds,
+    );
   }
 
-  if (draft.affectedBarangayIds.length > 0 && programData) {
-    const barangayInserts = draft.affectedBarangayIds.map((barangayId) => ({
-      program_id: programData.id,
-      barangay_id: barangayId,
-    }));
-    const { error: barangayError } = await supabase
-      .from('program_barangays')
-      .insert(barangayInserts);
-    if (barangayError) throw barangayError;
-  }
-
-  return true;
+  return { success: true, programId: programData?.id, organizationId: programData?.organization_id };
 };
 
 export const fetchRegisteredMerchants = async (): Promise<string[]> => {
@@ -164,7 +180,7 @@ export const updateLguProgram = async (
   id: string,
   draft: ProgramDraft,
   status: 'draft' | 'published'
-): Promise<boolean> => {
+): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
   const { data: programData, error: programError } = await supabase
     .from('programs')
     .update({
@@ -193,83 +209,29 @@ export const updateLguProgram = async (
       eligibility_criteria: draft.eligibilityCriteria,
       supporting_documents: draft.supportingDocuments,
       status: status === 'published' ? 'active' : 'draft',
+      asset_code: 'RCPHP',
+      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7',
     })
     .eq('id', id)
-    .select()
+    .select('id, organization_id')
     .single();
 
   if (programError) throw programError;
 
-  // First, delete old areas & barangays
-  const { error: deleteAreaError } = await supabase
-    .from('program_areas')
-    .delete()
-    .eq('program_id', id);
-
-  if (deleteAreaError) throw deleteAreaError;
-
-  const { error: deleteBarangayError } = await supabase
-    .from('program_barangays')
-    .delete()
-    .eq('program_id', id);
-
-  if (deleteBarangayError) throw deleteBarangayError;
-
-  // Then insert new ones
-  if (draft.affectedAreaIds.length > 0 && programData) {
-    const areaInserts = draft.affectedAreaIds.map((areaId) => ({
-      program_id: programData.id,
-      area_id: areaId,
-    }));
-    const { error: areaError } = await supabase
-      .from('program_areas')
-      .insert(areaInserts);
-    if (areaError) throw areaError;
+  if (programData) {
+    await replaceProgramGeography(
+      programData.id,
+      draft.affectedAreaIds,
+      draft.affectedBarangayIds,
+    );
   }
 
-  if (draft.affectedBarangayIds.length > 0 && programData) {
-    const barangayInserts = draft.affectedBarangayIds.map((barangayId) => ({
-      program_id: programData.id,
-      barangay_id: barangayId,
-    }));
-    const { error: barangayError } = await supabase
-      .from('program_barangays')
-      .insert(barangayInserts);
-    if (barangayError) throw barangayError;
-  }
-
-  return true;
+  return { success: true, programId: programData?.id, organizationId: programData?.organization_id };
 };
 
 export const deleteLguProgram = async (id: string): Promise<boolean> => {
-  // First, get all enrollments for this program
-  const { data: enrollmentsData } = await supabase
-    .from('enrollments')
-    .select('id')
-    .eq('program_id', id);
-
-  const enrollmentIds = enrollmentsData?.map((e) => e.id) || [];
-
-  if (enrollmentIds.length > 0) {
-    // Delete redemptions for those enrollments
-    await supabase
-      .from('redemptions')
-      .delete()
-      .in('enrollment_id', enrollmentIds);
-
-    // Delete enrollments
-    await supabase
-      .from('enrollments')
-      .delete()
-      .eq('program_id', id);
-  }
-
-  // Delete areas & barangays
-  await Promise.all([
-    supabase.from('program_areas').delete().eq('program_id', id),
-    supabase.from('program_barangays').delete().eq('program_id', id),
-  ]);
-
+  // Related draft rows cascade. A financial-history reference intentionally
+  // blocks deletion instead of deleting or rewriting a confirmed redemption.
   const { error } = await supabase
     .from('programs')
     .delete()
@@ -297,7 +259,7 @@ export const fetchActiveProgramsWithLocations = async (): Promise<any[]> => {
       program_areas (area_id, areas (name)),
       program_barangays (barangay_id, barangays (name, area_id))
     `)
-    .eq('status', 'active')
+    // No status filter – return all programs (including active, funding, published, etc.)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
