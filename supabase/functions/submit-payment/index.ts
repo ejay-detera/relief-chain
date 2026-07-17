@@ -142,6 +142,23 @@ const submitPayment = async (scope: EdgeRequestScope): Promise<Response> => {
     throw FinancialErrorException.of('dependency_unavailable', `Unable to update payment intent to submitted: ${updateSubmittedError.message}`, { correlationId });
   }
 
+  // 5. Trigger background reconciliation for seamless UI updates
+  void (async () => {
+    try {
+      const { data: piData } = await service.from('payment_intents')
+        .select('merchant_id, organization_id')
+        .eq('financial_intent_id', intent.id)
+        .maybeSingle();
+      if (piData) {
+        await service.functions.invoke('reconcile-stellar', {
+          body: { merchantId: piData.merchant_id, organizationId: piData.organization_id }
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to trigger background reconciliation:', err);
+    }
+  })();
+
   return jsonResponse({
     payment: {
       intentId: intent.id,

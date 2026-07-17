@@ -322,7 +322,8 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   return jsonResponse(response, 200, correlationId);
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 serveEdge((request) => handleEdgeRequest(request, preparePayment));
