@@ -182,13 +182,6 @@ export const handleEdgeRequest = async (
     return await handler({ request, context, client, session, correlationId });
   } catch (error) {
     safeLog('edge request failed', { correlationId, error });
-    try {
-      const fs = require('fs');
-      if (fs.appendFileSync) fs.appendFileSync('edge_errors.log', JSON.stringify({correlationId, error: String(error)}) + '\n');
-    } catch(e){}
-    try {
-      Deno.writeTextFileSync('edge_errors.log', JSON.stringify({correlationId, error: String(error), stack: error?.stack}) + '\n', {append: true});
-    } catch(e){}
     return errorResponse(toFinancialError(error, correlationId));
   }
 };

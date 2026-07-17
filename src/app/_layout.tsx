@@ -20,7 +20,7 @@ import { getRoleHome, isAuthContinuationRoute, isRoleGroupForRole } from '@/util
 
 type RuntimeGlobal = typeof globalThis & { Buffer?: typeof Buffer };
 const runtimeGlobal = globalThis as RuntimeGlobal;
-if (typeof runtimeGlobal.Buffer === 'undefined') runtimeGlobal.Buffer = Buffer;
+runtimeGlobal.Buffer = Buffer;
 
 void SplashScreen.preventAutoHideAsync();
 
