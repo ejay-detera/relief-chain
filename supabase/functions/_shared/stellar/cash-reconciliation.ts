@@ -1065,4 +1065,43 @@ export const createMerchantSettlementProjector = (deps: {
   }
 });
 
+export interface ProgramActivationStore {
+  markFunded(params: { programId: string; correlationId: string }): Promise<void>;
+  markFailed(params: { programId: string; failureCode: string; correlationId: string }): Promise<void>;
+}
 
+export const createCashProgramProjector = (deps: {
+  store: ProgramActivationStore;
+}): ReconciliationProjector => ({
+  async project(input: ProjectionInput): Promise<ProjectionResult> {
+    const { intent, ledger, run } = input;
+    if (intent === null || intent.operation_type !== 'program_activation' || !intent.program_id) {
+      return { kind: 'unchanged' };
+    }
+
+    if (ledger.successful) {
+      await deps.store.markFunded({
+        programId: intent.program_id,
+        correlationId: run.correlationId,
+      });
+      safeLog('program activation confirmed by reconciliation', {
+        correlationId: run.correlationId,
+        programId: intent.program_id,
+        transactionHash: ledger.transactionHash,
+      });
+    } else {
+      await deps.store.markFailed({
+        programId: intent.program_id,
+        failureCode: ledger.errorCode || 'tx_failed',
+        correlationId: run.correlationId,
+      });
+      safeLog('program activation failed by reconciliation', {
+        correlationId: run.correlationId,
+        programId: intent.program_id,
+        transactionHash: ledger.transactionHash,
+      });
+    }
+
+    return { kind: 'unchanged' };
+  }
+});

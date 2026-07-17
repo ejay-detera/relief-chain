@@ -15,7 +15,10 @@ import {
   createCashProgramActivation,
   createCashActivationStrategy,
 } from '../_shared/stellar/cash-activation.ts';
-import { createCashReconcilerBundle } from '../_shared/edge-cash-reconciler.ts';
+import {
+  createCashReconcilerBundle,
+  createServiceProgramFundingStore,
+} from '../_shared/edge-cash-reconciler.ts';
 
 interface SubmitActivationBody {
   readonly intentId?: unknown;
@@ -91,6 +94,7 @@ const submitCashActivation = async (scope: EdgeRequestScope): Promise<Response> 
     horizon: reconciler.horizon,
     config: context.stellar,
     signers: createEdgeSignerRegistry(),
+    funding: createServiceProgramFundingStore(binding),
   });
 
   let submitted: { status: 'submitted'; attemptId: string; transactionHash: string };

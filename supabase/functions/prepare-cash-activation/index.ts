@@ -15,7 +15,10 @@ import {
   createCashProgramActivation,
   createCashActivationStrategy,
 } from '../_shared/stellar/cash-activation.ts';
-import { createCashReconcilerBundle } from '../_shared/edge-cash-reconciler.ts';
+import {
+  createCashReconcilerBundle,
+  createServiceProgramFundingStore,
+} from '../_shared/edge-cash-reconciler.ts';
 
 interface PrepareActivationBody {
   readonly organizationId?: unknown;
@@ -52,6 +55,7 @@ const prepareCashActivation = async (scope: EdgeRequestScope): Promise<Response>
     throw FinancialErrorException.of('authorization_failed', 'You do not have permission to activate cash programs.', { correlationId });
   }
 
+
   // 2. Fetch program details
   const { data: program, error: programError } = await service
     .from('programs')
@@ -83,6 +87,7 @@ const prepareCashActivation = async (scope: EdgeRequestScope): Promise<Response>
     horizon: reconciler.horizon,
     config: context.stellar,
     signers: createEdgeSignerRegistry(),
+    funding: createServiceProgramFundingStore(binding),
   });
 
   const prepared = await activationOrchestrator.prepare({

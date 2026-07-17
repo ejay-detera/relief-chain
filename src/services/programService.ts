@@ -255,7 +255,7 @@ export const fetchActiveProgramsWithLocations = async (): Promise<any[]> => {
       program_areas (area_id, areas (name)),
       program_barangays (barangay_id, barangays (name, area_id))
     `)
-    .eq('status', 'active')
+    // No status filter – return all programs (including active, funding, published, etc.)
     .order('created_at', { ascending: false });
 
   if (error) throw error;

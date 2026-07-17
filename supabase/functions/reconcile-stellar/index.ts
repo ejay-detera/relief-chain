@@ -10,7 +10,7 @@
 // Validates: Requirements 6.4, 8.6, 8.7, 18.1, 18.5, 18.6, 18.8
 
 import { requireOrganizationRole } from '../_shared/auth.ts';
-import { createCashReconcilerBundle, createHorizonCashLookup } from '../_shared/edge-cash-reconciler.ts';
+import { createCashReconcilerBundle, createCashProgramReconcilerBundle, createHorizonCashLookup } from '../_shared/edge-cash-reconciler.ts';
 import {
   createEdgeServiceBinding,
   handleEdgeRequest,
@@ -42,6 +42,7 @@ import type { OrganizationRole } from '../_shared/tenant-authorization.ts';
 interface ReconcileBody {
   readonly jobId?: unknown;
   readonly merchantId?: unknown;
+  readonly programId?: unknown;
   readonly organizationId?: unknown;
 }
 
@@ -58,10 +59,11 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
 
   const jobId = typeof body.jobId === 'string' ? body.jobId : '';
   const merchantId = typeof body.merchantId === 'string' ? body.merchantId : '';
+  const programId = typeof body.programId === 'string' ? body.programId : '';
   const bodyOrgId = typeof body.organizationId === 'string' ? body.organizationId : '';
 
-  if (!jobId && !merchantId) {
-    throw FinancialErrorException.of('validation_failed', 'Either a jobId or a merchantId is required.', { correlationId });
+  if (!jobId && !merchantId && !programId) {
+    throw FinancialErrorException.of('validation_failed', 'Either a jobId, merchantId, or programId is required.', { correlationId });
   }
 
   const binding = createEdgeServiceBinding(context, correlationId);
@@ -215,7 +217,7 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
       200,
       correlationId,
     );
-  } else {
+  } else if (merchantId) {
     // -------------------------------------------------------------------------
     // 2. Reconcile Merchant Settlement
     // -------------------------------------------------------------------------
@@ -495,7 +497,59 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
       200,
       correlationId,
     );
+  } else if (programId) {
+    // -------------------------------------------------------------------------
+    // 3. Reconcile Program Activation
+    // -------------------------------------------------------------------------
+    const { data: program, error: programError } = await service
+      .from('programs')
+      .select('id, organization_id')
+      .eq('id', programId)
+      .maybeSingle();
+
+    if (programError || !program) {
+      throw FinancialErrorException.of('validation_failed', 'The program was not found.', { correlationId });
+    }
+
+    await requireOrganizationRole(service, session, program.organization_id, ALLOWED_ROLES);
+
+    // The in-flight attempts for this program.
+    const { data: attempts, error: attemptsError } = await service
+      .from('transaction_attempts')
+      .select('*')
+      .eq('program_id', programId)
+      .in('status', ['submitted', 'unknown']);
+
+    if (attemptsError) {
+      throw FinancialErrorException.of('dependency_unavailable', 'Unable to load in-flight attempts.', {
+        correlationId,
+        retryable: true,
+      });
+    }
+
+    const bundle = createCashProgramReconcilerBundle(context, binding, correlationId);
+
+    const summary = await bundle.worker.runStream({
+      attempts,
+      streamName: `program_activation:${programId}`,
+      network: 'stellar_testnet',
+      organizationId: program.organization_id,
+      programId: programId,
+      cursorValue: null,
+      correlationId,
+    });
+
+    return jsonResponse(
+      {
+        summary,
+      },
+      200,
+      correlationId,
+    );
   }
+
+  // fallback (should not hit)
+  return jsonResponse({}, 200, correlationId);
 };
 
 serveEdge((request) => handleEdgeRequest(request, reconcileStellar));

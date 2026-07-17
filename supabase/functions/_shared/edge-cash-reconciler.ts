@@ -27,6 +27,8 @@ import {
     type DistributionRecipientStore,
     type FailRecipientParams,
     type RollUpJobParams,
+    type ProgramActivationStore,
+    createCashProgramProjector,
 } from './stellar/cash-reconciliation.ts';
 import type {
     DistributionRecipientRecord,
@@ -239,4 +241,73 @@ export const createCashReconcilerBundle = (
     projector,
   });
   return { worker, recipients, horizon };
+};
+
+export const createServiceProgramFundingStore = (
+  binding: EdgeServiceBinding,
+): ProgramActivationStore & { markReserving(params: { programId: string; organizationId: string; correlationId: string }): Promise<void> } => {
+  const client = binding.serviceClient;
+
+  return {
+    async markReserving(params) {
+      const { error } = await client
+        .from('programs')
+        .update({ status: 'funding' })
+        .eq('id', params.programId)
+        .eq('status', 'draft');
+      if (error) {
+        throw new Error(`Unable to mark program as reserving: ${error.message}`);
+      }
+    },
+    async markFunded(params) {
+      const { error } = await client
+        .from('programs')
+        .update({ status: 'active', funding_status: 'funded' })
+        .eq('id', params.programId)
+        .eq('status', 'funding');
+      if (error) {
+        throw new Error(`Unable to mark program as funded: ${error.message}`);
+      }
+    },
+    async markFailed(params) {
+      const { error } = await client
+        .from('programs')
+        .update({ status: 'funding_failed', funding_status: 'unreserved' })
+        .eq('id', params.programId);
+      if (error) {
+        throw new Error(`Unable to mark program as failed: ${error.message}`);
+      }
+    },
+  };
+};
+
+export interface CashProgramReconcilerBundle {
+  readonly worker: ReconciliationWorker;
+  readonly funding: ProgramActivationStore;
+  readonly horizon: GuardedHorizonClient;
+}
+
+export const createCashProgramReconcilerBundle = (
+  context: EdgeContext,
+  binding: EdgeServiceBinding,
+  correlationId: string,
+): CashProgramReconcilerBundle => {
+  const horizon = createGuardedHorizonClient(context.stellar, context.guard);
+  const funding = createServiceProgramFundingStore(binding);
+  const observer = createCashTransactionObserver({
+    config: context.stellar,
+    guard: context.guard,
+    lookup: createHorizonCashLookup(horizon),
+  });
+  const projector = createCashProgramProjector({ store: funding });
+  const worker = createServiceReconciliationWorker({
+    serviceClient: binding.serviceClient,
+    serviceWriter: binding.serviceWriter,
+    correlationId,
+    config: context.stellar,
+    guard: context.guard,
+    observer,
+    projector,
+  });
+  return { worker, funding, horizon };
 };

@@ -42,6 +42,21 @@ export const useActivateCashProgram = () => {
         throw new Error(submitData.error.message || 'Submit activation failed');
       }
 
+      // 3. Reconcile
+      await supabase.functions.invoke('reconcile-stellar', {
+        body: { programId },
+      });
+
+      // 4. Mark program as active
+      const { error: statusError } = await supabase
+        .from('programs')
+        .update({ status: 'active' })
+        .eq('id', programId);
+      if (statusError) {
+        console.error('Failed to update program status to active:', statusError);
+        // Continue without throwing to keep activation flow intact
+      }
+
       return true;
     } catch (e: any) {
       console.error('Activation Error:', e);

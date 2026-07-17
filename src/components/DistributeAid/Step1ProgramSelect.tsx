@@ -32,6 +32,7 @@ export const Step1ProgramSelect = ({ selectedProgram, onSelect, onNext }: Props)
   const [programs, setPrograms] = useState<DatabaseProgram[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Funding' | 'Draft'>('All');
 
   useEffect(() => {
     const fetchPrograms = async () => {
@@ -48,10 +49,14 @@ export const Step1ProgramSelect = ({ selectedProgram, onSelect, onNext }: Props)
     fetchPrograms();
   }, []);
 
-  const filteredPrograms = programs.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.purpose || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPrograms = programs.filter((p) => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.purpose || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'All' || p.status?.toLowerCase() === statusFilter.toLowerCase();
+    return matchesSearch && matchesStatus;
+  });
 
   const renderItem = ({ item }: { item: DatabaseProgram }) => {
     const isSelected = selectedProgram?.id === item.id;
@@ -89,6 +94,28 @@ export const Step1ProgramSelect = ({ selectedProgram, onSelect, onNext }: Props)
 
   return (
     <View style={styles.container}>
+      {/* Filter tabs */}
+      <View style={styles.filterContainer}>
+        {['All', 'Active', 'Funding', 'Draft'].map((filter) => (
+          <Pressable
+            key={filter}
+            style={[
+              styles.filterButton,
+              statusFilter === filter && styles.filterButtonActive,
+            ]}
+            onPress={() => setStatusFilter(filter as any)}
+          >
+            <ThemedText
+              style={[
+                styles.filterButtonText,
+                statusFilter === filter && styles.filterButtonTextActive,
+              ]}
+            >
+              {filter}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.searchContainer}>
         <FontAwesome name="search" size={16} color={BrandColors.grey} style={styles.searchIcon} />
         <TextInput
@@ -136,6 +163,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFC',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterButton: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  filterButtonActive: {
+    backgroundColor: BrandColors.navy,
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: BrandColors.grey,
+  },
+  filterButtonTextActive: {
+    color: 'white',
   },
   searchContainer: {
     flexDirection: 'row',
