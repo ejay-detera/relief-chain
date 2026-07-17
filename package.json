@@ -49,6 +49,7 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
+    "fast-check": "^4.3.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -57,7 +58,22 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:seed-idempotency": "node --test supabase/tests/super-admin-seed-idempotency.test.mjs",
+    "test:registration-rls": "node --test supabase/tests/registration-rls-access.test.mjs",
+    "test:registration-denial-logging": "node --test supabase/tests/registration-denial-logging.test.mjs",
+    "test:registration-creation": "node --test supabase/tests/registration-creation-invariants.test.mjs",
+    "test:registration-resubmission": "node --test supabase/tests/registration-resubmission-semantics.test.mjs",
+    "test:registration-cycles": "node --test supabase/tests/registration-unlimited-cycles.test.mjs",
+    "test:signup-routing": "node --experimental-strip-types --test src/utils/signup-routing.test.mjs",
+    "test:lgu-status-routing": "node --experimental-strip-types --test src/utils/lgu-status-routing.test.mjs",
+    "test:auth-profile": "node --experimental-strip-types --test src/utils/auth-profile.test.mjs",
+    "test:application-review-messaging": "node --experimental-strip-types --test src/components/ApplicationReview/messaging.test.mjs",
+    "test:application-review-rejection-scoping": "node --experimental-strip-types --test src/components/ApplicationReview/rejectionReasonScoping.test.mjs",
+    "test:application-review-render-failure": "node --experimental-strip-types --test src/components/ApplicationReview/applicationReviewRenderFailure.test.mjs",
+    "test:lgu-navigation-guard": "node --experimental-strip-types --test src/utils/lgu-navigation-guard.test.mjs",
+    "test:layout-navigation-guard-wiring": "node --experimental-strip-types --test src/app/_layout.integration.test.mjs",
+    "test:resubmission-wiring": "node --experimental-strip-types --test src/utils/resubmission.test.mjs"
   },
   "private": true
 }

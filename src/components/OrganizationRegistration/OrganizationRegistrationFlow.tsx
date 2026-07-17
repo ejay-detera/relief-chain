@@ -6,6 +6,7 @@ import { RegistrationShell } from '@/components/AuthRegistration/RegistrationShe
 import { isSupabaseConfigured, supabase, supabaseSetupMessage } from '@/lib/supabase';
 import { initialOrganizationRegistrationData, type OrganizationRegistrationData, type OrganizationRegistrationStep as Step } from '@/types/organization-registration';
 import { getOrganizationStepError } from '@/utils/registration-validation';
+import { getPostSignUpDestination } from '@/utils/signup-routing';
 
 import { OrganizationAccountStep } from './OrganizationAccountStep';
 import { OrganizationDetailsStep } from './OrganizationDetailsStep';
@@ -63,27 +64,52 @@ export const OrganizationRegistrationFlow = () => {
       const fullName = [data.firstName, data.middleInitial, data.lastName].filter(Boolean).join(' ');
       const document = data.verificationDocument;
       if (!document) return;
-      const { data: signUpData, error } = await supabase.auth.signUp({
-        email: data.email.trim(),
-        password: data.password,
-        options: { data: {
-          role: 'lgu', full_name: fullName, gov_id: null, location: data.regionProvinceCity.trim(),
-          stellar_pubkey: data.stellarWalletAddress.trim(), organization_name: data.organizationName.trim(),
-          organization_type: data.organizationType.trim(), representative_first_name: data.firstName.trim(),
-          representative_last_name: data.lastName.trim(), representative_middle_initial: data.middleInitial.trim() || null,
-          representative_position: data.position.trim(), sex: data.sex, civil_status: data.civilStatus,
-          mobile_number: data.mobileNumber, organization_document_name: document.name,
-          organization_document_mime_type: document.mimeType,
-        } },
+      const email = data.email.trim();
+
+      // Organization (lgu) sign-up skips email-OTP confirmation (Requirement 9.1):
+      // the `lgu-signup` Edge Function creates a pre-confirmed account via the
+      // Auth Admin API, then this client signs in with the same credentials to
+      // establish a session. beneficiary/merchant sign-up is untouched and
+      // still calls supabase.auth.signUp directly (Requirement 9.2).
+      const { error: createError } = await supabase.functions.invoke('lgu-signup', {
+        body: {
+          email,
+          password: data.password,
+          metadata: {
+            full_name: fullName, gov_id: null, location: data.regionProvinceCity.trim(),
+            stellar_pubkey: data.stellarWalletAddress.trim(), organization_name: data.organizationName.trim(),
+            organization_type: data.organizationType.trim(), representative_first_name: data.firstName.trim(),
+            representative_last_name: data.lastName.trim(), representative_middle_initial: data.middleInitial.trim() || null,
+            representative_position: data.position.trim(), sex: data.sex, civil_status: data.civilStatus,
+            mobile_number: data.mobileNumber, organization_document_name: document.name,
+            organization_document_mime_type: document.mimeType,
+          },
+        },
       });
-      if (error) {
-        Alert.alert('Account creation failed', error.message);
+      if (createError) {
+        Alert.alert('Account creation failed', createError.message);
         return;
       }
-      if (signUpData?.session) {
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: data.password });
+      if (signInError) {
+        Alert.alert('Account creation failed', signInError.message);
+        return;
+      }
+
+      // Session is now always established for lgu (no OTP step). lgu always
+      // routes to application-review, never registration-success or
+      // verify-email (Requirement 11.1, Property 15). getPostSignUpDestination
+      // is the single source of truth for this decision (see Property 15's
+      // test); the branch below only translates that decision into a typed
+      // expo-router route.
+      const destination = getPostSignUpDestination('lgu', true);
+      if (destination === 'application-review') {
+        router.replace({ pathname: '/(auth)/application-review' });
+      } else if (destination === 'registration-success') {
         router.replace({ pathname: '/(auth)/registration-success', params: { role: 'lgu' } });
       } else {
-        router.replace({ pathname: '/(auth)/verify-email', params: { email: data.email.trim(), role: 'lgu' } });
+        router.replace({ pathname: '/(auth)/verify-email', params: { email, role: 'lgu' } });
       }
     } catch (error: unknown) {
       Alert.alert('Account creation failed', error instanceof Error ? error.message : 'Please try again.');
