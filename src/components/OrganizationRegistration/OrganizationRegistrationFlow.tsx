@@ -5,6 +5,7 @@ import { Alert, BackHandler } from 'react-native';
 import { RegistrationShell } from '@/components/AuthRegistration/RegistrationShell';
 import { isSupabaseConfigured, supabase, supabaseSetupMessage } from '@/lib/supabase';
 import { initialOrganizationRegistrationData, type OrganizationRegistrationData, type OrganizationRegistrationStep as Step } from '@/types/organization-registration';
+import { readDocumentForUpload } from '@/utils/document-upload';
 import { getOrganizationStepError } from '@/utils/registration-validation';
 import { getPostSignUpDestination } from '@/utils/signup-routing';
 
@@ -66,6 +67,27 @@ export const OrganizationRegistrationFlow = () => {
       if (!document) return;
       const email = data.email.trim();
 
+      // Upload the accreditation/verification document to storage before the
+      // account exists so the Super Admin dashboard can later open the exact
+      // uploaded file (not just its filename) from the organization_documents
+      // bucket. Mirrors the beneficiary flow's valid_ids upload pattern.
+      const fileExt = document.name.split('.').pop() || 'pdf';
+      const documentPath = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const uploadPayload = await readDocumentForUpload(document).catch(() => {
+        Alert.alert('Document unavailable', 'Please select your accreditation document again and try again.');
+        return null;
+      });
+      if (!uploadPayload) return;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('organization_documents')
+        .upload(documentPath, uploadPayload.body, { contentType: uploadPayload.contentType });
+      if (uploadError) {
+        Alert.alert('Document upload failed', uploadError.message);
+        return;
+      }
+      const documentReference = uploadData?.path || documentPath;
+
       // Organization (lgu) sign-up skips email-OTP confirmation (Requirement 9.1):
       // the `lgu-signup` Edge Function creates a pre-confirmed account via the
       // Auth Admin API, then this client signs in with the same credentials to
@@ -83,6 +105,7 @@ export const OrganizationRegistrationFlow = () => {
             representative_position: data.position.trim(), sex: data.sex, civil_status: data.civilStatus,
             mobile_number: data.mobileNumber, organization_document_name: document.name,
             organization_document_mime_type: document.mimeType,
+            organization_document_reference: documentReference,
           },
         },
       });
