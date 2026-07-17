@@ -523,6 +523,16 @@ using (
       )
     )
     or (
+      owner_type = 'merchant_entity'
+      and (
+        exists (
+          select 1 from public.merchant_entities merchant
+          where merchant.id = owner_id
+            and merchant.profile_id = (select auth.uid())
+        )
+      )
+    )
+    or (
       owner_type = 'organization'
       and private.is_organization_member(owner_id)
     )

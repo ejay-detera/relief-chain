@@ -16,7 +16,7 @@ import { DashboardGreeting } from '@/components/beneficiary/Dashboard/dashboard-
 import { QuickActionGrid } from '@/components/beneficiary/Dashboard/quick-action-grid';
 import { RecentTransactionsList } from '@/components/beneficiary/Dashboard/recent-transactions-list';
 import { WalletBalanceCard } from '@/components/beneficiary/Dashboard/wallet-balance-card';
-import { QrModal } from '@/components/beneficiary/shared/qr-modal';
+import { QrModal } from '@/components/shared/qr-modal';
 
 import { useAuth } from '@/context/AuthContext';
 import { useBeneficiaryBalances } from '@/hooks/use-beneficiary-balances';

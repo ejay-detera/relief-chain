@@ -70,6 +70,7 @@ export const preparePayment = async (
     }>(PREPARE_FUNCTION, { body: request });
 
     if (error) {
+      console.log('payment-service prepare-payment ERROR:', JSON.stringify(error, null, 2), error.context);
       return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
     }
     if (!data?.payment) {

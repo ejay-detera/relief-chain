@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { ProfileDetailRow } from '@/components/beneficiary/Profile/profile-detail-row';
 import { ProfileHeader } from '@/components/beneficiary/Profile/profile-header';
-import { QrModal } from '@/components/beneficiary/shared/qr-modal';
+import { QrModal } from '@/components/shared/qr-modal';
 import { LogoutButton } from '@/components/shared/LogoutButton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';

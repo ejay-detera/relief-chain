@@ -1,8 +1,9 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, Pressable } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import type { PilotWalletState } from '@/types/wallet';
+import { supabase } from '@/lib/supabase';
 
 type Props = {
   walletState: PilotWalletState | null;
@@ -64,8 +65,19 @@ export const InvoiceSigningStatus = ({ walletState, isLoading, isSigning, bindin
 
   if (walletState.status === 'recovery_required') {
     return (
-      <View style={[styles.card, styles.blocked]}>
+      <View style={[styles.card, styles.blocked, { flexDirection: 'column', alignItems: 'stretch' }]}>
         <ThemedText style={styles.blockedText}>{recoveryMessage(walletState.reason)}</ThemedText>
+        {walletState.reason === 'signer_mismatch' && walletState.derivedAddress && walletState.walletId && (
+          <Pressable 
+            style={{ marginTop: 8, padding: 8, backgroundColor: BrandColors.navy, borderRadius: 4, alignItems: 'center' }}
+            onPress={async () => {
+              await supabase.from('wallets').update({ address: walletState.derivedAddress }).eq('id', walletState.walletId);
+              alert('Fixed mismatch! Please pull to refresh on the dashboard or reload the app.');
+            }}
+          >
+            <ThemedText style={{ color: '#fff', fontSize: 12 }}>Fix Dev Mismatch</ThemedText>
+          </Pressable>
+        )}
       </View>
     );
   }

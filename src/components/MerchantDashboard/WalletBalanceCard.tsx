@@ -5,12 +5,19 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 
-type WalletBalanceCardProps = { onSettlementsPress: () => void; onWithdrawPress: () => void };
+import { formatStroops } from '@/utils/format-stroops';
+import type { StroopAmount } from '@/types/blockchain';
 
-export const WalletBalanceCard = ({ onSettlementsPress, onWithdrawPress }: WalletBalanceCardProps) => (
+type WalletBalanceCardProps = {
+  balance: StroopAmount;
+  onSettlementsPress: () => void;
+  onWithdrawPress: () => void;
+};
+
+export const WalletBalanceCard = ({ balance, onSettlementsPress, onWithdrawPress }: WalletBalanceCardProps) => (
   <LinearGradient colors={[BrandColors.green, '#6C97D4']} end={{ x: 0.65, y: 1 }} start={{ x: 0.3, y: 0 }} style={styles.card}>
     <ThemedText style={styles.label}>Wallet Balance</ThemedText>
-    <ThemedText style={styles.balance}>₱24,500.00</ThemedText>
+    <ThemedText style={styles.balance}>{formatStroops(balance, { minimumFractionDigits: 2 })} RCPHP</ThemedText>
     <View style={styles.actions}>
       <Pressable accessibilityRole="button" onPress={onWithdrawPress} style={[styles.action, styles.withdraw]}>
         <FontAwesome color="#FFFFFF" name="bank" size={11} /><ThemedText style={styles.actionText}>Withdraw</ThemedText>

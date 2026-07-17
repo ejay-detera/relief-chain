@@ -13,11 +13,12 @@ export type PilotWalletHook = Readonly<{
   refresh: () => Promise<void>;
 }>;
 
-/** The public key is exposed only when the local signer exists and is not in a recovery state. */
-export const pilotWalletPublicKey = (state: PilotWalletState | null): string | null =>
-  state && (state.status === 'ready' || state.status === 'binding_required')
-    ? state.publicKey
-    : null;
+export const pilotWalletPublicKey = (state: PilotWalletState | null): string | null => {
+  if (!state) return null;
+  if (state.status === 'ready' || state.status === 'binding_required') return state.publicKey;
+  if (state.status === 'recovery_required' && state.expectedAddress) return state.expectedAddress;
+  return null;
+};
 
 const toActiveWalletRow = (row: {
   id: string;

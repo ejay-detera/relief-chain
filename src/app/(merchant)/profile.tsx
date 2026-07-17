@@ -8,6 +8,7 @@ import { MerchantProfileContent } from '@/components/MerchantProfile/MerchantPro
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
 
 const metadataString = (metadata: unknown, key: string): string | null => {
   if (!metadata || typeof metadata !== 'object') return null;
@@ -23,11 +24,13 @@ const MerchantProfileScreen = () => {
   const router = useRouter();
   const { profile, session } = useAuth();
   const insets = useSafeAreaInsets();
+  const { state: walletState } = useMerchantWallet();
+  const publicKey = merchantWalletPublicKey(walletState);
   const metadata: unknown = session?.user.user_metadata;
   const profileName = [profile?.first_name, profile?.last_name].filter((part): part is string => Boolean(part)).join(' ');
   const fullName = profile?.full_name?.trim() || metadataString(metadata, 'full_name') || profileName || 'Merchant Account';
   const merchantId = profile?.id || session?.user.id || 'Not available';
-  const walletAddress = profile?.stellar_pubkey || metadataString(metadata, 'stellar_pubkey') || 'Not available';
+  const walletAddress = profile?.stellar_pubkey || metadataString(metadata, 'stellar_pubkey') || publicKey || 'Not available';
   const mobileNumber = profile?.mobile_number || session?.user.phone || metadataString(metadata, 'mobile_number') || 'Not available';
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }} showsVerticalScrollIndicator={false}>

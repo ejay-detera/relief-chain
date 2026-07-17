@@ -7,22 +7,19 @@ import type { ActivePilotWalletRow, PilotWalletState } from '@/types/wallet';
 
 export type MerchantWalletHook = Readonly<{
   state: PilotWalletState | null;
+  merchantEntityId: string | null;
   isLoading: boolean;
   /** Set only when the active-binding lookup fails; the local signer state is then withheld. */
   error: string | null;
   refresh: () => Promise<void>;
 }>;
 
-/**
- * The merchant settlement wallet / invoice signer is exposed only when the local
- * signer exists and is not in a recovery state. A `ready` wallet matches a
- * verified active binding; a `binding_required` wallet has a usable key that is
- * not yet verified on-chain.
- */
-export const merchantWalletPublicKey = (state: PilotWalletState | null): string | null =>
-  state && (state.status === 'ready' || state.status === 'binding_required')
-    ? state.publicKey
-    : null;
+export const merchantWalletPublicKey = (state: PilotWalletState | null): string | null => {
+  if (!state) return null;
+  if (state.status === 'ready' || state.status === 'binding_required') return state.publicKey;
+  if (state.status === 'recovery_required' && state.expectedAddress) return state.expectedAddress;
+  return null;
+};
 
 /** True only when the signer matches a verified active merchant wallet binding. */
 export const isVerifiedMerchantWallet = (state: PilotWalletState | null): boolean =>
@@ -48,6 +45,7 @@ export function useMerchantWallet(): MerchantWalletHook {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
   const [state, setState] = useState<PilotWalletState | null>(null);
+  const [merchantEntityId, setMerchantEntityId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef(0);
@@ -56,6 +54,7 @@ export function useMerchantWallet(): MerchantWalletHook {
     const request = ++requestRef.current;
     if (!userId) {
       setState(null);
+      setMerchantEntityId(null);
       setError(null);
       setIsLoading(false);
       return;
@@ -66,7 +65,7 @@ export function useMerchantWallet(): MerchantWalletHook {
     try {
       const { data, error: queryError } = await supabase
         .from('wallets')
-        .select('id, network, address, is_active')
+        .select('id, network, address, is_active, owner_id')
         .eq('purpose', 'merchant_settlement')
         .eq('network', 'stellar_testnet')
         .eq('is_active', true)
@@ -76,7 +75,10 @@ export function useMerchantWallet(): MerchantWalletHook {
       if (queryError) throw queryError;
       if (request !== requestRef.current) return;
 
-      const activeWallet = toActiveWalletRow(data?.[0] ?? null);
+      const row = data?.[0] ?? null;
+      setMerchantEntityId(row?.owner_id ?? null);
+      
+      const activeWallet = toActiveWalletRow(row);
       const resolved = await loadOrProvisionPilotWallet(userId, activeWallet);
       if (request !== requestRef.current) return;
 
@@ -84,6 +86,7 @@ export function useMerchantWallet(): MerchantWalletHook {
     } catch (err: unknown) {
       if (request !== requestRef.current) return;
       setState(null);
+      setMerchantEntityId(null);
       setError(err instanceof Error ? err.message : 'Unable to load the merchant wallet binding.');
     } finally {
       if (request === requestRef.current) setIsLoading(false);
@@ -95,5 +98,5 @@ export function useMerchantWallet(): MerchantWalletHook {
     void load();
   }, [load]);
 
-  return { state, isLoading, error, refresh: load };
+  return { state, merchantEntityId, isLoading, error, refresh: load };
 }

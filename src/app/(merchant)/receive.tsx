@@ -27,8 +27,8 @@ type PresentedInvoice = { invoice: InvoiceV1; transport: InvoiceTransport };
 
 const MerchantReceiveScreen = () => {
   const router = useRouter();
-  const { profile, session } = useAuth();
-  const { state: walletState, isLoading, error: bindingError } = useMerchantWallet();
+  const { session } = useAuth();
+  const { state: walletState, merchantEntityId, isLoading, error: bindingError } = useMerchantWallet();
 
   const [step, setStep] = useState<MerchantInvoiceStep>('collect');
   const [presented, setPresented] = useState<PresentedInvoice | null>(null);
@@ -36,23 +36,25 @@ const MerchantReceiveScreen = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const userId = session?.user.id ?? null;
-  const merchantId = profile?.id ?? session?.user.id ?? null;
+  // Use the merchantEntityId from the wallet hook, which resolves the entity ID, instead of the auth user ID.
+  // The backend prepare-payment function strictly expects the merchant entity ID to resolve accreditations.
+  const resolvedMerchantId = merchantEntityId ?? null;
   const merchantWallet = merchantWalletPublicKey(walletState);
   // The pilot only surfaces voucher programs that already have a deployed,
   // activated contract. None are wired to the client yet, so voucher invoices
   // are honestly shown as unavailable rather than fabricated.
   const voucherPrograms = useMemo<readonly VoucherInvoiceProgramOption[]>(() => [], []);
 
-  const canCreate = Boolean(userId && merchantId && merchantWallet);
+  const canCreate = Boolean(userId && resolvedMerchantId && merchantWallet);
 
   const handleSubmit = useCallback(async (draft: MerchantInvoiceDraft) => {
-    if (!userId || !merchantId || !merchantWallet) return;
+    if (!userId || !resolvedMerchantId || !merchantWallet) return;
     setStep('signing');
     setFormError(null);
     try {
       const result = await createSignedInvoice({
         userId,
-        merchantId,
+        merchantId: resolvedMerchantId,
         merchantWallet,
         kind: draft.kind,
         amountStroops: draft.amountStroops,
@@ -68,7 +70,7 @@ const MerchantReceiveScreen = () => {
       setFormError(caught instanceof Error ? caught.message : 'Could not create the invoice.');
       setStep('collect');
     }
-  }, [userId, merchantId, merchantWallet]);
+  }, [userId, resolvedMerchantId, merchantWallet]);
 
   const startNewInvoice = useCallback(() => {
     setPresented(null);
