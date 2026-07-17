@@ -10,7 +10,17 @@
     "supabase": {
       "url": "https://mcp.supabase.com/mcp",
       "autoApprove": [
-        "search_docs"
+        "search_docs",
+        "list_projects",
+        "list_edge_functions",
+        "deploy_edge_function",
+        "get_edge_function",
+        "get_advisors",
+        "list_migrations",
+        "apply_migration",
+        "execute_sql",
+        "execute_sql",
+        "get_logs"
       ],
       "disabledTools": [
         "get_cost",

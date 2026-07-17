@@ -1,5 +1,7 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { fetchOwnRegistration } from '@/services/registrationService';
 import { isUserRole, type AuthContextValue, type UserProfile } from '@/types/auth';
+import { fetchProfileWithRegistration } from '@/utils/auth-profile';
 import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -65,7 +67,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const profileRequest = useRef(0);
   const sessionRef = useRef<Session | null>(null);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchBaseProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, role, full_name, gov_id, location, stellar_pubkey, created_at, first_name, last_name, middle_initial, mobile_number, sex, civil_status, birthdate, gov_id_url, complete_address, municipality_city, verification_status, city_id, area_id, barangay_id')
@@ -78,6 +80,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (!nextProfile) throw new Error('No valid profile found for the authenticated user.');
     return nextProfile;
   }, []);
+
+  // For `lgu` users, also loads the caller's own `registrations` row onto
+  // `profile.registration` (Requirements 12.1, 13.1). A `registrations` fetch
+  // failure throws the same way a base-profile fetch failure does, so it is
+  // caught by the existing profileError handling below rather than
+  // introducing a new state.
+  const fetchProfile = useCallback(
+    (userId: string) => fetchProfileWithRegistration(userId, { fetchBaseProfile, fetchOwnRegistration }),
+    [fetchBaseProfile],
+  );
 
   useEffect(() => {
     let isActive = true;

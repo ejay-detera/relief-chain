@@ -1,4 +1,4 @@
-# Relief Chain
+# 🌍 Relief Chain
 
 > Transparent, blockchain-backed relief distribution platform.
 
@@ -9,7 +9,7 @@ Relief Chain is a mobile-first Expo/React Native application connecting LGUs, me
 - Role-based LGU, beneficiary, and merchant mobile workflows
 - Supabase PostgreSQL, Auth, Storage, Realtime, and Edge Functions
 - Stellar testnet wallet, RCPHP, payment, disbursement, and reconciliation tooling
-- Local demo seeds and database authorization/integration tests
+- Registration review, resubmission, local demo seeds, and database authorization tests
 
 ## Quick links
 
@@ -33,4 +33,4 @@ The default demo accounts in `SETUP.md` are local/testnet credentials only. They
 
 ## Start here
 
-Follow [`SETUP.md`](./SETUP.md) for prerequisites, Docker/Supabase, ADB, Edge Functions, Stellar bootstrap, demo seeds, feature-specific scripts, validation, and troubleshooting.
+Follow [`SETUP.md`](./SETUP.md) for prerequisites, Docker/Supabase, ADB, Edge Functions, Stellar bootstrap, demo seeds, feature-specific scripts, validation, troubleshooting, and the production boundary.

@@ -1,5 +1,7 @@
 import type { AuthError, Session } from '@supabase/supabase-js';
 
+import type { RegistrationSummary } from '@/types/registration';
+
 export type UserRole = 'lgu' | 'beneficiary' | 'merchant';
 
 export type UserProfile = {
@@ -24,6 +26,8 @@ export type UserProfile = {
   city_id?: number | null;
   area_id?: number | null;
   barangay_id?: number | null;
+  /** Only present when role === 'lgu'; the caller's own organization registration. */
+  registration?: RegistrationSummary | null;
 };
 
 export type AuthContextValue = {
