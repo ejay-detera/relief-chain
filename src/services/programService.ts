@@ -147,6 +147,8 @@ export const createLguProgram = async (
       supporting_documents: draft.supportingDocuments,
       status: status === 'published' ? 'active' : 'draft',
       created_by: createdBy,
+      asset_code: 'RCPHP',
+      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7',
     })
     .select('id, organization_id')
     .single();
@@ -207,6 +209,8 @@ export const updateLguProgram = async (
       eligibility_criteria: draft.eligibilityCriteria,
       supporting_documents: draft.supportingDocuments,
       status: status === 'published' ? 'active' : 'draft',
+      asset_code: 'RCPHP',
+      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7',
     })
     .eq('id', id)
     .select('id, organization_id')

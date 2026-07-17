@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RequestCashOutModal, type CashOutSubmitOutcome } from '@/components/CashOut/RequestCashOutModal';
@@ -40,6 +40,7 @@ export default function BeneficiaryDashboard() {
   const { programs, isLoading, error, refetch } = useBeneficiaryPrograms();
   const [isQrVisible, setIsQrVisible] = useState(false);
   const [isCashOutVisible, setIsCashOutVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const availableCash: StroopAmount =
     balance.status === 'current' || balance.status === 'stale'
@@ -52,6 +53,12 @@ export default function BeneficiaryDashboard() {
     await refreshBalance();
     return { ok: true };
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetch(), refreshBalance(), refreshEntitlements()]);
+    setRefreshing(false);
+  }, [refetch, refreshBalance, refreshEntitlements]);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +75,11 @@ export default function BeneficiaryDashboard() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[BrandColors.navy]} tintColor={BrandColors.navy} />}
+        >
           <LogoHeader />
 
           <DashboardGreeting name={profile?.full_name ?? null} />

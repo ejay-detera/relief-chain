@@ -50,9 +50,12 @@ const SettingsScreen = () => {
               try {
                 const { supabase } = await import('@/lib/supabase');
                 const { Alert } = await import('react-native');
-                const { data, error } = await supabase.functions.invoke('reconcile-stellar');
-                if (error) throw error;
-                if (data?.error) throw new Error(data.error.message);
+                const { data: job } = await supabase.from('distribution_jobs').select('id').eq('status', 'reconciling').order('created_at', { ascending: false }).limit(1).maybeSingle();
+                if (job) {
+                  const { data, error } = await supabase.functions.invoke('reconcile-stellar', { body: { jobId: job.id } });
+                  if (error) throw error;
+                  if (data?.error) throw new Error(data.error.message);
+                }
                 Alert.alert('Reconciliation Complete', 'Stellar testnet balances and transactions have been reconciled.');
               } catch (e: any) {
                 const { Alert } = await import('react-native');
