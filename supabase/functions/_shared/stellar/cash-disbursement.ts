@@ -432,12 +432,22 @@ export const createCashDisbursementStrategy = (
     return {
       transactionHash,
       submit: async (): Promise<SubmissionAcceptance> => {
-        const response = await deps.horizon.submitTransaction(feeBump);
-        const accepted = response as unknown as { hash?: string; successful?: boolean };
-        return {
-          transactionHash: accepted.hash ?? transactionHash,
-          resultCode: accepted.successful === false ? 'txFAILED' : 'txSUCCESS',
-        };
+        try {
+          const response = await deps.horizon.submitTransaction(feeBump);
+          const accepted = response as unknown as { hash?: string };
+          return {
+            transactionHash: accepted.hash ?? transactionHash,
+            resultCode: 'txSUCCESS',
+          };
+        } catch (error: any) {
+          if (error.response && (error.response.status === 400 || error.response.status === 504)) {
+            return {
+              transactionHash,
+              resultCode: 'txFAILED',
+            };
+          }
+          throw error;
+        }
       },
     };
   };

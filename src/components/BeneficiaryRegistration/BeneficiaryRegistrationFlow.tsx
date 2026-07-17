@@ -71,26 +71,10 @@ export const BeneficiaryRegistrationFlow = () => {
         return;
       }
 
-      // 1. Upload ID document to Supabase storage 'valid_ids' bucket
+      // 1. Prepare upload path
       const fileExt = document.name.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = fileName;
-      const uploadPayload = await readDocumentForUpload(document).catch(() => {
-        Alert.alert('ID document unavailable', 'Please select your government ID again and complete registration without restarting the app.');
-        return null;
-      });
-      if (!uploadPayload) return;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('valid_ids')
-        .upload(filePath, uploadPayload.body, { contentType: uploadPayload.contentType });
-
-      if (uploadError) {
-        Alert.alert('ID Upload failed', uploadError.message);
-        return;
-      }
-
-      const govIdUrl = uploadData?.path || filePath;
 
       // 2. Perform Supabase authentication sign up with metadata
       const { data: signUpData, error } = await supabase.auth.signUp({
@@ -102,7 +86,7 @@ export const BeneficiaryRegistrationFlow = () => {
           first_name: data.firstName.trim(), last_name: data.lastName.trim(),
           middle_initial: data.middleInitial.trim() || null, mobile_number: data.mobileNumber,
           sex: data.sex, civil_status: data.civilStatus, complete_address: data.completeAddress.trim(),
-          municipality_city: data.municipalityCity.trim(), gov_id_url: govIdUrl,
+          municipality_city: data.municipalityCity.trim(), gov_id_url: filePath,
           city_id: data.cityId, area_id: data.districtId, barangay_id: data.barangayId,
         } },
       });
@@ -110,9 +94,26 @@ export const BeneficiaryRegistrationFlow = () => {
         Alert.alert('Account creation failed', error.message);
         return;
       }
+
+      // 3. Upload ID document to Supabase storage 'valid_ids' bucket if session exists
       if (signUpData?.session) {
+        const uploadPayload = await readDocumentForUpload(document).catch(() => {
+          Alert.alert('ID document unavailable', 'Your account was created, but we could not read your ID document. Please update it later in your profile.');
+          return null;
+        });
+        
+        if (uploadPayload) {
+          const { error: uploadError } = await supabase.storage
+            .from('valid_ids')
+            .upload(filePath, uploadPayload.body, { contentType: uploadPayload.contentType });
+
+          if (uploadError) {
+            Alert.alert('ID Upload failed', 'Your account was created, but the ID upload failed: ' + uploadError.message);
+          }
+        }
         router.replace({ pathname: '/(auth)/registration-success', params: { role: 'beneficiary' } });
       } else {
+        Alert.alert('Email Verification Required', 'Account created! Since email confirmation is required, you must upload your ID securely after logging in.');
         router.replace({ pathname: '/(auth)/verify-email', params: { email: data.email.trim(), role: 'beneficiary' } });
       }
     } catch (error: unknown) {

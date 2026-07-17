@@ -103,10 +103,24 @@ export const createLguProgram = async (
   draft: ProgramDraft,
   status: 'draft' | 'published',
   createdBy: string | null
-): Promise<boolean> => {
+): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
+  if (!createdBy) throw new Error("User must be logged in to create a program");
+
+  // Fetch the user's organization ID
+  const { data: memData, error: memError } = await supabase
+    .from('organization_memberships')
+    .select('organization_id')
+    .eq('user_id', createdBy)
+    .eq('is_active', true)
+    .limit(1)
+    .single();
+
+  if (memError || !memData) throw new Error("User does not have an active organization membership");
+
   const { data: programData, error: programError } = await supabase
     .from('programs')
     .insert({
+      organization_id: memData.organization_id,
       name: draft.name,
       purpose: draft.description,
       total_budget: draft.totalBudget,
@@ -134,7 +148,7 @@ export const createLguProgram = async (
       status: status === 'published' ? 'active' : 'draft',
       created_by: createdBy,
     })
-    .select()
+    .select('id, organization_id')
     .single();
 
   if (programError) throw programError;
@@ -147,7 +161,7 @@ export const createLguProgram = async (
     );
   }
 
-  return true;
+  return { success: true, programId: programData?.id, organizationId: programData?.organization_id };
 };
 
 export const fetchRegisteredMerchants = async (): Promise<string[]> => {
@@ -164,7 +178,7 @@ export const updateLguProgram = async (
   id: string,
   draft: ProgramDraft,
   status: 'draft' | 'published'
-): Promise<boolean> => {
+): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
   const { data: programData, error: programError } = await supabase
     .from('programs')
     .update({
@@ -195,7 +209,7 @@ export const updateLguProgram = async (
       status: status === 'published' ? 'active' : 'draft',
     })
     .eq('id', id)
-    .select()
+    .select('id, organization_id')
     .single();
 
   if (programError) throw programError;
@@ -208,7 +222,7 @@ export const updateLguProgram = async (
     );
   }
 
-  return true;
+  return { success: true, programId: programData?.id, organizationId: programData?.organization_id };
 };
 
 export const deleteLguProgram = async (id: string): Promise<boolean> => {

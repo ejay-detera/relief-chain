@@ -67,7 +67,7 @@ export function useMerchantWallet(): MerchantWalletHook {
       const { data, error: queryError } = await supabase
         .from('wallets')
         .select('id, network, address, is_active')
-        .eq('purpose', 'merchant')
+        .eq('purpose', 'merchant_settlement')
         .eq('network', 'stellar_testnet')
         .eq('is_active', true)
         .eq('verification_status', 'verified')
@@ -91,6 +91,7 @@ export function useMerchantWallet(): MerchantWalletHook {
   }, [userId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     void load();
   }, [load]);
 
