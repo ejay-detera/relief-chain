@@ -71,8 +71,18 @@ export const InvoiceSigningStatus = ({ walletState, isLoading, isSigning, bindin
           <Pressable 
             style={{ marginTop: 8, padding: 8, backgroundColor: BrandColors.navy, borderRadius: 4, alignItems: 'center' }}
             onPress={async () => {
-              await supabase.from('wallets').update({ address: walletState.derivedAddress }).eq('id', walletState.walletId);
-              alert('Fixed mismatch! Please pull to refresh on the dashboard or reload the app.');
+              try {
+                const { error, data } = await supabase.from('wallets').update({ address: walletState.derivedAddress }).eq('id', walletState.walletId).select();
+                if (error) {
+                  alert('DB Error: ' + JSON.stringify(error));
+                } else if (data && data.length === 0) {
+                  alert('No rows updated. Wallet ID: ' + walletState.walletId);
+                } else {
+                  alert('Fixed! Updated to: ' + walletState.derivedAddress?.slice(0,8) + '... Please refresh dashboard.');
+                }
+              } catch (err) {
+                alert('Exception: ' + String(err));
+              }
             }}
           >
             <ThemedText style={{ color: '#fff', fontSize: 12 }}>Fix Dev Mismatch</ThemedText>

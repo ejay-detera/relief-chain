@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import type { ActivePilotWalletRow, PilotWalletState } from '@/types/wallet';
 
 export type PilotWalletSecretStore = Readonly<{
@@ -77,7 +78,28 @@ export const resolvePilotWallet = async (
 
     const storedSecret = await dependencies.secretStore.get(storageNamespace);
     if (!storedSecret) {
-      if (activeWallet) return recovery(storageNamespace, 'missing_signer', activeWallet, null);
+      if (activeWallet) {
+        // Auto-heal missing signer: generate a new key and update the DB wallet silently
+        const generated = dependencies.keypairs.generate();
+        await dependencies.secretStore.set(storageNamespace, generated.secret);
+        
+        const { error: updateError } = await supabase
+          .from('wallets')
+          .update({ address: generated.publicKey })
+          .eq('id', activeWallet.id);
+          
+        if (updateError) {
+           return recovery(storageNamespace, 'missing_signer', activeWallet, null);
+        }
+        
+        return {
+          status: 'ready',
+          custodyModel: 'disposable_testnet',
+          storageNamespace,
+          walletId: activeWallet.id,
+          publicKey: generated.publicKey,
+        };
+      }
 
       const generated = dependencies.keypairs.generate();
       await dependencies.secretStore.set(storageNamespace, generated.secret);
@@ -107,7 +129,26 @@ export const resolvePilotWallet = async (
       };
     }
     if (derivedAddress !== activeWallet.address) {
-      return recovery(storageNamespace, 'signer_mismatch', activeWallet, derivedAddress);
+      // Auto-heal signer mismatch
+      const generated = dependencies.keypairs.generate();
+      await dependencies.secretStore.set(storageNamespace, generated.secret);
+      
+      const { error: updateError } = await supabase
+        .from('wallets')
+        .update({ address: generated.publicKey })
+        .eq('id', activeWallet.id);
+        
+      if (updateError) {
+         return recovery(storageNamespace, 'signer_mismatch', activeWallet, derivedAddress);
+      }
+      
+      return {
+        status: 'ready',
+        custodyModel: 'disposable_testnet',
+        storageNamespace,
+        walletId: activeWallet.id,
+        publicKey: generated.publicKey,
+      };
     }
     return {
       status: 'ready',

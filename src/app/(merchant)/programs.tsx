@@ -19,7 +19,7 @@ const MerchantProgramsScreen = () => {
   const emptyMessage = error ? 'Unable to load programs.' : 'No programs are available for this merchant.';
 
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
-    <MerchantDashboardHeader onNotificationsPress={showNotifications} />
+    <MerchantDashboardHeader onNotificationsPress={showNotifications} onShowQr={() => {}} />
     <FlatList contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }]} data={programs} keyExtractor={(item) => item.id}
       ListHeaderComponent={<View style={styles.intro}><ThemedText style={styles.title}>Accepted Programs</ThemedText><ThemedText style={styles.subtitle}>View the relief programs whose digital vouchers your business can accept.</ThemedText><ProgramsSummary activePrograms={activePrograms} vouchersProcessed={metrics?.vouchersProcessed ?? null} />{error && programs.length > 0 ? <ThemedText style={styles.error}>Programs could not be refreshed. Showing the latest available list.</ThemedText> : null}</View>}
       ListEmptyComponent={<View style={styles.empty}><ThemedText style={styles.emptyTitle}>{isLoading ? 'Loading programs…' : emptyMessage}</ThemedText>{error && !isLoading ? <Pressable accessibilityRole="button" onPress={() => void refresh()} style={styles.retry}><ThemedText style={styles.retryText}>Try Again</ThemedText></Pressable> : null}</View>}

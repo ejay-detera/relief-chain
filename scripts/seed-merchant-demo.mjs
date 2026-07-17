@@ -11,9 +11,9 @@
 import { Keypair } from '@stellar/stellar-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
-import pg from 'pg';
 import fs from 'node:fs';
 import path from 'node:path';
+import pg from 'pg';
 
 // Load env file if exists
 try {
@@ -64,29 +64,60 @@ const admin = createClient(url, serviceRoleKey, {
 });
 
 const runId = Date.now().toString(36);
-const adminEmail = `merchant-admin-${runId}@example.test`;
-const beneficiaryEmail = `merchant-beneficiary-${runId}@example.test`;
-const merchantEmail = `merchant-user-${runId}@example.test`;
+const adminEmail = 'admin@example.com';
+const beneficiaryEmail = 'beneficiary@example.com';
+const merchantEmail = 'merchant@example.com';
 const password = 'ReliefChain!123';
 
-const createUser = async (email, role) => {
+const findUserByEmail = async (email) => {
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) {
+      throw new Error(`listUsers failed: ${error.message}`);
+    }
+
+    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === email);
+    if (user) return user;
+    if (data.users.length < 1000) return null;
+  }
+};
+
+const ensureUser = async (email, role) => {
+  const existingUser = await findUserByEmail(email);
+  const userMetadata = {
+    ...(existingUser?.user_metadata ?? {}),
+    role,
+    registration_role: role,
+  };
+
+  if (existingUser) {
+    const { data, error } = await admin.auth.admin.updateUserById(existingUser.id, {
+      password,
+      email_confirm: true,
+      user_metadata: userMetadata,
+    });
+    if (error || !data.user) {
+      throw new Error(`updateUser(${email}) failed: ${error?.message || JSON.stringify(error)}`);
+    }
+    return data.user.id;
+  }
+
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { role, registration_role: role },
+    user_metadata: userMetadata,
   });
   if (error || !data.user) {
-    console.error(`createUser error details:`, error);
     throw new Error(`createUser(${email}) failed: ${error?.message || JSON.stringify(error)}`);
   }
   return data.user.id;
 };
 
 async function main() {
-  const adminUserId = await createUser(adminEmail, 'lgu');
-  const beneficiaryUserId = await createUser(beneficiaryEmail, 'beneficiary');
-  const merchantUserId = await createUser(merchantEmail, 'merchant');
+  const adminUserId = await ensureUser(adminEmail, 'lgu');
+  const beneficiaryUserId = await ensureUser(beneficiaryEmail, 'beneficiary');
+  const merchantUserId = await ensureUser(merchantEmail, 'merchant');
 
   const db = new pg.Client(databaseUrl);
   await db.connect();
@@ -111,7 +142,7 @@ async function main() {
     // Membership for admin
     await db.query(
       `insert into public.organization_memberships (organization_id, user_id, role, is_active, granted_by)
-       values ($1,$2,'finance_approver',true,$2)`,
+       values ($1,$2,'organization_administrator',true,$2)`,
       [org.id, adminUserId],
     );
 

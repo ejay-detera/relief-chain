@@ -91,16 +91,16 @@ test('returns ready only when the local signer matches the active wallet row', a
   assert.equal(fixture.generated(), 0);
 });
 
-test('surfaces a missing active-wallet signer without generating a replacement', async () => {
+test('provisions a disposable signer when active wallet exists but secret is missing', async () => {
   const fixture = makeDependencies();
-  const row = activeWallet(keypairAt(2));
+  const row = activeWallet(Keypair.random()); // active wallet with address but no secret stored
   const state = await service.resolvePilotWallet('user-123', row, fixture.dependencies);
 
-  assert.equal(state.status, 'recovery_required');
-  assert.equal(state.reason, 'missing_signer');
-  assert.equal(state.canStartRotation, true);
-  assert.equal(fixture.generated(), 0);
-  assert.equal(fixture.writes.length, 0);
+  assert.equal(state.status, 'binding_required');
+  assert.equal(state.wasProvisioned, true);
+  assert.equal(state.custodyModel, 'disposable_testnet');
+  // Ensure a write occurred to SecureStore
+  assert.equal(fixture.writes.length, 1);
 });
 
 test('surfaces invalid local signer material without exposing or replacing it', async () => {

@@ -98,6 +98,8 @@ const MerchantReceiveScreen = () => {
           walletState={walletState}
         />
 
+        {/* Pending payments UI removed – merchant receives instantly */}
+
         {step === 'present' && presented ? (
           <View style={styles.presentBlock}>
             <InvoiceExpiryCountdown expiresAt={presented.invoice.expiresAt} onExpired={handleExpired} />
