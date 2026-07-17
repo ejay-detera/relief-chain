@@ -76,7 +76,10 @@ const createUser = async (email, role) => {
     email_confirm: true,
     user_metadata: { role, registration_role: role },
   });
-  if (error || !data.user) throw new Error(`createUser(${email}) failed: ${error?.message}`);
+  if (error || !data.user) {
+    console.error(`createUser error details:`, error);
+    throw new Error(`createUser(${email}) failed: ${error?.message || JSON.stringify(error)}`);
+  }
   return data.user.id;
 };
 

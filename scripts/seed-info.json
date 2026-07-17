@@ -1,8 +1,8 @@
 {
-  "ORGANIZATION_ID": "b77b1869-592c-43ca-8082-6131ebb07a88",
-  "PROGRAM_ID": "9943abb6-d7ee-4fe4-a4cb-6f5256dfe0ec",
-  "ADMIN_EMAIL": "merchant-admin-mro0jmio@example.test",
-  "BENEFICIARY_EMAIL": "merchant-beneficiary-mro0jmio@example.test",
-  "MERCHANT_EMAIL": "merchant-user-mro0jmio@example.test",
-  "MERCHANT_ENTITY_ID": "e781f45b-9e30-42e5-85ac-9b30920ea670"
+  "ORGANIZATION_ID": "ffa6331f-ce35-41a5-82c8-2949d1c0558c",
+  "PROGRAM_ID": "b13b5e8d-7bee-464e-bf82-c6d5a63dfba8",
+  "ADMIN_EMAIL": "merchant-admin-mroerklk@example.test",
+  "BENEFICIARY_EMAIL": "merchant-beneficiary-mroerklk@example.test",
+  "MERCHANT_EMAIL": "merchant-user-mroerklk@example.test",
+  "MERCHANT_ENTITY_ID": "3d917816-82f6-4010-9413-d4fcee002272"
 }
