@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TransactionRow } from '@/components/beneficiary/Transactions/transaction-row';
@@ -25,28 +25,27 @@ export default function TransactionsScreen() {
           <ThemedText style={styles.title}>Transaction History</ThemedText>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={BrandColors.navy} size="large" />
-            </View>
-          )}
-
-          {!isLoading && error && (
-            <ErrorState message="We couldn't load your transactions." onRetry={refresh} />
-          )}
-
-          {!isLoading && !error && redemptions.length === 0 && (
-            <EmptyState
-              description="Your confirmed transactions will appear here once you receive or spend assistance."
-              title="No Transactions Yet"
-            />
-          )}
-
-          {!isLoading && !error && redemptions.map(record => (
-            <TransactionRow key={record.id} record={record} />
-          ))}
-        </ScrollView>
+        {isLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={BrandColors.navy} size="large" />
+          </View>
+        )}
+        {!isLoading && error && <ErrorState message="We couldn't load your transactions." onRetry={refresh} />}
+        {!isLoading && !error && (
+          <FlatList
+            data={redemptions}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <TransactionRow record={item} />}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <EmptyState
+                description="Your confirmed transactions will appear here once you receive or spend assistance."
+                title="No Transactions Yet"
+              />
+            }
+          />
+        )}
       </SafeAreaView>
     </ThemedView>
   );

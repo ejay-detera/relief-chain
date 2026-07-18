@@ -39,7 +39,9 @@ const RootLayoutNav = () => {
     const inAuthGroup = group === '(auth)';
 
     if (!session) {
-      if (!inAuthGroup) router.replace('/(auth)/choose-account');
+      if (!inAuthGroup) {
+        router.replace('/(auth)/choose-account');
+      }
       return;
     }
 
@@ -47,12 +49,6 @@ const RootLayoutNav = () => {
     if (!profile) return;
     if (inAuthGroup && isAuthContinuationRoute(route)) return;
 
-    // Additive lgu-status gating (Requirements 12.1, 12.2, 13.1, 13.3, 13.4):
-    // blocks the LGU_Dashboard for Pending/Rejected accounts via any
-    // navigation path (direct URL, menu, deep link — this effect re-runs on
-    // every segments change regardless of how it was triggered), and routes
-    // Approved lgu users to the LGU_Dashboard even if the
-    // Application_Review_Screen was shown earlier in the session.
     if (profile.role === 'lgu' && profile.registration) {
       const decision = getLguNavigationDecision(profile.registration.status, { group, route });
       if (decision === 'redirect-to-review') {
@@ -61,6 +57,12 @@ const RootLayoutNav = () => {
       }
       if (decision === 'redirect-to-dashboard') {
         router.replace(getRoleHome('lgu'));
+        return;
+      }
+      
+      // If decision is 'stay' and we are on the review screen, return early
+      // so the role catch-all below doesn't incorrectly boot us out of the auth group.
+      if (group === '(auth)' && route === 'application-review') {
         return;
       }
     }

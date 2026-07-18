@@ -111,3 +111,17 @@ export const applyToProgram = async (beneficiaryId: string, program: Organizatio
 
   if (error) throw error;
 };
+
+/**
+ * Fetches all active LGUs (Organizations).
+ */
+export const fetchActiveLGUs = async (): Promise<{id: string, name: string}[]> => {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name');
+  
+  if (error) throw error;
+  return data ?? [];
+};

@@ -15,9 +15,11 @@ import { ActivityRow } from '@/components/Dashboard/ActivityRow';
 
 import { useRouter } from 'expo-router';
 import { Program, ActivityItem, QuickAction } from '@/types/dashboard';
+import { useAuth } from '@/context/AuthContext';
 
 export default function HomeDashboard() {
   const router = useRouter();
+  const { session } = useAuth();
   const [programs] = useState<Program[]>([
     {
       id: '1',
@@ -37,19 +39,18 @@ export default function HomeDashboard() {
   const fetchRecentVerifications = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, created_at')
-        .eq('role', 'beneficiary')
+        .from('beneficiary_identities')
+        .select('id, verified_at, user_id')
         .eq('verification_status', 'Verified')
-        .order('created_at', { ascending: false })
+        .order('verified_at', { ascending: false })
         .limit(5);
 
       if (error) throw error;
 
-      const verificationActivities: ActivityItem[] = (data || []).map((p) => {
+      const verificationActivities: ActivityItem[] = (data || []).map((p: any) => {
         let timeLabel = 'Recently';
-        if (p.created_at) {
-          const diffMs = Date.now() - new Date(p.created_at).getTime();
+        if (p.verified_at) {
+          const diffMs = Date.now() - new Date(p.verified_at).getTime();
           const diffMins = Math.floor(diffMs / 60000);
           const diffHours = Math.floor(diffMins / 60);
           const diffDays = Math.floor(diffHours / 24);
@@ -62,8 +63,8 @@ export default function HomeDashboard() {
 
         return {
           id: p.id,
-          userName: p.full_name || 'Anonymous',
-          action: `${p.full_name || 'Anonymous'} Verified`,
+          userName: 'Beneficiary',
+          action: 'Beneficiary Verified',
           timestamp: timeLabel,
           avatarVariant: 'person',
         };
@@ -88,8 +89,10 @@ export default function HomeDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchRecentVerifications();
-  }, [fetchRecentVerifications]);
+    if (session) {
+      fetchRecentVerifications();
+    }
+  }, [fetchRecentVerifications, session]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -112,15 +115,15 @@ export default function HomeDashboard() {
     },
     {
       id: '3',
-      label: 'Distribute Aids',
-      iconName: 'heart',
-      onPress: () => router.push('/(lgu)/pay-scan' as any),
+      label: 'Merchants',
+      iconName: 'shopping-bag',
+      onPress: () => router.push('/(lgu)/merchants' as any),
     },
     {
       id: '4',
-      label: 'Reports',
-      iconName: 'file-text',
-      onPress: () => router.push('/(lgu)/reports' as any),
+      label: 'Audit Log',
+      iconName: 'list-alt',
+      onPress: () => router.push('/(lgu)/audit-log' as any),
     },
   ];
 

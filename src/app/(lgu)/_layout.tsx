@@ -3,6 +3,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { CreateProgramProvider } from './create-program/_layout';
 
 export default function LguLayout() {
@@ -111,6 +112,19 @@ export default function LguLayout() {
             tabBarStyle: { display: 'none' },
           }}
         />
+        <Tabs.Screen
+          name="merchants"
+          options={{
+            title: 'Merchants',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
+                <FontAwesome name="shopping-bag" size={24} color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen name="audit-log" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="merchant-redemptions" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
     </CreateProgramProvider>
   );

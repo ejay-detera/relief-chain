@@ -8,6 +8,7 @@ import { isSupabaseConfigured, supabase, supabaseSetupMessage } from '@/lib/supa
 import { initialMerchantRegistrationData, type MerchantRegistrationData, type MerchantRegistrationStep as Step } from '@/types/merchant-registration';
 import { isStrongPassword } from '@/utils/password-validation';
 import { emailPattern, mobileNumberPattern } from '@/utils/registration-validation';
+import { SubmissionConfirmationStep } from './SubmissionConfirmationStep';
 
 const titles: Record<Step, string> = { 1: 'Business Information', 2: 'Owner Information', 3: 'Wallet & Verification', 4: 'Account' };
 
@@ -30,6 +31,7 @@ export const MerchantRegistrationFlow = () => {
   const [data, setData] = useState<MerchantRegistrationData>(initialMerchantRegistrationData);
   const [step, setStep] = useState<Step>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
 
   const update = (values: Partial<MerchantRegistrationData>) => setData((current) => ({ ...current, ...values }));
@@ -82,8 +84,8 @@ export const MerchantRegistrationFlow = () => {
         Alert.alert('Account creation failed', error.message);
         return;
       }
-      if (signUpData?.session) {
-        router.replace({ pathname: '/(auth)/registration-success', params: { role: 'merchant' } });
+      if (signUpData?.user) {
+        setSubmitted(true);
       } else {
         router.replace({ pathname: '/(auth)/verify-email', params: { email: data.email.trim(), role: 'merchant' } });
       }
@@ -94,6 +96,8 @@ export const MerchantRegistrationFlow = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (submitted) return <SubmissionConfirmationStep />;
 
   return (
     <MerchantRegistrationShell onStepPress={(target) => target <= step && setStep(target)} step={step} title={titles[step]}>

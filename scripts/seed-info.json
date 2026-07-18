@@ -1,8 +1,8 @@
 {
-  "ORGANIZATION_ID": "f2ea13c1-3f43-4c52-991d-d1a4f285b349",
-  "PROGRAM_ID": "b9b9c046-370c-4ba0-b5e4-b0fc5491599c",
+  "ORGANIZATION_ID": "9d44ec1b-8122-40f2-a914-ec8abdbb133b",
+  "PROGRAM_ID": "1aeb0b7e-f590-44d1-8ae9-266ca5694f88",
   "ADMIN_EMAIL": "admin@example.com",
   "BENEFICIARY_EMAIL": "beneficiary@example.com",
   "MERCHANT_EMAIL": "merchant@example.com",
-  "MERCHANT_ENTITY_ID": "22777e80-c30e-45ce-a0d9-50ae3e0bedd2"
+  "MERCHANT_ENTITY_ID": "8eed9819-beb4-4d50-9178-2c6f279b3f5b"
 }

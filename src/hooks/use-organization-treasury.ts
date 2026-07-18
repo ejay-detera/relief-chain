@@ -14,12 +14,13 @@ const RCPHP_ISSUER = process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER || 'GBC6HZTIUH
 
 export function useOrganizationTreasury() {
   const { profile } = useAuth();
+  const profileId = profile?.id ?? null;
   const [balances, setBalances] = useState<TreasuryBalances | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBalances = useCallback(async () => {
-    if (!profile) return;
+    if (!profileId) return;
     setIsLoading(true);
     setError(null);
 
@@ -28,12 +29,16 @@ export function useOrganizationTreasury() {
       const { data: membershipData, error: memError } = await supabase
         .from('organization_memberships')
         .select('organization_id')
-        .eq('user_id', profile.id)
+        .eq('user_id', profileId)
         .eq('is_active', true)
         .limit(1)
         .single();
 
-      if (memError || !membershipData) throw new Error('No active organization membership found');
+      if (memError || !membershipData) {
+        // No org membership yet — show empty state, don't throw
+        setBalances({ availableStroops: 0n, reservedStroops: 0n, totalStroops: 0n });
+        return;
+      }
       const orgId = membershipData.organization_id;
 
       // 2. Get the treasury wallet address
@@ -45,9 +50,13 @@ export function useOrganizationTreasury() {
         .eq('purpose', 'organization_treasury')
         .eq('is_active', true)
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (walletError || !walletData) throw new Error('Organization treasury wallet not found');
+      if (walletError || !walletData) {
+        // Treasury wallet not provisioned yet — show zero balance, don't throw
+        setBalances({ availableStroops: 0n, reservedStroops: 0n, totalStroops: 0n });
+        return;
+      }
       const treasuryAddress = walletData.address;
 
       // 3. Fetch balance from Horizon
@@ -66,7 +75,7 @@ export function useOrganizationTreasury() {
         .from('programs')
         .select('total_budget')
         .eq('organization_id', orgId)
-        .eq('status', 'Published'); // Published programs hold reserved funds
+        .eq('status', 'Published');
 
       let reservedTotal = 0;
       if (!progError && programsData) {
@@ -80,12 +89,13 @@ export function useOrganizationTreasury() {
         totalStroops: availableStroops + reservedStroops,
       });
     } catch (err: any) {
-      console.error('Failed to fetch treasury balances:', err);
+      console.warn('Failed to fetch treasury balances:', err.message);
       setError(err.message);
+      setBalances({ availableStroops: 0n, reservedStroops: 0n, totalStroops: 0n });
     } finally {
       setIsLoading(false);
     }
-  }, [profile]);
+  }, [profileId]); // stable dep: only re-run when the user ID changes
 
   useEffect(() => {
     void fetchBalances();

@@ -8,9 +8,11 @@ import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import type { PilotBalanceSummary, ProjectionState } from '@/types/projection';
 import { formatStroops } from '@/utils/format-stroops';
 import { BalanceDisclosure } from './balance-disclosure';
+import type { StellarBalance } from '@/services/stellarBalanceService';
 
 type Props = {
   balance: ProjectionState<PilotBalanceSummary>;
+  stellarBalances?: StellarBalance[] | null;
   onWithdraw: () => void;
   onSend: () => void;
 };
@@ -78,7 +80,7 @@ function BalanceBody({ balance }: { balance: ProjectionState<PilotBalanceSummary
   }
 }
 
-export function WalletBalanceCard({ balance, onWithdraw, onSend }: Props) {
+export function WalletBalanceCard({ balance, stellarBalances, onWithdraw, onSend }: Props) {
   return (
     <LinearGradient
       colors={[BrandColors.green, '#4A90D9']}
@@ -88,6 +90,19 @@ export function WalletBalanceCard({ balance, onWithdraw, onSend }: Props) {
     >
       <ThemedText style={styles.title}>Unrestricted Cash Balance</ThemedText>
       <BalanceBody balance={balance} />
+      
+      {stellarBalances && stellarBalances.length > 0 && (
+        <View style={styles.stellarBalancesBox}>
+          <ThemedText style={styles.stellarBalancesTitle}>ON-CHAIN BALANCES (LIVE)</ThemedText>
+          {stellarBalances.map(b => (
+            <View key={b.assetCode} style={styles.stellarBalanceRow}>
+              <ThemedText style={styles.stellarBalanceAsset}>{b.assetCode}</ThemedText>
+              <ThemedText style={styles.stellarBalanceAmount}>{b.balance}</ThemedText>
+            </View>
+          ))}
+        </View>
+      )}
+
       <BalanceDisclosure />
 
       <View style={styles.actionsRow}>
@@ -164,5 +179,33 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 13,
     fontWeight: '600',
+  },
+  stellarBalancesBox: {
+    marginTop: Spacing.three,
+    padding: Spacing.three,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: BorderRadius.md,
+  },
+  stellarBalancesTitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.two,
+  },
+  stellarBalanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  stellarBalanceAsset: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_500Medium',
+  },
+  stellarBalanceAmount: {
+    color: 'white',
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
 });

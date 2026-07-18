@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 
 import { ApplicationReviewContent } from '@/components/ApplicationReview/ApplicationReviewContent';
 import type { ResubmitFormData } from '@/components/ApplicationReview/resubmitValidation';
 import { applicationReviewStyles as styles } from '@/components/ApplicationReview/styles';
 import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/context/AuthContext';
 import { resubmitRegistration } from '@/services/registrationService';
 import { getRoleHome } from '@/utils/auth-routing';
@@ -32,7 +33,7 @@ import { submitResubmission } from '@/utils/resubmission';
  */
 const ApplicationReviewScreen = () => {
   const router = useRouter();
-  const { session, profile, isLoading, profileError, refreshProfile } = useAuth();
+  const { session, profile, isLoading, profileError, refreshProfile, signOut } = useAuth();
   const [isResubmitting, setIsResubmitting] = useState(false);
 
   useEffect(() => {
@@ -82,6 +83,9 @@ const ApplicationReviewScreen = () => {
             onRetry={() => void refreshProfile()}
             registration={profile?.registration}
           />
+          <TouchableOpacity onPress={() => void signOut()} style={{ padding: 20, alignItems: 'center' }}>
+            <ThemedText style={{ color: '#E53E3E', fontWeight: 'bold' }}>Logout</ThemedText>
+          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,6 +12,8 @@ import { ReceivePaymentCard } from '@/components/MerchantDashboard/ReceivePaymen
 import { RecentPayments } from '@/components/MerchantDashboard/RecentPayments';
 import { SalesSummaryCard } from '@/components/MerchantDashboard/SalesSummaryCard';
 import { WalletBalanceCard } from '@/components/MerchantDashboard/WalletBalanceCard';
+import { AccreditationStatusBanner } from '@/components/MerchantDashboard/AccreditationStatusBanner';
+import { LguSelectionView } from '@/components/MerchantDashboard/LguSelectionView';
 import { RequestRefundModal, type RefundSubmitOutcome } from '@/components/Refund/RequestRefundModal';
 import { QrModal } from '@/components/shared/qr-modal';
 import { ThemedText } from '@/components/themed-text';
@@ -26,8 +28,9 @@ import { useMerchantSettlements } from '@/hooks/use-merchant-settlements';
 import { merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
 import { requestCashOut } from '@/services/cashout-service';
 import { authorizeRefund, prepareRefund } from '@/services/refund-service';
+import { fetchMyAccreditation, type AccreditationSummary } from '@/services/merchantAccreditationService';
+import { fetchMerchantPaymentHistory, type MerchantPaymentRecord } from '@/services/merchantPaymentHistoryService';
 import type { StroopAmount } from '@/types/blockchain';
-import type { MerchantPayment } from '@/types/merchant-dashboard';
 import type { RefundableSettlement } from '@/types/refund';
 import { ZERO_STROOPS } from '@/utils/format-stroops';
 
@@ -41,13 +44,25 @@ const MerchantDashboardScreen = () => {
   const { state: cashOutState, refresh: refreshCashOut } = useCashOutRequests();
   const { state: refundsState, refresh: refreshRefunds } = useMerchantRefunds();
   const { state: settlementsState, refresh: refreshSettlements } = useMerchantSettlements();
-  const [payments] = useState<MerchantPayment[]>([{ id: 'payment-1', payerName: 'Puregold Supermarket', occurredAt: 'Today, 10:45 AM', amount: 1500 }, { id: 'payment-2', payerName: 'Elena Rodriguez', occurredAt: 'Oct 24, 09:12 AM', amount: 10000 }]);
+  const [payments, setPayments] = useState<MerchantPaymentRecord[]>([]);
   const [cashOutVisible, setCashOutVisible] = useState(false);
   const [refundSettlement, setRefundSettlement] = useState<RefundableSettlement | null>(null);
   const [isQrVisible, setIsQrVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { state: walletState } = useMerchantWallet();
+  const { state: walletState, merchantEntityId } = useMerchantWallet();
   const publicKey = merchantWalletPublicKey(walletState);
+
+  const [accreditation, setAccreditation] = useState<AccreditationSummary | null>(null);
+  const [accreditationLoaded, setAccreditationLoaded] = useState(false);
+  useEffect(() => {
+    fetchMyAccreditation()
+      .then(setAccreditation)
+      .catch(console.error)
+      .finally(() => setAccreditationLoaded(true));
+    if (merchantEntityId) {
+      fetchMerchantPaymentHistory(merchantEntityId).then(p => setPayments(p.slice(0, 3))).catch(console.error);
+    }
+  }, [merchantEntityId]);
 
   const activePrograms = programs.filter((program) => program.status === 'active');
   const showComingSoon = (feature: string) => Alert.alert(feature, 'This feature will be available soon.');
@@ -62,8 +77,11 @@ const MerchantDashboardScreen = () => {
       refreshRefunds(),
       refreshSettlements(),
     ]);
+    if (merchantEntityId) {
+      fetchMerchantPaymentHistory(merchantEntityId).then(p => setPayments(p.slice(0, 3))).catch(console.error);
+    }
     setRefreshing(false);
-  }, [refreshMetrics, refresh, refreshBalance, refreshCashOut, refreshRefunds, refreshSettlements]);
+  }, [refreshMetrics, refresh, refreshBalance, refreshCashOut, refreshRefunds, refreshSettlements, merchantEntityId]);
 
   const settledBalance: StroopAmount =
     balance.status === 'current' || balance.status === 'stale'
@@ -95,22 +113,31 @@ const MerchantDashboardScreen = () => {
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <MerchantDashboardHeader onNotificationsPress={() => showComingSoon('Notifications')} onShowQr={() => setIsQrVisible(true)} />
     <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }]} refreshControl={<RefreshControl onRefresh={handleRefresh} refreshing={refreshing} />} showsVerticalScrollIndicator={false}>
-      <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Merchant Account'}</ThemedText>
-      <WalletBalanceCard balance={settledBalance} onSettlementsPress={() => showComingSoon('Settlements')} onWithdrawPress={() => setCashOutVisible(true)} />
-      <ReceivePaymentCard onPress={() => router.push('/(merchant)/receive')} />
-      <SalesSummaryCard isLoading={isMetricsLoading} metrics={metrics} />
-      <CashOutAndRefunds
-        cashOut={cashOutState}
-        onRequestCashOut={() => setCashOutVisible(true)}
-        onRequestRefund={setRefundSettlement}
-        onRetryCashOut={() => void refreshCashOut()}
-        onRetryRefunds={() => void refreshRefunds()}
-        onRetrySettlements={() => void refreshSettlements()}
-        refunds={refundsState}
-        settlements={settlementsState}
-      />
-      <RecentPayments onViewAll={() => showComingSoon('Payment History')} payments={payments} />
-      <ActiveProgramsCard error={programsError} isLoading={areProgramsLoading} onBrowsePress={() => router.push('/(merchant)/programs')} onRetry={() => void refresh()} programs={activePrograms} />
+      {accreditationLoaded && accreditation === null ? (
+        <LguSelectionView onApplied={() => { setAccreditationLoaded(false); fetchMyAccreditation().then(setAccreditation).catch(console.error).finally(() => setAccreditationLoaded(true)); }} />
+      ) : (
+        <>
+          {(accreditation === null || accreditation.status !== 'active') && (
+            <AccreditationStatusBanner status={accreditation?.status ?? 'pending'} />
+          )}
+          <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Merchant Account'}</ThemedText>
+          <WalletBalanceCard balance={settledBalance} onSettlementsPress={() => showComingSoon('Settlements')} onWithdrawPress={() => setCashOutVisible(true)} />
+          <ReceivePaymentCard onPress={() => router.push('/(merchant)/receive')} />
+          <SalesSummaryCard isLoading={isMetricsLoading} metrics={metrics} />
+          <CashOutAndRefunds
+            cashOut={cashOutState}
+            onRequestCashOut={() => setCashOutVisible(true)}
+            onRequestRefund={setRefundSettlement}
+            onRetryCashOut={() => void refreshCashOut()}
+            onRetryRefunds={() => void refreshRefunds()}
+            onRetrySettlements={() => void refreshSettlements()}
+            refunds={refundsState}
+            settlements={settlementsState}
+          />
+          <RecentPayments onViewAll={() => router.push('/(merchant)/redemptions' as any)} payments={payments} />
+          <ActiveProgramsCard error={programsError} isLoading={areProgramsLoading} onBrowsePress={() => router.push('/(merchant)/programs')} onRetry={() => void refresh()} programs={activePrograms} />
+        </>
+      )}
     </ScrollView>
     <MerchantBottomNavigation active="dashboard" />
     <RequestCashOutModal availableStroops={settledBalance} onClose={() => setCashOutVisible(false)} onSubmit={submitCashOut} visible={cashOutVisible} />

@@ -113,7 +113,14 @@ const MerchantReceiveScreen = () => {
           <>
             {formError && <ThemedText style={styles.error}>{formError}</ThemedText>}
             {canCreate ? (
-              <InvoiceAmountForm isSubmitting={step === 'signing'} onSubmit={(draft) => void handleSubmit(draft)} voucherPrograms={voucherPrograms} />
+              <>
+                <InvoiceAmountForm isSubmitting={step === 'signing'} onSubmit={(draft) => void handleSubmit(draft)} voucherPrograms={voucherPrograms} />
+                <View style={styles.infoBox}>
+                  <ThemedText style={styles.infoBoxText}>
+                    The beneficiary's balance and eligibility will be automatically verified by the server when they scan this invoice.
+                  </ThemedText>
+                </View>
+              </>
             ) : (
               <ThemedText style={styles.helper}>
                 A verified merchant signer is required before you can create invoices.
@@ -139,4 +146,6 @@ const styles = StyleSheet.create({
   newInvoiceText: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
   helper: { color: BrandColors.grey, fontFamily: 'PlusJakartaSans_500Medium', fontSize: 13, lineHeight: 18 },
   error: { color: '#C0392B', fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13 },
+  infoBox: { backgroundColor: '#EBF5FB', padding: Spacing.three, borderRadius: 8, marginTop: Spacing.two },
+  infoBoxText: { color: '#2980B9', fontFamily: 'PlusJakartaSans_500Medium', fontSize: 12, lineHeight: 16 },
 });

@@ -88,6 +88,15 @@ const ensureUser = async (email, role) => {
     ...(existingUser?.user_metadata ?? {}),
     role,
     registration_role: role,
+    ...(role === 'lgu' ? { 
+      organization_name: `Merchant Demo LGU ${runId}`,
+      organization_type: 'LGU',
+      location: '123 Main St, City',
+      representative_first_name: 'John',
+      representative_last_name: 'Doe',
+      representative_position: 'Mayor',
+      organization_document_reference: 'doc-12345'
+    } : {}),
   };
 
   if (existingUser) {

@@ -2,10 +2,9 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
-import type { MerchantPayment } from '@/types/merchant-dashboard';
+import type { MerchantPaymentRecord } from '@/services/merchantPaymentHistoryService';
 
-type RecentPaymentsProps = { onViewAll: () => void; payments: MerchantPayment[] };
-const formatAmount = (amount: number) => `+ ₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+type RecentPaymentsProps = { onViewAll: () => void; payments: MerchantPaymentRecord[] };
 
 export const RecentPayments = ({ onViewAll, payments }: RecentPaymentsProps) => (
   <View>
@@ -13,7 +12,21 @@ export const RecentPayments = ({ onViewAll, payments }: RecentPaymentsProps) => 
     <FlatList
       data={payments}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <View style={styles.row}><View style={styles.avatar} /><View style={styles.detail}><ThemedText numberOfLines={1} style={styles.name}>{item.payerName}</ThemedText><ThemedText style={styles.date}>{item.occurredAt}</ThemedText></View><ThemedText style={styles.amount}>{formatAmount(item.amount)}</ThemedText></View>}
+      renderItem={({ item }) => (
+        <View style={styles.row}>
+          <View style={styles.avatar} />
+          <View style={styles.detail}>
+            <ThemedText numberOfLines={1} style={styles.name}>{item.beneficiaryName}</ThemedText>
+            <ThemedText style={styles.date}>{item.date}</ThemedText>
+          </View>
+          <View style={styles.right}>
+            <ThemedText style={styles.amount}>+{item.amountFormatted}</ThemedText>
+            <ThemedText style={[styles.date, { color: item.status === 'Completed' ? BrandColors.green : item.status === 'Failed' ? '#E74C3C' : BrandColors.grey }]}>
+              {item.status}
+            </ThemedText>
+          </View>
+        </View>
+      )}
       scrollEnabled={false}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
     />
@@ -29,6 +42,7 @@ const styles = StyleSheet.create({
   detail: { flex: 1, marginHorizontal: Spacing.two },
   name: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 10 },
   date: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_400Regular', fontSize: 8, marginTop: 1 },
-  amount: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 10 },
+  right: { alignItems: 'flex-end', justifyContent: 'center' },
+  amount: { color: BrandColors.green, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 10 },
   separator: { height: Spacing.three },
 });

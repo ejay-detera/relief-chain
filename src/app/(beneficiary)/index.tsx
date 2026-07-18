@@ -25,6 +25,7 @@ import { useBeneficiaryPrograms } from '@/hooks/use-beneficiary-programs';
 import { useBeneficiaryRedemptions } from '@/hooks/use-beneficiary-redemptions';
 import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { requestCashOut } from '@/services/cashout-service';
+import { fetchStellarBalances, type StellarBalance } from '@/services/stellarBalanceService';
 import type { StroopAmount } from '@/types/blockchain';
 import { selectActiveProgram } from '@/utils/active-program';
 import { ZERO_STROOPS } from '@/utils/format-stroops';
@@ -42,6 +43,20 @@ export default function BeneficiaryDashboard() {
   const [isCashOutVisible, setIsCashOutVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const publicKey = pilotWalletPublicKey(walletState);
+  const [stellarBalances, setStellarBalances] = useState<StellarBalance[] | null>(null);
+
+  const loadStellarBalances = useCallback(async () => {
+    if (publicKey) {
+      try {
+        const balances = await fetchStellarBalances(publicKey);
+        setStellarBalances(balances);
+      } catch (e) {
+        console.error('Failed to load stellar balances', e);
+      }
+    }
+  }, [publicKey]);
+
   const availableCash: StroopAmount =
     balance.status === 'current' || balance.status === 'stale'
       ? balance.data.cashAvailableStroops
@@ -56,19 +71,19 @@ export default function BeneficiaryDashboard() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), refreshBalance(), refreshEntitlements()]);
+    await Promise.all([refetch(), refreshBalance(), refreshEntitlements(), loadStellarBalances()]);
     setRefreshing(false);
-  }, [refetch, refreshBalance, refreshEntitlements]);
+  }, [refetch, refreshBalance, refreshEntitlements, loadStellarBalances]);
 
   useFocusEffect(
     useCallback(() => {
       void refetch();
       void refreshBalance();
       void refreshEntitlements();
-    }, [refetch, refreshBalance, refreshEntitlements])
+      void loadStellarBalances();
+    }, [refetch, refreshBalance, refreshEntitlements, loadStellarBalances])
   );
 
-  const publicKey = pilotWalletPublicKey(walletState);
   const activeProgram = selectActiveProgram(programs);
   const hasNoAssistance = !isLoading && !error && activeProgram === null;
 
@@ -86,6 +101,7 @@ export default function BeneficiaryDashboard() {
 
           <WalletBalanceCard
             balance={balance}
+            stellarBalances={stellarBalances}
             onWithdraw={() => setIsCashOutVisible(true)}
             onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
           />
