@@ -1,6 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
@@ -11,12 +10,12 @@ export const BudgetCard = () => {
 
   const formatRCPHP = (stroops: bigint) => {
     const value = Number(stroops) / 10000000;
-    return `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RCPHP`;
   };
 
-  const total = balances ? formatRCPHP(balances.totalStroops) : '₱0.00';
-  const reserved = balances ? formatRCPHP(balances.reservedStroops) : '₱0.00';
-  const available = balances ? formatRCPHP(balances.availableStroops) : '₱0.00';
+  const total = balances ? formatRCPHP(balances.totalStroops) : '0.00 RCPHP';
+  const reserved = balances ? formatRCPHP(balances.reservedStroops) : '0.00 RCPHP';
+  const available = balances ? formatRCPHP(balances.availableStroops) : '0.00 RCPHP';
 
   return (
     <LinearGradient

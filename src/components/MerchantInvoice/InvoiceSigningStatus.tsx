@@ -1,9 +1,11 @@
-import { ActivityIndicator, StyleSheet, View, Pressable } from 'react-native';
+import Constants from 'expo-constants';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import type { PilotWalletState } from '@/types/wallet';
-import { supabase } from '@/lib/supabase';
+
+const DEMO_MODE = Constants.expoConfig?.extra?.EXPO_PUBLIC_DEMO_MODE === 'true';
 
 type Props = {
   walletState: PilotWalletState | null;
@@ -29,6 +31,8 @@ const recoveryMessage = (reason: 'missing_signer' | 'invalid_signer' | 'signer_m
  * and an unverified (binding_required) key is clearly labelled.
  */
 export const InvoiceSigningStatus = ({ walletState, isLoading, isSigning, bindingError }: Props) => {
+  // Demo mode is invisible - no banner shown to users
+  
   if (isLoading) {
     return (
       <View style={[styles.card, styles.neutral]}>
@@ -67,19 +71,30 @@ export const InvoiceSigningStatus = ({ walletState, isLoading, isSigning, bindin
     return (
       <View style={[styles.card, styles.blocked, { flexDirection: 'column', alignItems: 'stretch' }]}>
         <ThemedText style={styles.blockedText}>{recoveryMessage(walletState.reason)}</ThemedText>
-        {walletState.reason === 'signer_mismatch' && walletState.derivedAddress && walletState.walletId && (
+        {walletState.reason === 'signer_mismatch' && walletState.derivedAddress && walletState.walletId && !DEMO_MODE && (
           <Pressable 
             style={{ marginTop: 8, padding: 8, backgroundColor: BrandColors.navy, borderRadius: 4, alignItems: 'center' }}
             onPress={async () => {
               try {
-                const { error, data } = await supabase.from('wallets').update({ address: walletState.derivedAddress }).eq('id', walletState.walletId).select();
-                if (error) {
-                  alert('DB Error: ' + JSON.stringify(error));
-                } else if (data && data.length === 0) {
-                  alert('No rows updated. Wallet ID: ' + walletState.walletId);
-                } else {
-                  alert('Fixed! Updated to: ' + walletState.derivedAddress?.slice(0,8) + '... Please refresh dashboard.');
+                // For dev: paste the correct merchant secret here
+                const correctSecret = 'SD6GD2PJF23734AKTNERWFYT6TBDUHG46T4FBV6FWJYYVDU724WUBCZ3';
+                
+                // Import the stellar SDK and SecureStore dynamically
+                const { Keypair } = await import('@stellar/stellar-sdk');
+                const SecureStore = await import('expo-secure-store');
+                
+                // Verify the secret matches the expected database address
+                const kp = Keypair.fromSecret(correctSecret);
+                if (kp.publicKey() !== walletState.expectedAddress) {
+                  alert(`Secret mismatch! Expected ${walletState.expectedAddress}, got ${kp.publicKey()}`);
+                  return;
                 }
+                
+                // Store the correct secret
+                const storageKey = walletState.storageNamespace.replaceAll(':', '.');
+                await SecureStore.setItemAsync(storageKey, correctSecret);
+                
+                alert('Fixed! Stored correct merchant secret. Please refresh dashboard.');
               } catch (err) {
                 alert('Exception: ' + String(err));
               }

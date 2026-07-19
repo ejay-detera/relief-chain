@@ -16,6 +16,7 @@ import { DashboardGreeting } from '@/components/beneficiary/Dashboard/dashboard-
 import { QuickActionGrid } from '@/components/beneficiary/Dashboard/quick-action-grid';
 import { RecentTransactionsList } from '@/components/beneficiary/Dashboard/recent-transactions-list';
 import { WalletBalanceCard } from '@/components/beneficiary/Dashboard/wallet-balance-card';
+import { WalletStatusCard } from '@/components/beneficiary/Dashboard/wallet-status-card';
 import { QrModal } from '@/components/shared/qr-modal';
 
 import { useAuth } from '@/context/AuthContext';
@@ -89,6 +90,8 @@ export default function BeneficiaryDashboard() {
             onWithdraw={() => setIsCashOutVisible(true)}
             onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
           />
+
+          <WalletStatusCard walletState={walletState} />
 
           {userId && publicKey && walletState?.status === 'binding_required' && (
             <ActivateWalletCard

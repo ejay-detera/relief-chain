@@ -1,6 +1,5 @@
-import React from 'react';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
 
 export interface ProgramItem {
   id: string;
@@ -76,19 +75,17 @@ export const ProgramCard = ({ program, onPress, onOpenMenu }: ProgramCardProps) 
   const calculatedStatus = resolveProgramStatus(program.status, program.startDate);
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2,
-    }).format(val);
+    return `${val.toLocaleString(undefined, { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })} RCPHP`;
   };
 
   const formatCurrencyMuted = (val: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 0,
-    }).format(val);
+    return `${val.toLocaleString(undefined, { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 0 
+    })} RCPHP`;
   };
 
   // Determine progress and beneficiary mock count

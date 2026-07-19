@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { Keypair } from '@stellar/stellar-sdk';
+import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -149,6 +149,10 @@ async function main() {
   const nowMs = Date.now();
   const issuedAt = new Date(nowMs).toISOString();
   const expiresAt = new Date(nowMs + 600000).toISOString();
+  
+  // Generate a fresh random nonce for each test
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
+  
   const unsigned = {
     version: 1,
     kind: 'cash',
@@ -162,7 +166,7 @@ async function main() {
     settlementWallet: merchantKeypair.publicKey(),
     invoiceSigner: merchantKeypair.publicKey(),
     amountStroops: '10000000', // 1.0 RCPHP
-    nonce: '0000000000000000000000000000000000000000000000000000000000000010',
+    nonce,
     issuedAt,
     expiresAt,
   };

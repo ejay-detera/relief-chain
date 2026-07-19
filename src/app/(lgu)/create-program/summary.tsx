@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Modal, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useCreateProgram } from './_layout';
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { useActivateCashProgram } from '@/hooks/use-activate-cash-program';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCreateProgram } from './_layout';
 
 export default function SummaryScreen() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function SummaryScreen() {
   };
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 }).format(val);
+    return `${val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} RCPHP`;
   };
 
   return (

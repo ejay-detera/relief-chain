@@ -328,6 +328,15 @@ export const createMerchantPaymentStrategy = (
       );
     }
 
+    console.log('[merchant-payment build] Building payment transaction');
+    console.log('[merchant-payment build] source:', source);
+    console.log('[merchant-payment build] destination:', destination);
+    console.log('[merchant-payment build] rcphp.code:', rcphp.code);
+    console.log('[merchant-payment build] rcphp.code type:', typeof rcphp.code);
+    console.log('[merchant-payment build] rcphp.code length:', rcphp.code.length);
+    console.log('[merchant-payment build] rcphp.issuer:', rcphp.issuer);
+    console.log('[merchant-payment build] amount:', stroopsToAmount(intent.amount_stroops));
+    
     const transaction = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: config.networkPassphrase,

@@ -48,7 +48,7 @@ begin
       email,
       encrypted_password,
       email_confirmed_at,
-      confirmed_at,
+      -- confirmed_at is a generated column, removed from INSERT
       raw_app_meta_data,
       raw_user_meta_data,
       confirmation_token,
@@ -70,7 +70,7 @@ begin
       seeded_email,
       crypt('ReliefChainSuperAdmin!2026', gen_salt('bf')),
       now(),
-      now(),
+      -- removed now() for confirmed_at
       jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
       jsonb_build_object('role', 'super_admin', 'full_name', 'Relief Chain Super Admin'),
       '',

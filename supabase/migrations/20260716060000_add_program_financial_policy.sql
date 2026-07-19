@@ -219,19 +219,8 @@ update public.enrollments
 set allocation_amount_stroops = greatest(
   0, round(coalesce(voucher_balance, 0) * 10000000)::bigint
 );
-create table public.merchant_entities (
-  id uuid primary key default gen_random_uuid(),
-  profile_id uuid unique references auth.users(id) on delete set null,
-  display_name text not null check (length(btrim(display_name)) between 1 and 200),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
 
-insert into public.merchant_entities (profile_id, display_name)
-select profile.id, coalesce(nullif(btrim(profile.full_name), ''), 'Merchant')
-from public.profiles profile
-where profile.role = 'merchant'
-on conflict (profile_id) do nothing;
+-- merchant_entities table is created in migration 20260716035000_create_merchant_entities.sql
 
 create table public.merchant_accreditations (
   id uuid primary key default gen_random_uuid(),

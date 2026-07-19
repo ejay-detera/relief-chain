@@ -47,14 +47,40 @@ export default function PayScanScreen() {
   const [checking, setChecking] = useState(false);
 
   const handleScan = useCallback((data: string) => {
-    const result = decodeAndVerifyScannedInvoice(data);
-    if (!result.ok) {
-      setScanError(result.message);
-      return;
+    console.log('=== QR SCAN DEBUG START ===');
+    console.log('1. Raw scanned data (first 200 chars):', data.substring(0, 200));
+    console.log('2. Data length:', data.length);
+    console.log('3. Data prefix:', data.substring(0, 50));
+    
+    try {
+      const result = decodeAndVerifyScannedInvoice(data);
+      console.log('4. Decode result status:', result.ok ? 'SUCCESS' : 'FAILED');
+      
+      if (!result.ok) {
+        console.error('5. Scan error code:', result.code);
+        console.error('6. Scan error message:', result.message);
+        console.error('7. Full result:', JSON.stringify(result, null, 2));
+        setScanError(result.message);
+        return;
+      }
+      
+      console.log('8. Invoice decoded successfully!');
+      console.log('9. Invoice asset:', JSON.stringify(result.invoice.asset, null, 2));
+      console.log('10. Invoice amount:', result.invoice.amountStroops);
+      console.log('11. Invoice merchant:', result.invoice.merchantId);
+      console.log('12. Invoice kind:', result.invoice.kind);
+      console.log('=== QR SCAN DEBUG END (SUCCESS) ===');
+      
+      setScanError(null);
+      setSelectedId(null);
+      setInvoice(result.invoice);
+    } catch (error) {
+      console.error('=== UNEXPECTED ERROR IN SCAN ===');
+      console.error('Error:', error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Error stack:', error instanceof Error ? error.stack : 'N/A');
+      setScanError('An unexpected error occurred while scanning the QR code.');
     }
-    setScanError(null);
-    setSelectedId(null);
-    setInvoice(result.invoice);
   }, []);
 
   const rescan = useCallback(() => {
@@ -73,12 +99,22 @@ export default function PayScanScreen() {
         : null;
 
   const sources = useMemo<FundingSource[] | null>(() => {
+    console.log('[pay-scan sources] Computing funding sources');
+    console.log('[pay-scan sources] invoice:', invoice?.amountStroops, invoice?.asset.code);
+    console.log('[pay-scan sources] balancesLoading:', balancesLoading);
+    console.log('[pay-scan sources] unavailableReason:', unavailableReason);
+    
     if (!invoice || balancesLoading || unavailableReason) return null;
     const summary = projectionData<PilotBalanceSummary>(balance);
     const cash = summary?.cashAvailableStroops ?? ZERO_STROOPS;
     const allEntitlements = projectionData<BeneficiaryProgramEntitlement[]>(entitlements) ?? [];
     const vouchers = allEntitlements.filter((item) => item.aidType === 'voucher');
-    return buildFundingSources(invoice, cash, vouchers);
+    
+    console.log('[pay-scan sources] Building funding sources - cash:', cash, 'vouchers:', vouchers.length);
+    const result = buildFundingSources(invoice, cash, vouchers);
+    console.log('[pay-scan sources] Built', result.length, 'funding sources');
+    
+    return result;
   }, [invoice, balance, entitlements, balancesLoading, unavailableReason]);
 
   const selected = useMemo(

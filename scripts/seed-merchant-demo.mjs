@@ -88,6 +88,16 @@ const ensureUser = async (email, role) => {
     ...(existingUser?.user_metadata ?? {}),
     role,
     registration_role: role,
+    // LGU users need organization metadata to pass the registration trigger
+    ...(role === 'lgu' ? {
+      organization_name: 'Demo LGU Organization',
+      organization_type: 'Municipal',
+      location: 'Demo City, Demo Province',
+      representative_first_name: 'Admin',
+      representative_last_name: 'User',
+      representative_position: 'Administrator',
+      organization_document_reference: 'DEMO-DOC-001',
+    } : {}),
   };
 
   if (existingUser) {
@@ -132,6 +142,66 @@ async function main() {
       [adminUserId, beneficiaryUserId, merchantUserId],
     );
 
+    // Create registration for LGU admin (if not exists) - Start as Pending
+    await db.query(
+      `insert into public.registrations (
+         lgu_id, organization_name, organization_type, contact_info,
+         representative_first_name, representative_last_name, representative_position,
+         document_reference, status
+       )
+       values ($1, 'Demo LGU Organization', 'Municipal', 'Demo City, Demo Province',
+               'Admin', 'User', 'Administrator', 'DEMO-DOC-001', 'Pending')
+       on conflict (lgu_id) do nothing`,
+      [adminUserId],
+    );
+
+    // Get or create Super Admin profile to approve the registration
+    const { rows: superAdminRows } = await db.query(
+      `select id from public.profiles where role = 'super_admin' limit 1`
+    );
+    
+    let superAdminId;
+    if (superAdminRows.length === 0) {
+      // Create a Super Admin if none exists
+      const { data: superAdminUser, error: createError } = await admin.auth.admin.createUser({
+        email: 'superadmin@example.com',
+        password,
+        email_confirm: true,
+        user_metadata: { role: 'super_admin' },
+      });
+      
+      if (createError || !superAdminUser.user) {
+        console.warn('Could not create Super Admin - registration will remain Pending.');
+      } else {
+        superAdminId = superAdminUser.user.id;
+        await db.query(
+          `insert into public.profiles (id, role, full_name, verification_status)
+           values ($1, 'super_admin', 'Super Administrator', 'Verified')`,
+          [superAdminId],
+        );
+      }
+    } else {
+      superAdminId = superAdminRows[0].id;
+    }
+    
+    if (superAdminId) {
+      // Temporarily disable the trigger, approve registration, then re-enable
+      await db.query(`alter table public.registrations disable trigger registrations_status_guard`);
+      
+      await db.query(
+        `update public.registrations 
+         set status = 'Approved', updated_at = now()
+         where lgu_id = $1`,
+        [adminUserId],
+      );
+      
+      await db.query(`alter table public.registrations enable trigger registrations_status_guard`);
+      
+      console.log('✓ LGU registration approved (trigger temporarily disabled for seeding)');
+    } else {
+      console.warn('⚠ No Super Admin found - registration will remain Pending. Please manually approve it.');
+    }
+
     // Create organization
     const org = (await db.query(
       `insert into public.organizations (name, slug, created_by)
@@ -145,6 +215,26 @@ async function main() {
        values ($1,$2,'organization_administrator',true,$2)`,
       [org.id, adminUserId],
     );
+
+    // Organization treasury wallet
+    const orgTreasurySecret = process.env.STELLAR_ORGANIZATION_TREASURY_SECRET?.trim();
+    if (orgTreasurySecret) {
+      const orgTreasuryKp = Keypair.fromSecret(orgTreasurySecret);
+      await db.query(
+        `insert into public.wallets (owner_type, owner_id, purpose, network, address,
+           verification_status, is_active, proof_challenge_digest, proof_signature_digest,
+           proof_challenge_issued_at, verified_at, verified_by)
+         values ('organization',$1,'organization_treasury','stellar_testnet',$2,'verified',true,
+           $3,$4,now(),now(),$5)`,
+        [
+          org.id,
+          orgTreasuryKp.publicKey(),
+          hex64(`challenge:${orgTreasuryKp.publicKey()}`),
+          hex64(`signature:${orgTreasuryKp.publicKey()}`),
+          adminUserId,
+        ],
+      );
+    }
 
     // Beneficiary identity
     const identity = (await db.query(

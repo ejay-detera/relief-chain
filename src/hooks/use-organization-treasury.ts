@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Horizon } from '@stellar/stellar-sdk';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
+import Constants from 'expo-constants';
+import { useCallback, useEffect, useState } from 'react';
+
+const DEMO_MODE = Constants.expoConfig?.extra?.EXPO_PUBLIC_DEMO_MODE === 'true';
 
 export interface TreasuryBalances {
   availableStroops: bigint;
@@ -22,6 +24,17 @@ export function useOrganizationTreasury() {
     if (!profile) return;
     setIsLoading(true);
     setError(null);
+
+    // In demo mode, return mock balances
+    if (DEMO_MODE) {
+      setBalances({
+        availableStroops: BigInt(213000 * 10000000), // 213,000 RCPHP
+        reservedStroops: BigInt(50000 * 10000000),   // 50,000 RCPHP reserved
+        totalStroops: BigInt(263000 * 10000000),     // 263,000 RCPHP total
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // 1. Get the user's organization from memberships
@@ -50,7 +63,8 @@ export function useOrganizationTreasury() {
       if (walletError || !walletData) throw new Error('Organization treasury wallet not found');
       const treasuryAddress = walletData.address;
 
-      // 3. Fetch balance from Horizon
+      // 3. Fetch balance from Horizon (dynamic import to avoid SDK issues)
+      const { Horizon } = await import('@stellar/stellar-sdk');
       const server = new Horizon.Server(HORIZON_URL);
       const account = await server.loadAccount(treasuryAddress);
       

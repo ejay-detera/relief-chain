@@ -59,30 +59,80 @@ const toFinancialError = (value: unknown, fallback: string): FinancialError => {
  * revalidates everything online, and returns ONLY the exact signing package for
  * the single chosen funding source. A replayed invoice-bound key returns the
  * prior intent with no package so the caller reconciles instead of re-signing.
+ * 
+ * Retries with exponential backoff on 503 Service Unavailable errors to handle
+ * edge function cold starts and network latency issues.
  */
 export const preparePayment = async (
   request: PaymentPrepareRequest,
 ): Promise<FinancialResult<PreparedPayment>> => {
-  try {
-    const { data, error } = await supabase.functions.invoke<{
-      payment?: PreparedPayment;
-      error?: FinancialError;
-    }>(PREPARE_FUNCTION, { body: request });
+  console.log('[preparePayment] Starting payment preparation');
+  console.log('[preparePayment] Invoice asset:', JSON.stringify(request.invoice.asset));
+  console.log('[preparePayment] Invoice amount:', request.invoice.amountStroops);
+  console.log('[preparePayment] Funding source:', request.fundingSourceKind, request.fundingSourceId);
+  
+  const MAX_RETRIES = 3;
+  const INITIAL_DELAY_MS = 1000; // 1 second
+  
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`[preparePayment] Attempt ${attempt + 1}/${MAX_RETRIES + 1}: Invoking ${PREPARE_FUNCTION}`);
+      const { data, error } = await supabase.functions.invoke<{
+        payment?: PreparedPayment;
+        error?: FinancialError;
+      }>(PREPARE_FUNCTION, { body: request });
 
-    if (error) {
-      console.log('payment-service prepare-payment ERROR:', JSON.stringify(error, null, 2), error.context);
-      return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+      // If we got a 503, retry with exponential backoff
+      if (error?.context?.status === 503) {
+        if (attempt < MAX_RETRIES) {
+          const delayMs = INITIAL_DELAY_MS * Math.pow(2, attempt);
+          console.log(`payment-service prepare-payment 503 error, retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue;
+        }
+        // Max retries exhausted
+        console.log('payment-service prepare-payment ERROR (max retries):', JSON.stringify(error, null, 2), error.context);
+        return { ok: false, error: toFinancialError(error.context ?? error, 'Payment service timed out. Please try again.') };
+      }
+
+      // Non-503 error or success
+      if (error) {
+        console.log('payment-service prepare-payment ERROR:', JSON.stringify(error, null, 2));
+        console.log('payment-service prepare-payment ERROR context:', JSON.stringify(error.context, null, 2));
+        console.log('payment-service prepare-payment ERROR message:', error.message);
+        return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+      }
+      
+      console.log('[preparePayment] Response data:', JSON.stringify(data, null, 2));
+      
+      if (!data?.payment) {
+        console.log('[preparePayment] No payment in response, error:', JSON.stringify(data?.error, null, 2));
+        return { ok: false, error: toFinancialError(data?.error, 'The payment could not be prepared.') };
+      }
+      
+      console.log('[preparePayment] Payment prepared successfully');
+      return { ok: true, data: data.payment };
+    } catch (err) {
+      // Network or unexpected errors - retry if we have attempts left
+      if (attempt < MAX_RETRIES) {
+        const delayMs = INITIAL_DELAY_MS * Math.pow(2, attempt);
+        console.log(`payment-service prepare-payment exception, retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_RETRIES}):`, err);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+      // Max retries exhausted
+      return {
+        ok: false,
+        error: unknownError(err instanceof Error ? err.message : 'Payment service is unavailable.'),
+      };
     }
-    if (!data?.payment) {
-      return { ok: false, error: toFinancialError(data?.error, 'The payment could not be prepared.') };
-    }
-    return { ok: true, data: data.payment };
-  } catch (err) {
-    return {
-      ok: false,
-      error: unknownError(err instanceof Error ? err.message : 'Payment service is unavailable.'),
-    };
   }
+  
+  // Should never reach here, but TypeScript needs this
+  return {
+    ok: false,
+    error: unknownError('Payment service is unavailable.'),
+  };
 };
 
 /**
@@ -137,6 +187,7 @@ type AttemptRow = Readonly<{
 export const observePayment = async (
   intentId: string,
 ): Promise<ObservedPaymentStatus> => {
+  console.log('[observePayment] Querying transaction_attempts for intent:', intentId);
   try {
     const { data, error } = await supabase
       .from('transaction_attempts')
@@ -145,12 +196,21 @@ export const observePayment = async (
       .order('attempt_number', { ascending: false })
       .limit(1);
 
-    if (error) throw error;
+    if (error) {
+      console.error('[observePayment] Query error:', error);
+      throw error;
+    }
 
+    console.log('[observePayment] Query result:', JSON.stringify(data, null, 2));
     const latest = (data as AttemptRow[] | null)?.[0] ?? null;
+    
     if (!latest) {
+      console.log('[observePayment] No attempt found, returning pending');
       return { status: 'pending', intentId, transactionHash: null };
     }
+
+    console.log('[observePayment] Latest attempt status:', latest.status);
+    console.log('[observePayment] Latest attempt error_detail:', latest.error_detail);
 
     switch (latest.status) {
       case 'observed_success':
@@ -159,6 +219,7 @@ export const observePayment = async (
           ? { status: 'confirmed', intentId, transactionHash: latest.transaction_hash }
           : { status: 'submitted', intentId, transactionHash: null };
       case 'observed_failure':
+        console.log('[observePayment] Returning failure with error_detail:', latest.error_detail);
         return {
           status: 'failed',
           intentId,
@@ -177,6 +238,7 @@ export const observePayment = async (
         return { status: 'pending', intentId, transactionHash: latest.transaction_hash };
     }
   } catch (err) {
+    console.error('[observePayment] Exception:', err);
     return {
       status: 'unavailable',
       reason: err instanceof Error ? err.message : 'Payment status is unavailable.',

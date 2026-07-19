@@ -2,31 +2,31 @@
 //
 // Validates: Requirements 10.6, 11.5, 11.6, 11.7, 12.2, 14.1, 18.4, 18.8
 
+import { createCashReconcilerBundle } from '../_shared/edge-cash-reconciler.ts';
 import {
-  createEdgeServiceBinding,
-  handleEdgeRequest,
-  parseJsonBody,
-  type EdgeRequestScope,
-  createEdgeSignerRegistry,
-  createEdgeTransactionProtocol,
+    createEdgeServiceBinding,
+    createEdgeSignerRegistry,
+    createEdgeTransactionProtocol,
+    handleEdgeRequest,
+    parseJsonBody,
+    type EdgeRequestScope,
 } from '../_shared/edge.ts';
 import { FinancialErrorException } from '../_shared/errors.ts';
 import { jsonResponse } from '../_shared/response.ts';
 import { serveEdge } from '../_shared/runtime.ts';
 import {
-  parseInvoiceObject,
-  assertVerifiedInvoice,
-  assertNotExpired,
-  computeInvoiceId,
-  canonicalInvoiceBytes,
-  type InvoiceV1,
+    assertNotExpired,
+    assertVerifiedInvoice,
+    canonicalInvoiceBytes,
+    computeInvoiceId,
+    parseInvoiceObject,
+    type InvoiceV1,
 } from '../_shared/stellar/invoice.ts';
 import {
-  createMerchantPayment,
-  createMerchantPaymentStrategy,
-  makeMerchantPaymentKey,
+    createMerchantPayment,
+    createMerchantPaymentStrategy,
+    makeMerchantPaymentKey,
 } from '../_shared/stellar/merchant-payment.ts';
-import { createCashReconcilerBundle } from '../_shared/edge-cash-reconciler.ts';
 
 interface PaymentPrepareBody {
   readonly invoice?: unknown;
@@ -85,105 +85,149 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   }
 
   // 1. Decode & verify invoice
+  console.log('[prepare-payment] Parsing invoice object');
+  console.log('[prepare-payment] Invoice body asset:', JSON.stringify((body.invoice as any)?.asset));
   let parsedInvoice: InvoiceV1;
   try {
     parsedInvoice = parseInvoiceObject(body.invoice);
+    console.log('[prepare-payment] Invoice parsed successfully');
+    console.log('[prepare-payment] Parsed invoice asset:', JSON.stringify(parsedInvoice.asset));
     assertVerifiedInvoice(parsedInvoice);
+    console.log('[prepare-payment] Invoice signature verified');
     assertNotExpired(parsedInvoice);
+    console.log('[prepare-payment] Invoice not expired');
   } catch (error) {
+    console.error('[prepare-payment] Invoice validation error:', error);
     throw FinancialErrorException.of('validation_failed', `Invoice validation failed: ${(error as Error).message}`, { correlationId });
   }
 
   const binding = createEdgeServiceBinding(context, correlationId);
   const service = binding.serviceClient;
 
-  // 2. Resolve caller beneficiary identity and active verified wallet
+  // 2. Resolve beneficiary identity and wallet
+  console.log('[prepare-payment] Looking up beneficiary identity for user:', session.userId);
   const { data: identity, error: identityError } = await service
     .from('beneficiary_identities')
     .select('id')
     .eq('user_id', session.userId)
     .maybeSingle();
 
-  console.log('debug prepare-payment:', { userId: session.userId, identity, identityError });
-
-  if (identityError || !identity) {
+  if (identityError) {
+    console.log('[prepare-payment] Beneficiary identity lookup error:', identityError);
+    throw FinancialErrorException.of('authorization_failed', `Database error: ${identityError.message}`, { correlationId });
+  }
+  if (!identity) {
+    console.log('[prepare-payment] No beneficiary identity found for user');
     throw FinancialErrorException.of('authorization_failed', 'No beneficiary identity is linked to this account.', { correlationId });
   }
+  console.log('[prepare-payment] Found beneficiary identity:', identity.id);
 
-  // Get organization_id via the beneficiary's enrollment
-  const { data: enrollment, error: enrollmentError } = await service
-    .from('enrollments')
-    .select('program_id')
-    .eq('beneficiary_identity_id', identity.id)
-    .limit(1)
-    .maybeSingle();
+  // Batch fetch enrollment + program + beneficiary wallet in parallel
+  console.log('[prepare-payment] Fetching enrollment and beneficiary wallet for identity:', identity.id);
+  const [enrollmentResult, walletResult] = await Promise.all([
+    service
+      .from('enrollments')
+      .select('program_id, programs!inner(organization_id)')
+      .eq('beneficiary_identity_id', identity.id)
+      .limit(1)
+      .maybeSingle(),
+    service
+      .from('wallets')
+      .select('id, address')
+      .eq('owner_type', 'beneficiary_identity')
+      .eq('owner_id', identity.id)
+      .eq('purpose', 'beneficiary')
+      .eq('verification_status', 'verified')
+      .eq('is_active', true)
+      .eq('network', 'stellar_testnet')
+      .maybeSingle()
+  ]);
 
-  if (enrollmentError || !enrollment) {
+  const { data: enrollment, error: enrollmentError } = enrollmentResult;
+  const { data: beneficiaryWallet, error: walletError } = walletResult;
+
+  if (enrollmentError) {
+    console.log('[prepare-payment] Enrollment lookup error:', enrollmentError);
+    throw FinancialErrorException.of('validation_failed', `Enrollment error: ${enrollmentError.message}`, { correlationId });
+  }
+  if (!enrollment) {
+    console.log('[prepare-payment] No enrollment found for beneficiary');
     throw FinancialErrorException.of('validation_failed', 'Beneficiary is not enrolled in any program.', { correlationId });
   }
+  console.log('[prepare-payment] Found enrollment, program_id:', enrollment.program_id);
 
-  const { data: program, error: programError } = await service
-    .from('programs')
-    .select('organization_id')
-    .eq('id', enrollment.program_id)
-    .maybeSingle();
+  if (walletError) {
+    console.log('[prepare-payment] Beneficiary wallet lookup error:', walletError);
+    throw FinancialErrorException.of('validation_failed', `Wallet error: ${walletError.message}`, { correlationId });
+  }
+  if (!beneficiaryWallet || !STELLAR_ACCOUNT.test(beneficiaryWallet.address)) {
+    console.log('[prepare-payment] No beneficiary wallet found or invalid address:', beneficiaryWallet?.address);
+    throw FinancialErrorException.of('validation_failed', 'Beneficiary has no active verified wallet.', { correlationId });
+  }
+  console.log('[prepare-payment] Found beneficiary wallet:', beneficiaryWallet.address);
 
-  if (programError || !program) {
+  const program = enrollment.programs;
+  if (!program || typeof program !== 'object' || !program.organization_id) {
     throw FinancialErrorException.of('validation_failed', 'Associated program not found.', { correlationId });
   }
 
   const organizationId = program.organization_id;
+  const beneficiaryIdentityId = identity.id;
 
-  const { data: beneficiaryWallet, error: walletError } = await service
-    .from('wallets')
-    .select('id, address')
-    .eq('owner_type', 'beneficiary_identity')
-    .eq('owner_id', identity.id)
-    .eq('purpose', 'beneficiary')
-    .eq('verification_status', 'verified')
-    .eq('is_active', true)
-    .eq('network', 'stellar_testnet')
-    .maybeSingle();
+  // 3. Batch fetch merchant accreditation + wallet in parallel
+  console.log('[prepare-payment] Fetching merchant accreditation and wallet for merchant:', parsedInvoice.merchantId);
+  const [accreditationResult, merchantWalletResult] = await Promise.all([
+    service
+      .from('merchant_accreditations')
+      .select('id')
+      .eq('merchant_id', parsedInvoice.merchantId)
+      .eq('organization_id', organizationId)
+      .eq('status', 'active')
+      .lte('valid_from', parsedInvoice.issuedAt)
+      .gte('valid_until', parsedInvoice.issuedAt)
+      .maybeSingle(),
+    service
+      .from('wallets')
+      .select('id, address')
+      .eq('owner_type', 'merchant_entity')
+      .eq('owner_id', parsedInvoice.merchantId)
+      .eq('purpose', 'merchant_settlement')
+      .eq('verification_status', 'verified')
+      .eq('is_active', true)
+      .eq('network', 'stellar_testnet')
+      .maybeSingle()
+  ]);
 
-  if (walletError || !beneficiaryWallet || !STELLAR_ACCOUNT.test(beneficiaryWallet.address)) {
-    throw FinancialErrorException.of('validation_failed', 'Beneficiary has no active verified wallet.', { correlationId });
+  const { data: accreditation, error: accreditationError } = accreditationResult;
+  const { data: merchantWallet, error: merchantWalletError } = merchantWalletResult;
+
+  if (accreditationError) {
+    console.log('[prepare-payment] Merchant accreditation lookup error:', accreditationError);
+    throw FinancialErrorException.of('validation_failed', `Accreditation error: ${accreditationError.message}`, { correlationId });
   }
-
-  // 3. Resolve merchant and active verified settlement wallet
-  const { data: accreditation, error: accreditationError } = await service
-    .from('merchant_accreditations')
-    .select('id')
-    .eq('merchant_id', parsedInvoice.merchantId)
-    .eq('organization_id', organizationId)
-    .eq('status', 'active')
-    .lte('valid_from', parsedInvoice.issuedAt)
-    .gte('valid_until', parsedInvoice.issuedAt)
-    .maybeSingle();
-
-  if (accreditationError || !accreditation) {
+  if (!accreditation) {
+    console.log('[prepare-payment] No merchant accreditation found for merchant:', parsedInvoice.merchantId, 'org:', organizationId);
     throw FinancialErrorException.of('validation_failed', 'Merchant is not active or accredited for this organization.', { correlationId });
   }
+  console.log('[prepare-payment] Found merchant accreditation:', accreditation.id);
 
-  const { data: merchantWallet, error: merchantWalletError } = await service
-    .from('wallets')
-    .select('id, address')
-    .eq('owner_type', 'merchant_entity')
-    .eq('owner_id', parsedInvoice.merchantId)
-    .eq('purpose', 'merchant_settlement')
-    .eq('verification_status', 'verified')
-    .eq('is_active', true)
-    .eq('network', 'stellar_testnet')
-    .maybeSingle();
-
-  if (merchantWalletError || !merchantWallet || !STELLAR_ACCOUNT.test(merchantWallet.address)) {
+  if (merchantWalletError) {
+    console.log('[prepare-payment] Merchant wallet lookup error:', merchantWalletError);
+    throw FinancialErrorException.of('validation_failed', `Merchant wallet error: ${merchantWalletError.message}`, { correlationId });
+  }
+  if (!merchantWallet || !STELLAR_ACCOUNT.test(merchantWallet.address)) {
+    console.log('[prepare-payment] No merchant wallet found or invalid address. Merchant:', parsedInvoice.merchantId, 'Wallet:', merchantWallet?.address);
     throw FinancialErrorException.of('validation_failed', 'Merchant has no active verified settlement wallet.', { correlationId });
   }
+  console.log('[prepare-payment] Found merchant wallet:', merchantWallet.address, 'Invoice settlement wallet:', parsedInvoice.settlementWallet);
 
   if (merchantWallet.address !== parsedInvoice.settlementWallet) {
+    console.log('[prepare-payment] Wallet mismatch! DB:', merchantWallet.address, 'Invoice:', parsedInvoice.settlementWallet);
     throw FinancialErrorException.of('validation_failed', 'Invoice settlement wallet does not match merchant verified wallet.', { correlationId });
   }
 
-  // 4. Insert or get existing invoice row
+  // 4. Check/insert invoice and payment intent atomically
+  console.log('[prepare-payment] Checking for existing invoice. Merchant:', parsedInvoice.merchantId, 'Nonce:', parsedInvoice.nonce);
   let dbInvoiceId = '';
   const { data: existingInvoice } = await service
     .from('invoices')
@@ -193,14 +237,23 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     .maybeSingle();
 
   if (existingInvoice) {
+    console.log('[prepare-payment] Found existing invoice:', existingInvoice.id);
     dbInvoiceId = existingInvoice.id;
   } else {
+    console.log('[prepare-payment] No existing invoice, creating new one');
+    console.log('[prepare-payment] Asset code to insert:', parsedInvoice.asset.code);
+    console.log('[prepare-payment] Asset code length:', parsedInvoice.asset.code.length);
+    console.log('[prepare-payment] Asset code type:', typeof parsedInvoice.asset.code);
+    console.log('[prepare-payment] Asset issuer:', parsedInvoice.asset.issuer);
+    console.log('[prepare-payment] Asset SAC:', parsedInvoice.asset.sacAddress);
+    
     const canonicalBytes = canonicalInvoiceBytes(parsedInvoice);
     const canonicalHex = '\\x' + toHex(canonicalBytes);
     const sigBytes = base64ToBytes(parsedInvoice.merchantSignature);
     const sigHex = '\\x' + toHex(sigBytes);
 
     const generatedId = crypto.randomUUID();
+    console.log('[prepare-payment] Inserting invoice into database with ID:', generatedId);
     const { error: insertInvoiceError } = await service
       .from('invoices')
       .insert({
@@ -228,12 +281,18 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
       });
 
     if (insertInvoiceError) {
+      console.log('[prepare-payment] Failed to insert invoice:', insertInvoiceError);
+      console.log('[prepare-payment] Error message:', insertInvoiceError.message);
+      console.log('[prepare-payment] Error details:', JSON.stringify(insertInvoiceError.details));
+      console.log('[prepare-payment] Error hint:', insertInvoiceError.hint);
       throw FinancialErrorException.of('dependency_unavailable', `Unable to insert invoice: ${insertInvoiceError.message}`, { correlationId });
     }
+    console.log('[prepare-payment] Created new invoice:', generatedId);
     dbInvoiceId = generatedId;
   }
 
   // 5. Initialize the orchestrator and call prepare
+  console.log('[prepare-payment] Initializing payment orchestrator');
   const reconciler = createCashReconcilerBundle(context, binding, correlationId);
   const protocol = createEdgeTransactionProtocol(context, {
     service: binding,
@@ -248,6 +307,7 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     signers: createEdgeSignerRegistry(),
   });
 
+  console.log('[prepare-payment] Calling paymentOrchestrator.prepare()');
   const prepared = await paymentOrchestrator.prepare({
     organizationId,
     programId: null,
@@ -259,6 +319,7 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     correlationId,
     requestedBy: session.userId,
   });
+  console.log('[prepare-payment] paymentOrchestrator.prepare() completed. isReplay:', prepared.isReplay, 'intentId:', prepared.intent.id);
 
   // 6. Insert payment_intents row if not a replay and doesn't exist
   if (!prepared.isReplay && prepared.intent) {

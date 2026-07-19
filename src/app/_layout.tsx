@@ -9,7 +9,7 @@ import { Sarina_400Regular } from '@expo-google-fonts/sarina';
 import { Buffer } from 'buffer';
 import { DarkTheme, DefaultTheme, Slot, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useColorScheme } from 'react-native';
 import 'react-native-get-random-values';
 
@@ -31,6 +31,7 @@ const RootLayoutNav = () => {
   const { session, profile, isLoading, profileError } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -39,7 +40,10 @@ const RootLayoutNav = () => {
     const inAuthGroup = group === '(auth)';
 
     if (!session) {
-      if (!inAuthGroup) router.replace('/(auth)/choose-account');
+      if (!inAuthGroup && !hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
+        router.replace('/(auth)/choose-account');
+      }
       return;
     }
 
@@ -55,20 +59,30 @@ const RootLayoutNav = () => {
     // Application_Review_Screen was shown earlier in the session.
     if (profile.role === 'lgu' && profile.registration) {
       const decision = getLguNavigationDecision(profile.registration.status, { group, route });
-      if (decision === 'redirect-to-review') {
+      if (decision === 'redirect-to-review' && !hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
         router.replace('/(auth)/application-review');
         return;
       }
-      if (decision === 'redirect-to-dashboard') {
+      if (decision === 'redirect-to-dashboard' && !hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
         router.replace(getRoleHome('lgu'));
         return;
       }
     }
 
-    if (!isRoleGroupForRole(group, profile.role)) {
+    if (!isRoleGroupForRole(group, profile.role) && !hasRedirectedRef.current) {
+      hasRedirectedRef.current = true;
       router.replace(getRoleHome(profile.role));
     }
   }, [isLoading, profile, profileError, router, segments, session]);
+
+  // Reset redirect flag when navigation completes
+  useEffect(() => {
+    return () => {
+      hasRedirectedRef.current = false;
+    };
+  }, [segments]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

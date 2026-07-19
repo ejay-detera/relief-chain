@@ -63,9 +63,25 @@ export function useMerchantWallet(): MerchantWalletHook {
     setIsLoading(true);
     setError(null);
     try {
+      // First get the merchant entity for this user
+      const { data: merchantData, error: merchantError } = await supabase
+        .from('merchant_entities')
+        .select('id')
+        .eq('profile_id', userId)
+        .single();
+
+      if (merchantError) throw new Error('No merchant entity found for this user');
+      if (request !== requestRef.current) return;
+
+      const merchantId = merchantData.id;
+      setMerchantEntityId(merchantId);
+
+      // Now get the wallet for this merchant entity
       const { data, error: queryError } = await supabase
         .from('wallets')
-        .select('id, network, address, is_active, owner_id')
+        .select('id, network, address, is_active')
+        .eq('owner_type', 'merchant_entity')
+        .eq('owner_id', merchantId)
         .eq('purpose', 'merchant_settlement')
         .eq('network', 'stellar_testnet')
         .eq('is_active', true)
@@ -76,7 +92,6 @@ export function useMerchantWallet(): MerchantWalletHook {
       if (request !== requestRef.current) return;
 
       const row = data?.[0] ?? null;
-      setMerchantEntityId(row?.owner_id ?? null);
       
       const activeWallet = toActiveWalletRow(row);
       const resolved = await loadOrProvisionPilotWallet(userId, activeWallet);

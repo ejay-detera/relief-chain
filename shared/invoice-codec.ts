@@ -294,20 +294,34 @@ const readOptionalString = (
 };
 
 const assertAsset = (record: Record<string, unknown>): AssetDescriptor => {
+  console.log('[assertAsset] Starting asset validation');
+  console.log('[assertAsset] record.asset exists:', !!record.asset);
   assertField(isRecord(record.asset), 'asset', 'must be an object');
   const asset = record.asset as Record<string, unknown>;
+  console.log('[assertAsset] asset object:', JSON.stringify(asset));
+  
   const network = readString(asset, 'network');
+  console.log('[assertAsset] network:', network, 'expected:', CURRENT_NETWORK);
   if (network !== CURRENT_NETWORK) {
     throw new InvoiceCodecError('wrong_network', `Invoice is bound to network "${network}", not "${CURRENT_NETWORK}".`);
   }
+  
   const code = readString(asset, 'code');
+  console.log('[assertAsset] code:', code, 'length:', code.length, 'expected:', CURRENT_ASSET_CODE);
+  console.log('[assertAsset] code bytes:', Array.from(code).map(c => c.charCodeAt(0)));
   if (code !== CURRENT_ASSET_CODE) {
     throw new InvoiceCodecError('wrong_asset', `Invoice asset "${code}" is not the pilot asset "${CURRENT_ASSET_CODE}".`);
   }
+  
   const issuer = readString(asset, 'issuer');
+  console.log('[assertAsset] issuer:', issuer);
   assertField(STELLAR_ACCOUNT_PATTERN.test(issuer), 'asset.issuer', 'must be a Stellar public account ID');
+  
   const sacAddress = readString(asset, 'sacAddress');
+  console.log('[assertAsset] sacAddress:', sacAddress);
   assertField(STELLAR_CONTRACT_PATTERN.test(sacAddress), 'asset.sacAddress', 'must be a Stellar contract ID');
+  
+  console.log('[assertAsset] Asset validation successful');
   return Object.freeze({
     code: CURRENT_ASSET_CODE,
     issuer,
@@ -508,8 +522,15 @@ const serializeInvoiceJson = (invoice: InvoiceV1): string => {
 };
 
 /** The inline QR wire string for a signed invoice (no size check). */
-export const encodeInvoiceQr = (invoice: InvoiceV1): string =>
-  `${INVOICE_QR_PREFIX}${encodeBase64Url(utf8.encode(serializeInvoiceJson(invoice)))}`;
+export const encodeInvoiceQr = (invoice: InvoiceV1): string => {
+  const json = serializeInvoiceJson(invoice);
+  console.log('[encodeInvoiceQr] Serialized JSON length:', json.length);
+  console.log('[encodeInvoiceQr] Asset in JSON:', JSON.stringify(invoice.asset));
+  const encoded = `${INVOICE_QR_PREFIX}${encodeBase64Url(utf8.encode(json))}`;
+  console.log('[encodeInvoiceQr] Final QR length:', encoded.length);
+  console.log('[encodeInvoiceQr] QR prefix check:', encoded.substring(0, INVOICE_QR_PREFIX.length));
+  return encoded;
+};
 
 /** A digest-bound reference to an invoice too large to encode inline. */
 export type InvoiceReference = Readonly<{
