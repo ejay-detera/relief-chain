@@ -16,8 +16,9 @@ This index maps the canonical documentation suite for the ReliefGuard AI platfor
 
 | Document | File | Status | Description |
 |---|---|---|---|
+| **BRD** (Business Requirements) | [brd-reliefguard.md](brd-reliefguard.md) | Approved (v2.0) | Complete Business Requirements Document: 4-phase lifecycle, 13 core features with implementation status, system roles (Organization, Merchant, Beneficiary), stakeholder ecosystem, actual tech stack, business model, risk matrix, KPIs, hackathon alignment, and UN SDGs. |
 | **PRD** (Product Requirements) | [prd-reliefchain.md](prd-reliefchain.md) | Approved (v1.0) | Complete technical and functional requirements: 4-phase disaster lifecycle (Predict, Prepare, Respond, Recover), user roles, Stellar testnet boundary, and MoSCoW feature status. |
-| **BPD / BRD** (Business Product Document) | [bpd-reliefguard.md](bpd-reliefguard.md) | Approved (v1.0) | Business model & strategy: B2G SaaS + micro-transaction revenue model, TAM/SAM/SOM market sizing, GTM wedge strategy, LGU ROI, regulatory risk matrix, and SDG alignment. |
+| **BPD** (Business Product Document) | [bpd-reliefguard.md](bpd-reliefguard.md) | Approved (v1.0) | Business model & strategy: B2G SaaS + micro-transaction revenue model, TAM/SAM/SOM market sizing, GTM wedge strategy, LGU ROI, regulatory risk matrix, and SDG alignment. |
 | **Project Overview** | [mindmesh-project-overview.md](mindmesh-project-overview.md) | Reference | Comprehensive system architecture overview covering AI flood prediction, smart resource planning, programmable digital vouchers, and competitive positioning. |
 | **Project Direction** | [ReliefChain_Project_Direction.md](../ReliefChain_Project_Direction.md) | Approved | High-level elevator pitch, core feature definitions, and user role specifications (LGU, Beneficiary, Merchant, Donor/Auditor). |
 | **Hackathon Guidelines** | [2026-pup-uthackathon.md](2026-pup-uthackathon.md) | Reference | Official 2026 PUP Hackathon prompt, submission deliverables (Written Proposal PDF + 2–3 min YouTube Video), topic alignment, and judging criteria. |
@@ -60,6 +61,7 @@ This index maps the canonical documentation suite for the ReliefGuard AI platfor
 
 | Date | Change Description | Docs Affected |
 |---|---|---|
+| 2026-07-24 | Authored Business Requirements Document (BRD) based on PDF specification covering 4-phase lifecycle, 13 core features, system roles, Stellar justification, competitive matrix, and UN SDGs. | [brd-reliefguard.md](brd-reliefguard.md) |
 | 2026-07-22 | Rewrote PRD to align fully with ReliefGuard AI / ReliefChain platform scope and Stellar testnet boundaries. | [prd-reliefchain.md](prd-reliefchain.md) |
 | 2026-07-22 | Authored Business Product Document (BPD) covering TAM/SAM/SOM, B2G SaaS pricing, LGU ROI, GTM strategy, and SDG alignment. | [bpd-reliefguard.md](bpd-reliefguard.md) |
 | 2026-07-22 | Updated documentation index to align with ReliefGuard AI and remove legacy OCR pipeline references. | [index.md](index.md) |
