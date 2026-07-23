@@ -78,6 +78,12 @@ export default function BeneficiaryLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="wallet-recovery"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

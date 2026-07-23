@@ -1,0 +1,10 @@
+-- Relief Chain does not use SQL fixture data during db reset.
+--
+-- The JavaScript demo seeds in scripts/ are authoritative because they create
+-- Supabase Auth users, Stellar-linked wallet fixtures, and domain rows together.
+-- Run `npx supabase db reset --local` first, then run the appropriate script:
+--   node ./scripts/seed-merchant-demo.mjs
+--   node ./scripts/seed-cash-demo.mjs
+--
+-- Keep this file present because supabase/config.toml enables db.seed and
+-- references ./seed.sql.

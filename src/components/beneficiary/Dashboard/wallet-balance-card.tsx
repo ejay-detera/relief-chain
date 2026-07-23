@@ -1,16 +1,84 @@
-import { ThemedText } from '@/components/themed-text';
-import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+
+import { ThemedText } from '@/components/themed-text';
+import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import type { PilotBalanceSummary, ProjectionState } from '@/types/projection';
+import { formatStroops } from '@/utils/format-stroops';
+import { BalanceDisclosure } from './balance-disclosure';
 
 type Props = {
-  voucherBalance: string; // e.g. "₱10,000.00", pre-formatted voucher-style total
+  balance: ProjectionState<PilotBalanceSummary>;
   onWithdraw: () => void;
   onSend: () => void;
 };
 
-export function WalletBalanceCard({ voucherBalance, onWithdraw, onSend }: Props) {
+const reconciledLabel = (reconciledAt: string): string => {
+  const parsed = new Date(reconciledAt);
+  return Number.isNaN(parsed.getTime())
+    ? 'Reconciled recently'
+    : `Reconciled ${parsed.toLocaleString()}`;
+};
+
+function BalanceBody({ balance }: { balance: ProjectionState<PilotBalanceSummary> }) {
+  switch (balance.status) {
+    case 'loading':
+      return (
+        <View style={styles.stateRow}>
+          <ActivityIndicator color="white" />
+          <ThemedText style={styles.stateText}>Loading balance…</ThemedText>
+        </View>
+      );
+    case 'unavailable':
+      return (
+        <View>
+          <ThemedText style={styles.balance}>Unavailable</ThemedText>
+          <ThemedText style={styles.stateText}>
+            Balance can&apos;t be shown right now. {balance.retryable ? 'Pull to refresh to retry.' : ''}
+          </ThemedText>
+        </View>
+      );
+    case 'empty':
+      return (
+        <View>
+          <ThemedText style={styles.balance}>0.00 {PILOT_ASSET_CODE}</ThemedText>
+          <ThemedText style={styles.stateText}>No reconciled balance yet.</ThemedText>
+        </View>
+      );
+    case 'quarantined':
+      return (
+        <View>
+          <ThemedText style={styles.balance}>Under review</ThemedText>
+          <ThemedText style={styles.stateText}>{balance.reason}</ThemedText>
+        </View>
+      );
+    case 'current':
+    case 'stale': {
+      const { data } = balance;
+      return (
+        <View>
+          <ThemedText style={styles.balance}>
+            {formatStroops(data.cashAvailableStroops)} {PILOT_ASSET_CODE}
+          </ThemedText>
+          <ThemedText style={styles.subBalance}>
+            Vouchers: {formatStroops(data.voucherAvailableStroops)} {PILOT_ASSET_CODE}
+          </ThemedText>
+          <ThemedText style={styles.stateText}>
+            {balance.status === 'stale'
+              ? `Stale · ${reconciledLabel(balance.metadata.reconciledAt)}`
+              : reconciledLabel(balance.metadata.reconciledAt)}
+          </ThemedText>
+        </View>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+export function WalletBalanceCard({ balance, onWithdraw, onSend }: Props) {
   return (
     <LinearGradient
       colors={[BrandColors.green, '#4A90D9']}
@@ -18,8 +86,9 @@ export function WalletBalanceCard({ voucherBalance, onWithdraw, onSend }: Props)
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <ThemedText style={styles.title}>Current Wallet Balance</ThemedText>
-      <ThemedText style={styles.balance}>{voucherBalance}</ThemedText>
+      <ThemedText style={styles.title}>Unrestricted Cash Balance</ThemedText>
+      <BalanceBody balance={balance} />
+      <BalanceDisclosure />
 
       <View style={styles.actionsRow}>
         <Pressable onPress={onWithdraw} style={styles.withdrawButton}>
@@ -51,11 +120,27 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 30,
     fontWeight: 'bold',
-    marginBottom: Spacing.three,
+  },
+  subBalance: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  stateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: Spacing.two,
+  },
+  stateText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    marginTop: Spacing.one,
   },
   actionsRow: {
     flexDirection: 'row',
     columnGap: Spacing.two,
+    marginTop: Spacing.three,
   },
   withdrawButton: {
     flexDirection: 'row',

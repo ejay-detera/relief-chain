@@ -1,26 +1,37 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
+import { useOrganizationTreasury } from '@/hooks/use-organization-treasury';
 
 export const BudgetCard = () => {
+  const { balances, isLoading } = useOrganizationTreasury();
+
+  const formatRCPHP = (stroops: bigint) => {
+    const value = Number(stroops) / 10000000;
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RCPHP`;
+  };
+
+  const total = balances ? formatRCPHP(balances.totalStroops) : '0.00 RCPHP';
+  const reserved = balances ? formatRCPHP(balances.reservedStroops) : '0.00 RCPHP';
+  const available = balances ? formatRCPHP(balances.availableStroops) : '0.00 RCPHP';
+
   return (
     <LinearGradient
       colors={[BrandColors.green, BrandColors.budgetGradientEnd]}
       style={styles.container}>
       <ThemedText style={styles.title}>Total Program Budget</ThemedText>
-      <ThemedText style={styles.amount}>₱8,500,000.00</ThemedText>
+      <ThemedText style={styles.amount}>{isLoading ? 'Loading...' : total}</ThemedText>
 
       <View style={styles.badgesContainer}>
         <View style={styles.badge}>
           <ThemedText style={styles.badgeTitle}>Reserved</ThemedText>
-          <ThemedText style={styles.badgeValue}>₱6.5 M</ThemedText>
+          <ThemedText style={styles.badgeValue}>{isLoading ? '-' : reserved}</ThemedText>
         </View>
         <View style={styles.badge}>
           <ThemedText style={styles.badgeTitle}>Available</ThemedText>
-          <ThemedText style={styles.badgeValue}>₱2.0 M</ThemedText>
+          <ThemedText style={styles.badgeValue}>{isLoading ? '-' : available}</ThemedText>
         </View>
       </View>
     </LinearGradient>

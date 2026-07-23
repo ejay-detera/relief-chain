@@ -22,7 +22,7 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.reliefchain"
+      "package": "com.reliefchain.app"
     },
     "web": {
       "output": "static",

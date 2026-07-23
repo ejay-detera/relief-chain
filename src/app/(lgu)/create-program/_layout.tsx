@@ -10,6 +10,7 @@ import { ProgramDraft } from '@/types/program';
 import { Stack } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Alert } from 'react-native';
+import { useActivateCashProgram } from '@/hooks/use-activate-cash-program';
 
 const initialDraft: ProgramDraft = {
   name: '',
@@ -56,7 +57,7 @@ interface CreateProgramContextProps {
   draft: ProgramDraft;
   updateDraft: (updates: Partial<ProgramDraft>) => void;
   resetDraft: () => void;
-  publishProgram: (status: 'draft' | 'published') => Promise<boolean>;
+  publishProgram: (status: 'draft' | 'published') => Promise<{ success: boolean; programId?: string; organizationId?: string }>;
   programsList: any[];
   setProgramsList: React.Dispatch<React.SetStateAction<any[]>>;
   lookups: LookupData;
@@ -70,10 +71,11 @@ interface CreateProgramContextProps {
 const CreateProgramContext = createContext<CreateProgramContextProps | undefined>(undefined);
 
 export function CreateProgramProvider({ children }: { children: React.ReactNode }) {
-  const { profile } = useAuth();
+  const { session, profile } = useAuth();
   const [draft, setDraft] = useState<ProgramDraft>(initialDraft);
   const [programsList, setProgramsList] = useState<any[]>([]);
   const [isLoadingLookups, setIsLoadingLookups] = useState(true);
+  const { activateProgram } = useActivateCashProgram();
 
   const [lookups, setLookups] = useState<LookupData>({
     disasterTypes: [],
@@ -85,15 +87,17 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
   });
 
   const fetchProgramsList = useCallback(async () => {
+    if (!session || !profile) return;
     try {
       const data = await fetchLguPrograms();
       setProgramsList(data);
     } catch (err) {
       console.error('Error fetching programs:', err);
     }
-  }, []);
+  }, [session, profile]);
 
   useEffect(() => {
+    if (!session || !profile) return;
     let active = true;
     const initialize = async () => {
       try {
@@ -121,7 +125,7 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
     return () => {
       active = false;
     };
-  }, []);
+  }, [session, profile]);
 
   const updateDraft = (updates: Partial<ProgramDraft>) => {
     setDraft((prev) => {
@@ -185,24 +189,34 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
     setDraft(initialDraft);
   };
 
-  const publishProgram = async (status: 'draft' | 'published'): Promise<boolean> => {
+  const publishProgram = async (status: 'draft' | 'published'): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
     try {
-      let success = false;
+      let result: { success: boolean; programId?: string; organizationId?: string } = { success: false };
+      
+      // Step 1: ALWAYS save the database row as a draft first. 
+      // Financial constraints prevent direct inserts of 'active' status without funding evidence.
       if (editingProgramId) {
-        success = await updateLguProgram(editingProgramId, draft, status);
+        result = await updateLguProgram(editingProgramId, draft, 'draft');
       } else {
-        success = await createLguProgram(draft, status, profile?.id || null);
+        result = await createLguProgram(draft, 'draft', profile?.id || null);
       }
-      if (success) {
-        await fetchProgramsList();
-        clearEditingState();
-        return true;
+
+      if (!result.success || !result.programId || !result.organizationId) {
+        return { success: false };
       }
-      return false;
-    } catch (err) {
+
+      // Step 2: If the user requested to publish, we invoke the Edge Function activation flow.
+      if (status === 'published') {
+        await activateProgram(result.organizationId, result.programId);
+      }
+
+      await fetchProgramsList();
+      clearEditingState();
+      return result;
+    } catch (err: any) {
       console.error('Error saving program:', err);
-      Alert.alert('Database Error', 'Could not save program details to the database.');
-      return false;
+      Alert.alert('Database Error', err.message || 'Could not save program details to the database.');
+      return { success: false };
     }
   };
 

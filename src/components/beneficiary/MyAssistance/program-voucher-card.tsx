@@ -2,17 +2,41 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ReconciliationBadge } from '@/components/shared/reconciliation-badge';
 import { ThemedText } from '@/components/themed-text';
+import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import type { BeneficiaryProgramEntitlement, ProjectionState } from '@/types/projection';
 import { EnrolledProgram } from '@/types/wallet';
+import { formatStroops } from '@/utils/format-stroops';
 
 type Props = {
   program: EnrolledProgram;
+  /** Reconciled entitlement for this program, or null if none is reconciled yet. */
+  entitlement: BeneficiaryProgramEntitlement | null;
+  /** The parent projection state, used to explain why a balance is not shown. */
+  balanceState: ProjectionState<BeneficiaryProgramEntitlement[]>;
 };
 
-export function ProgramVoucherCard({ program }: Props) {
+const balancePlaceholder = (status: ProjectionState<unknown>['status']): string => {
+  switch (status) {
+    case 'loading':
+      return 'Loading…';
+    case 'unavailable':
+      return 'Unavailable';
+    case 'quarantined':
+      return 'Under review';
+    default:
+      return 'No reconciled balance';
+  }
+};
+
+export function ProgramVoucherCard({ program, entitlement, balanceState }: Props) {
   const router = useRouter();
   const isApproved = program.approvalStatus === 'Approved';
+  const balanceLabel = entitlement
+    ? `${formatStroops(entitlement.availableStroops)} ${PILOT_ASSET_CODE}`
+    : balancePlaceholder(balanceState.status);
 
   return (
     <View style={styles.card}>
@@ -31,8 +55,12 @@ export function ProgramVoucherCard({ program }: Props) {
 
       <View style={styles.bodyRow}>
         <View style={styles.balanceColumn}>
-          <ThemedText style={styles.balanceLabel}>Voucher Balance</ThemedText>
-          <ThemedText style={styles.balanceValue}>{program.voucherBalance}</ThemedText>
+          <ThemedText style={styles.balanceLabel}>Reconciled Balance</ThemedText>
+          <ThemedText style={styles.balanceValue}>{balanceLabel}</ThemedText>
+          <ReconciliationBadge
+            state={balanceState}
+            transactionHash={entitlement?.latestTransactionHash}
+          />
           <View style={styles.expiryRow}>
             <FontAwesome name="calendar" size={11} color={BrandColors.grey} />
             <ThemedText style={styles.expiryText}>Expires: {program.expiresAt}</ThemedText>

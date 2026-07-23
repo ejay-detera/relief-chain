@@ -50,11 +50,10 @@ export default function ProgramDetailsScreen() {
   const isCompleted = calculatedStatus === 'completed';
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2,
-    }).format(val);
+    return `${val.toLocaleString(undefined, { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    })} RCPHP`;
   };
 
   const formatHumanDate = (dateStr: string) => {

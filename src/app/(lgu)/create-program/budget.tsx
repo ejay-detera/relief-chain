@@ -1,10 +1,9 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView, Text, TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useCreateProgram } from './_layout';
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { useRouter } from 'expo-router';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCreateProgram } from './_layout';
 
 export default function BudgetScreen() {
   const router = useRouter();
@@ -22,7 +21,7 @@ export default function BudgetScreen() {
 
   // Format currency helpers
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 }).format(val);
+    return `${val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} RCPHP`;
   };
 
   const formatNumberInput = (val: number) => {

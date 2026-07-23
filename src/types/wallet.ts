@@ -1,30 +1,16 @@
-export type StellarWallet = {
-  publicKey: string;
-  xlmBalance: string;         // "12.50"
-  isActivated: boolean;       // false when account is unfunded on testnet
-};
-
-export type Voucher = {
-  id: string;
-  category: 'Food' | 'Medicine' | 'School Supplies' | 'Cash';
-  amount: string;             // "₱2,000"
-  program: string;            // "Typhoon Odette Relief"
-  purpose: string;            // "Food Assistance"
-  expiresAt: string;          // "Dec 31, 2025"
-  status: 'Available' | 'Redeemed' | 'Expired';
-  stellarAssetCode: string;   // "FOOD" | "MED" | "SCHL"
-};
-
+/**
+ * A beneficiary's enrollment workflow state for one program. This carries only
+ * eligibility and approval intent — never money. Reconciled cash and voucher
+ * balances come exclusively from `beneficiary_balance_projection` via
+ * `useBeneficiaryEntitlements` (Requirements 18.1, 18.2, 21.1).
+ */
 export type EnrolledProgram = {
   id: string;
   name: string;               // "Typhoon Odette Relief"
   approvalStatus: 'Approved' | 'Pending' | 'Rejected';
-  voucherBalance: string;     // "₱5,000"
   purpose: string;
   expiresAt: string;
   createdAt: string;           // ISO timestamp; used to determine the most recent Approved enrollment
-  progressPercent: number;    // 0-100, placeholder until backend tracks disbursement progress
-  nextDisbursementDate: string; // e.g. "July 23, 2026", placeholder until backend tracks schedule
 };
 
 export type RedemptionRecord = {
@@ -38,3 +24,50 @@ export type RedemptionRecord = {
   status: 'Completed' | 'Pending' | 'Failed';
   direction: 'credit' | 'debit'; // credit = received (e.g. grant), debit = spent (e.g. merchant payment)
 };
+
+
+export type PilotWalletNetwork = 'stellar_testnet';
+
+export type ActivePilotWalletRow = Readonly<{
+  id: string;
+  network: PilotWalletNetwork;
+  address: string;
+  is_active: true;
+}>;
+
+export type PilotWalletRecoveryReason =
+  | 'missing_signer'
+  | 'invalid_signer'
+  | 'signer_mismatch';
+
+export type PilotWalletState =
+  | Readonly<{
+      status: 'ready';
+      custodyModel: 'disposable_testnet';
+      storageNamespace: string;
+      walletId: string;
+      publicKey: string;
+    }>
+  | Readonly<{
+      status: 'binding_required';
+      custodyModel: 'disposable_testnet';
+      storageNamespace: string;
+      publicKey: string;
+      wasProvisioned: boolean;
+    }>
+  | Readonly<{
+      status: 'recovery_required';
+      custodyModel: 'disposable_testnet';
+      storageNamespace: string;
+      reason: PilotWalletRecoveryReason;
+      walletId: string | null;
+      expectedAddress: string | null;
+      derivedAddress: string | null;
+      canStartRotation: boolean;
+    }>
+  | Readonly<{
+      status: 'unavailable';
+      custodyModel: 'disposable_testnet';
+      storageNamespace: string;
+      reason: 'secure_storage_unavailable' | 'secure_storage_error' | 'invalid_wallet_binding';
+    }>;
