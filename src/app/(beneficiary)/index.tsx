@@ -1,23 +1,25 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RequestCashOutModal, type CashOutSubmitOutcome } from '@/components/CashOut/RequestCashOutModal';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 
-import { ActivateWalletCard } from '@/components/WalletProvision/ActivateWalletCard';
 import { ActiveProgramCard } from '@/components/beneficiary/Dashboard/active-program-card';
 import { DashboardGreeting } from '@/components/beneficiary/Dashboard/dashboard-greeting';
+import { DashboardSkeleton } from '@/components/beneficiary/Dashboard/dashboard-skeleton';
 import { QuickActionGrid } from '@/components/beneficiary/Dashboard/quick-action-grid';
 import { RecentTransactionsList } from '@/components/beneficiary/Dashboard/recent-transactions-list';
 import { WalletBalanceCard } from '@/components/beneficiary/Dashboard/wallet-balance-card';
 import { WalletStatusCard } from '@/components/beneficiary/Dashboard/wallet-status-card';
 import { QrModal } from '@/components/shared/qr-modal';
+import { ActivateWalletCard } from '@/components/WalletProvision/ActivateWalletCard';
 
 import { useAuth } from '@/context/AuthContext';
 import { useBeneficiaryBalances } from '@/hooks/use-beneficiary-balances';
@@ -83,62 +85,72 @@ export default function BeneficiaryDashboard() {
         >
           <LogoHeader />
 
-          <DashboardGreeting name={profile?.full_name ?? null} />
+          <FadeInView delay={0}>
+            <DashboardGreeting name={profile?.full_name ?? null} />
+          </FadeInView>
 
-          <WalletBalanceCard
-            balance={balance}
-            onWithdraw={() => setIsCashOutVisible(true)}
-            onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
-          />
+          {isLoading ? (
+            <DashboardSkeleton />
+          ) : (
+            <>
+              <FadeInView delay={40}>
+                <WalletBalanceCard
+                  balance={balance}
+                  onWithdraw={() => setIsCashOutVisible(true)}
+                  onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
+                />
+              </FadeInView>
 
-          <WalletStatusCard walletState={walletState} />
+              <WalletStatusCard walletState={walletState} />
 
-          {userId && publicKey && walletState?.status === 'binding_required' && (
-            <ActivateWalletCard
-              userId={userId}
-              walletAddress={publicKey}
-              onProvisioned={() => {
-                void refreshBalance();
-                void refreshEntitlements();
-              }}
-            />
+              {userId && publicKey && walletState?.status === 'binding_required' && (
+                <ActivateWalletCard
+                  userId={userId}
+                  walletAddress={publicKey}
+                  onProvisioned={() => {
+                    void refreshBalance();
+                    void refreshEntitlements();
+                  }}
+                />
+              )}
+
+              <FadeInView delay={80}>
+                <QuickActionGrid
+                  onShowQr={() => setIsQrVisible(true)}
+                  onFindMerchant={() => router.push('/(beneficiary)/find-organization')}
+                  onMyAssistance={() => router.push('/(beneficiary)/my-assistance')}
+                  onProfile={() => router.push('/(beneficiary)/profile')}
+                />
+              </FadeInView>
+
+              {error && <ErrorState message="We couldn't load your assistance data." onRetry={refetch} />}
+
+              {hasNoAssistance && (
+                <FadeInView delay={120}>
+                  <EmptyState
+                    actionLabel="Find Organizations"
+                    description="You don't have any assistance yet. Apply to a program to get started."
+                    onAction={() => router.push('/(beneficiary)/find-organization')}
+                    title="No Assistance Yet"
+                  />
+                </FadeInView>
+              )}
+
+              {!error && activeProgram && (
+                <FadeInView delay={120}>
+                  <ActiveProgramCard
+                    program={activeProgram}
+                    entitlement={entitlementForProgram(entitlements, activeProgram.id)}
+                    balanceState={entitlements}
+                  />
+                </FadeInView>
+              )}
+
+              <FadeInView delay={160}>
+                <RecentTransactionsList redemptions={redemptions} />
+              </FadeInView>
+            </>
           )}
-
-          <QuickActionGrid
-            onShowQr={() => setIsQrVisible(true)}
-            onFindMerchant={() => router.push('/(beneficiary)/find-organization')}
-            onMyAssistance={() => router.push('/(beneficiary)/my-assistance')}
-            onProfile={() => router.push('/(beneficiary)/profile')}
-          />
-
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={BrandColors.navy} size="large" />
-            </View>
-          )}
-
-          {!isLoading && error && (
-            <ErrorState message="We couldn't load your assistance data." onRetry={refetch} />
-          )}
-
-          {hasNoAssistance && (
-            <EmptyState
-              actionLabel="Find Organizations"
-              description="You don't have any assistance yet. Apply to a program to get started."
-              onAction={() => router.push('/(beneficiary)/find-organization')}
-              title="No Assistance Yet"
-            />
-          )}
-
-          {!isLoading && !error && activeProgram && (
-            <ActiveProgramCard
-              program={activeProgram}
-              entitlement={entitlementForProgram(entitlements, activeProgram.id)}
-              balanceState={entitlements}
-            />
-          )}
-
-          <RecentTransactionsList redemptions={redemptions} />
         </ScrollView>
       </SafeAreaView>
 
@@ -167,9 +179,5 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: BottomTabInset + Spacing.six,
-  },
-  loadingContainer: {
-    paddingVertical: Spacing.six,
-    alignItems: 'center',
   },
 });

@@ -4636,6 +4636,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      mark_distribution_recipient_submitted: {
+        Args: {
+          p_recipient_id: string
+          p_transaction_hash: string
+        }
+        Returns: {
+          amount_stroops: number
+          beneficiary_identity_id: string
+          cancelled_at: string | null
+          confirmed_at: string | null
+          confirmed_ledger: number | null
+          correlation_id: string
+          created_at: string
+          destination_wallet_id: string
+          distribution_job_id: string
+          enrollment_id: string
+          failure_code: string | null
+          failure_reason: string | null
+          id: string
+          idempotency_key_id: string
+          organization_id: string
+          program_id: string
+          status: Database["public"]["Enums"]["distribution_recipient_status"]
+          submitted_at: string | null
+          transaction_hash: string | null
+          updated_at: string
+        }
+      }
       record_reconciliation_issue: {
         Args: {
           p_contract_event_id: string

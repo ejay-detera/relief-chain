@@ -85,19 +85,12 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   }
 
   // 1. Decode & verify invoice
-  console.log('[prepare-payment] Parsing invoice object');
-  console.log('[prepare-payment] Invoice body asset:', JSON.stringify((body.invoice as any)?.asset));
   let parsedInvoice: InvoiceV1;
   try {
     parsedInvoice = parseInvoiceObject(body.invoice);
-    console.log('[prepare-payment] Invoice parsed successfully');
-    console.log('[prepare-payment] Parsed invoice asset:', JSON.stringify(parsedInvoice.asset));
     assertVerifiedInvoice(parsedInvoice);
-    console.log('[prepare-payment] Invoice signature verified');
     assertNotExpired(parsedInvoice);
-    console.log('[prepare-payment] Invoice not expired');
   } catch (error) {
-    console.error('[prepare-payment] Invoice validation error:', error);
     throw FinancialErrorException.of('validation_failed', `Invoice validation failed: ${(error as Error).message}`, { correlationId });
   }
 
@@ -105,7 +98,6 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   const service = binding.serviceClient;
 
   // 2. Resolve beneficiary identity and wallet
-  console.log('[prepare-payment] Looking up beneficiary identity for user:', session.userId);
   const { data: identity, error: identityError } = await service
     .from('beneficiary_identities')
     .select('id')
@@ -113,17 +105,13 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     .maybeSingle();
 
   if (identityError) {
-    console.log('[prepare-payment] Beneficiary identity lookup error:', identityError);
     throw FinancialErrorException.of('authorization_failed', `Database error: ${identityError.message}`, { correlationId });
   }
   if (!identity) {
-    console.log('[prepare-payment] No beneficiary identity found for user');
     throw FinancialErrorException.of('authorization_failed', 'No beneficiary identity is linked to this account.', { correlationId });
   }
-  console.log('[prepare-payment] Found beneficiary identity:', identity.id);
 
   // Batch fetch enrollment + program + beneficiary wallet in parallel
-  console.log('[prepare-payment] Fetching enrollment and beneficiary wallet for identity:', identity.id);
   const [enrollmentResult, walletResult] = await Promise.all([
     service
       .from('enrollments')
@@ -147,24 +135,18 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   const { data: beneficiaryWallet, error: walletError } = walletResult;
 
   if (enrollmentError) {
-    console.log('[prepare-payment] Enrollment lookup error:', enrollmentError);
     throw FinancialErrorException.of('validation_failed', `Enrollment error: ${enrollmentError.message}`, { correlationId });
   }
   if (!enrollment) {
-    console.log('[prepare-payment] No enrollment found for beneficiary');
     throw FinancialErrorException.of('validation_failed', 'Beneficiary is not enrolled in any program.', { correlationId });
   }
-  console.log('[prepare-payment] Found enrollment, program_id:', enrollment.program_id);
 
   if (walletError) {
-    console.log('[prepare-payment] Beneficiary wallet lookup error:', walletError);
     throw FinancialErrorException.of('validation_failed', `Wallet error: ${walletError.message}`, { correlationId });
   }
   if (!beneficiaryWallet || !STELLAR_ACCOUNT.test(beneficiaryWallet.address)) {
-    console.log('[prepare-payment] No beneficiary wallet found or invalid address:', beneficiaryWallet?.address);
     throw FinancialErrorException.of('validation_failed', 'Beneficiary has no active verified wallet.', { correlationId });
   }
-  console.log('[prepare-payment] Found beneficiary wallet:', beneficiaryWallet.address);
 
   const program = enrollment.programs;
   if (!program || typeof program !== 'object' || !program.organization_id) {
@@ -175,7 +157,6 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   const beneficiaryIdentityId = identity.id;
 
   // 3. Batch fetch merchant accreditation + wallet in parallel
-  console.log('[prepare-payment] Fetching merchant accreditation and wallet for merchant:', parsedInvoice.merchantId);
   const [accreditationResult, merchantWalletResult] = await Promise.all([
     service
       .from('merchant_accreditations')
@@ -202,32 +183,40 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   const { data: merchantWallet, error: merchantWalletError } = merchantWalletResult;
 
   if (accreditationError) {
-    console.log('[prepare-payment] Merchant accreditation lookup error:', accreditationError);
     throw FinancialErrorException.of('validation_failed', `Accreditation error: ${accreditationError.message}`, { correlationId });
   }
   if (!accreditation) {
-    console.log('[prepare-payment] No merchant accreditation found for merchant:', parsedInvoice.merchantId, 'org:', organizationId);
     throw FinancialErrorException.of('validation_failed', 'Merchant is not active or accredited for this organization.', { correlationId });
   }
-  console.log('[prepare-payment] Found merchant accreditation:', accreditation.id);
 
   if (merchantWalletError) {
-    console.log('[prepare-payment] Merchant wallet lookup error:', merchantWalletError);
     throw FinancialErrorException.of('validation_failed', `Merchant wallet error: ${merchantWalletError.message}`, { correlationId });
   }
   if (!merchantWallet || !STELLAR_ACCOUNT.test(merchantWallet.address)) {
-    console.log('[prepare-payment] No merchant wallet found or invalid address. Merchant:', parsedInvoice.merchantId, 'Wallet:', merchantWallet?.address);
     throw FinancialErrorException.of('validation_failed', 'Merchant has no active verified settlement wallet.', { correlationId });
   }
-  console.log('[prepare-payment] Found merchant wallet:', merchantWallet.address, 'Invoice settlement wallet:', parsedInvoice.settlementWallet);
 
   if (merchantWallet.address !== parsedInvoice.settlementWallet) {
-    console.log('[prepare-payment] Wallet mismatch! DB:', merchantWallet.address, 'Invoice:', parsedInvoice.settlementWallet);
     throw FinancialErrorException.of('validation_failed', 'Invoice settlement wallet does not match merchant verified wallet.', { correlationId });
   }
 
+  // The invoice codec allows amountStroops up to a 128-bit integer as a
+  // canonical decimal string, but every downstream consumer here (the
+  // `invoices.amount_stroops` bigint column via the JS client, and the
+  // merchant-payment orchestrator) treats it as a JS `number`. Values beyond
+  // `Number.MAX_SAFE_INTEGER` would silently lose precision on the `Number()`
+  // conversion below rather than fail, which could persist or pay the wrong
+  // amount. Fail closed instead.
+  const amountStroopsNumber = Number(parsedInvoice.amountStroops);
+  if (!Number.isSafeInteger(amountStroopsNumber)) {
+    throw FinancialErrorException.of(
+      'validation_failed',
+      'The invoice amount exceeds the supported range for a payment.',
+      { correlationId },
+    );
+  }
+
   // 4. Check/insert invoice and payment intent atomically
-  console.log('[prepare-payment] Checking for existing invoice. Merchant:', parsedInvoice.merchantId, 'Nonce:', parsedInvoice.nonce);
   let dbInvoiceId = '';
   const { data: existingInvoice } = await service
     .from('invoices')
@@ -237,23 +226,14 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     .maybeSingle();
 
   if (existingInvoice) {
-    console.log('[prepare-payment] Found existing invoice:', existingInvoice.id);
     dbInvoiceId = existingInvoice.id;
   } else {
-    console.log('[prepare-payment] No existing invoice, creating new one');
-    console.log('[prepare-payment] Asset code to insert:', parsedInvoice.asset.code);
-    console.log('[prepare-payment] Asset code length:', parsedInvoice.asset.code.length);
-    console.log('[prepare-payment] Asset code type:', typeof parsedInvoice.asset.code);
-    console.log('[prepare-payment] Asset issuer:', parsedInvoice.asset.issuer);
-    console.log('[prepare-payment] Asset SAC:', parsedInvoice.asset.sacAddress);
-    
     const canonicalBytes = canonicalInvoiceBytes(parsedInvoice);
     const canonicalHex = '\\x' + toHex(canonicalBytes);
     const sigBytes = base64ToBytes(parsedInvoice.merchantSignature);
     const sigHex = '\\x' + toHex(sigBytes);
 
     const generatedId = crypto.randomUUID();
-    console.log('[prepare-payment] Inserting invoice into database with ID:', generatedId);
     const { error: insertInvoiceError } = await service
       .from('invoices')
       .insert({
@@ -269,7 +249,7 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
         asset_sac_address: parsedInvoice.asset.sacAddress,
         settlement_address: parsedInvoice.settlementWallet,
         invoice_signer_address: parsedInvoice.invoiceSigner,
-        amount_stroops: Number(parsedInvoice.amountStroops),
+        amount_stroops: amountStroopsNumber,
         nonce: parsedInvoice.nonce,
         canonical_payload: canonicalHex,
         payload_hash: computeInvoiceId(parsedInvoice),
@@ -281,18 +261,12 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
       });
 
     if (insertInvoiceError) {
-      console.log('[prepare-payment] Failed to insert invoice:', insertInvoiceError);
-      console.log('[prepare-payment] Error message:', insertInvoiceError.message);
-      console.log('[prepare-payment] Error details:', JSON.stringify(insertInvoiceError.details));
-      console.log('[prepare-payment] Error hint:', insertInvoiceError.hint);
       throw FinancialErrorException.of('dependency_unavailable', `Unable to insert invoice: ${insertInvoiceError.message}`, { correlationId });
     }
-    console.log('[prepare-payment] Created new invoice:', generatedId);
     dbInvoiceId = generatedId;
   }
 
   // 5. Initialize the orchestrator and call prepare
-  console.log('[prepare-payment] Initializing payment orchestrator');
   const reconciler = createCashReconcilerBundle(context, binding, correlationId);
   const protocol = createEdgeTransactionProtocol(context, {
     service: binding,
@@ -307,7 +281,6 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     signers: createEdgeSignerRegistry(),
   });
 
-  console.log('[prepare-payment] Calling paymentOrchestrator.prepare()');
   const prepared = await paymentOrchestrator.prepare({
     organizationId,
     programId: null,
@@ -315,11 +288,10 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     beneficiaryIdentityId: identity.id,
     beneficiaryWallet: beneficiaryWallet.address,
     merchantSettlementWallet: merchantWallet.address,
-    amountStroops: Number(parsedInvoice.amountStroops),
+    amountStroops: amountStroopsNumber,
     correlationId,
     requestedBy: session.userId,
   });
-  console.log('[prepare-payment] paymentOrchestrator.prepare() completed. isReplay:', prepared.isReplay, 'intentId:', prepared.intent.id);
 
   // 6. Insert payment_intents row if not a replay and doesn't exist
   if (!prepared.isReplay && prepared.intent) {
@@ -345,7 +317,7 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
           settlement_wallet_id: merchantWallet.id,
           enrollment_id: null,
           funding_source: 'cash',
-          amount_stroops: Number(parsedInvoice.amountStroops),
+          amount_stroops: amountStroopsNumber,
           idempotency_key: idempotencyKey,
           payload_hash: prepared.intent.payload_hash,
           status: 'requested',

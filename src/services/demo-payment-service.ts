@@ -1,13 +1,20 @@
 /**
  * Demo Payment Service
- * 
+ *
  * Simulates payment completion by directly updating the database.
  * This bypasses the Stellar SDK entirely to avoid React Native compatibility issues.
- * 
+ *
  * ⚠️ FOR DEMO/PRESENTATION PURPOSES ONLY
  * This does NOT interact with the actual Stellar blockchain.
+ *
+ * This module is only ever reachable when `DEMO_MODE` is true, which itself is
+ * hard-locked to `__DEV__` builds (see src/config/demo-mode.ts). The guard
+ * below is defense in depth: even if a caller is refactored to invoke this
+ * directly without checking `DEMO_MODE` first, it still refuses to run outside
+ * a development build.
  */
 
+import { DEMO_MODE } from '@/config/demo-mode';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -19,15 +26,16 @@ export const completeDemoPayment = async (intentId: string): Promise<{
   transactionHash?: string;
   error?: string;
 }> => {
-  console.log('[completeDemoPayment] Starting demo payment completion for intent:', intentId);
+  if (!DEMO_MODE) {
+    // Fail closed: never fabricate a confirmed payment outside demo mode.
+    throw new Error('completeDemoPayment was called outside of demo mode.');
+  }
 
   try {
     // 1. Generate a fake Stellar transaction hash (64 hex characters)
     const fakeHash = Array.from({ length: 64 }, () =>
       Math.floor(Math.random() * 16).toString(16)
     ).join('');
-
-    console.log('[completeDemoPayment] Generated fake hash:', fakeHash);
 
     // 2. Get the latest transaction attempt for this intent
     const { data: attempt, error: attemptFetchError } = await supabase
@@ -39,14 +47,11 @@ export const completeDemoPayment = async (intentId: string): Promise<{
       .single();
 
     if (attemptFetchError || !attempt) {
-      console.error('[completeDemoPayment] Failed to find transaction attempt:', attemptFetchError);
       return {
         success: false,
         error: 'Transaction attempt not found',
       };
     }
-
-    console.log('[completeDemoPayment] Found attempt:', attempt.id);
 
     // 3. Update the transaction attempt to "observed_success"
     const { error: attemptUpdateError } = await supabase
@@ -60,14 +65,11 @@ export const completeDemoPayment = async (intentId: string): Promise<{
       .eq('id', attempt.id);
 
     if (attemptUpdateError) {
-      console.error('[completeDemoPayment] Failed to update attempt:', attemptUpdateError);
       return {
         success: false,
         error: 'Failed to update transaction attempt',
       };
     }
-
-    console.log('[completeDemoPayment] Updated transaction attempt to observed_success');
 
     // 4. Update the financial intent to confirmed
     const { error: intentUpdateError } = await supabase
@@ -78,14 +80,11 @@ export const completeDemoPayment = async (intentId: string): Promise<{
       .eq('id', intentId);
 
     if (intentUpdateError) {
-      console.error('[completeDemoPayment] Failed to update financial intent:', intentUpdateError);
       return {
         success: false,
         error: 'Failed to update financial intent',
       };
     }
-
-    console.log('[completeDemoPayment] Updated financial intent');
 
     // 5. Update the payment intent status
     const { error: paymentUpdateError } = await supabase
@@ -97,21 +96,20 @@ export const completeDemoPayment = async (intentId: string): Promise<{
       .eq('financial_intent_id', intentId);
 
     if (paymentUpdateError) {
-      console.error('[completeDemoPayment] Failed to update payment intent:', paymentUpdateError);
       return {
         success: false,
         error: 'Failed to update payment intent',
       };
     }
 
-    console.log('[completeDemoPayment] Demo payment completed successfully');
-
     return {
       success: true,
       transactionHash: fakeHash,
     };
   } catch (error) {
-    console.error('[completeDemoPayment] Exception:', error);
+    if (__DEV__) {
+      console.error('[completeDemoPayment] Exception:', error);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

@@ -191,18 +191,23 @@ const submitDisbursement = async (scope: EdgeRequestScope): Promise<Response> =>
   // Reflect submission results into the durable recipient rows. Confirmation
   // remains reconciliation-owned; here we only move pending -> submitted/failed.
   // Recipient state machine: pending -> prepared -> submitted (no direct jump).
-  // A retry recipient starts `failed`; failed -> prepared is also valid.
+  // A retry recipient starts `failed`; failed -> prepared is also valid. Both
+  // hops run inside a single RPC (`mark_distribution_recipient_submitted`) so
+  // a crash or timeout between them can never leave the row stuck in
+  // `prepared` with an on-chain transfer that already happened but was never
+  // reflected as `submitted`.
   for (const submitted of report.submitted) {
-    await service
-      .from('distribution_recipients')
-      .update({ status: 'prepared' })
-      .eq('id', submitted.recipientId)
-      .in('status', ['pending', 'failed']);
-    await service
-      .from('distribution_recipients')
-      .update({ status: 'submitted', transaction_hash: submitted.transactionHash })
-      .eq('id', submitted.recipientId)
-      .eq('status', 'prepared');
+    const { error: rpcError } = await service.rpc('mark_distribution_recipient_submitted', {
+      p_recipient_id: submitted.recipientId,
+      p_transaction_hash: submitted.transactionHash,
+    });
+    if (rpcError) {
+      throw FinancialErrorException.of(
+        'dependency_unavailable',
+        `Unable to record recipient ${submitted.recipientId} as submitted.`,
+        { correlationId, retryable: true },
+      );
+    }
   }
   for (const failure of report.failed) {
     await service

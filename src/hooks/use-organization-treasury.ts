@@ -1,9 +1,7 @@
+import { DEMO_MODE } from '@/config/demo-mode';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import Constants from 'expo-constants';
-import { useCallback, useEffect, useState } from 'react';
-
-const DEMO_MODE = Constants.expoConfig?.extra?.EXPO_PUBLIC_DEMO_MODE === 'true';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface TreasuryBalances {
   availableStroops: bigint;
@@ -19,14 +17,22 @@ export function useOrganizationTreasury() {
   const [balances, setBalances] = useState<TreasuryBalances | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Guards against a stale, slower fetch overwriting a newer one's result if
+  // `profile` changes (e.g. during auth transitions) while a request is
+  // in flight.
+  const requestRef = useRef(0);
 
   const fetchBalances = useCallback(async () => {
     if (!profile) return;
+    const request = ++requestRef.current;
     setIsLoading(true);
     setError(null);
 
-    // In demo mode, return mock balances
+    // In demo mode, return mock balances. DEMO_MODE is hard-locked to __DEV__
+    // builds (see src/config/demo-mode.ts), so this can never fabricate a
+    // treasury balance in a shipped release build.
     if (DEMO_MODE) {
+      if (request !== requestRef.current) return;
       setBalances({
         availableStroops: BigInt(213000 * 10000000), // 213,000 RCPHP
         reservedStroops: BigInt(50000 * 10000000),   // 50,000 RCPHP reserved
@@ -88,16 +94,20 @@ export function useOrganizationTreasury() {
       }
       const reservedStroops = BigInt(reservedTotal * 10000000);
 
+      if (request !== requestRef.current) return;
       setBalances({
         availableStroops,
         reservedStroops,
         totalStroops: availableStroops + reservedStroops,
       });
     } catch (err: any) {
-      console.error('Failed to fetch treasury balances:', err);
+      if (request !== requestRef.current) return;
+      if (__DEV__) {
+        console.error('Failed to fetch treasury balances:', err);
+      }
       setError(err.message);
     } finally {
-      setIsLoading(false);
+      if (request === requestRef.current) setIsLoading(false);
     }
   }, [profile]);
 

@@ -106,7 +106,13 @@ const toHex = (buffer: ArrayBuffer): string =>
     .join('');
 
 const assertPositiveAmount = (amountStroops: number, correlationId: string): void => {
-  if (!Number.isInteger(amountStroops) || amountStroops <= 0) {
+  // `amountStroops` round-trips through a Postgres `bigint` column via
+  // Supabase's JS client, which surfaces it as a JS `number`. Values beyond
+  // `Number.MAX_SAFE_INTEGER` lose precision silently before they ever reach a
+  // `BigInt()` conversion later in this module, which would build a
+  // transaction for the WRONG amount rather than fail. Reject anything outside
+  // the safe-integer range up front so that can never happen quietly.
+  if (!Number.isSafeInteger(amountStroops) || amountStroops <= 0) {
     throw FinancialErrorException.of(
       'validation_failed',
       'The payment amount must be a positive integer number of stroops.',
@@ -255,7 +261,15 @@ const assertPaymentMatchesIntent = (
     reject('The payment must move the configured RCPHP asset, not native XLM.');
   }
   const paidStroops = amountToStroops(payment.amount);
-  if (intent.amount_stroops === null || paidStroops !== BigInt(intent.amount_stroops)) {
+  // `intent.amount_stroops` round-trips through Postgres `bigint` as a JS
+  // `number`; guard the safe-integer range here too (in addition to the
+  // `prepare`-time check) since this assertion is the last line of defense
+  // before a payment is submitted.
+  if (
+    intent.amount_stroops === null ||
+    !Number.isSafeInteger(intent.amount_stroops) ||
+    paidStroops !== BigInt(intent.amount_stroops)
+  ) {
     reject('The payment amount must equal the invoiced amount.');
   }
 };
@@ -328,15 +342,6 @@ export const createMerchantPaymentStrategy = (
       );
     }
 
-    console.log('[merchant-payment build] Building payment transaction');
-    console.log('[merchant-payment build] source:', source);
-    console.log('[merchant-payment build] destination:', destination);
-    console.log('[merchant-payment build] rcphp.code:', rcphp.code);
-    console.log('[merchant-payment build] rcphp.code type:', typeof rcphp.code);
-    console.log('[merchant-payment build] rcphp.code length:', rcphp.code.length);
-    console.log('[merchant-payment build] rcphp.issuer:', rcphp.issuer);
-    console.log('[merchant-payment build] amount:', stroopsToAmount(intent.amount_stroops));
-    
     const transaction = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: config.networkPassphrase,

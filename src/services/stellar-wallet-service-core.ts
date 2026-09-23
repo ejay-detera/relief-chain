@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import type { ActivePilotWalletRow, PilotWalletState } from '@/types/wallet';
 
 export type PilotWalletSecretStore = Readonly<{
@@ -79,26 +78,14 @@ export const resolvePilotWallet = async (
     const storedSecret = await dependencies.secretStore.get(storageNamespace);
     if (!storedSecret) {
       if (activeWallet) {
-        // Auto-heal missing signer: generate a new key and update the DB wallet silently
-        const generated = dependencies.keypairs.generate();
-        await dependencies.secretStore.set(storageNamespace, generated.secret);
-        
-        const { error: updateError } = await supabase
-          .from('wallets')
-          .update({ address: generated.publicKey })
-          .eq('id', activeWallet.id);
-          
-        if (updateError) {
-           return recovery(storageNamespace, 'missing_signer', activeWallet, null);
-        }
-        
-        return {
-          status: 'ready',
-          custodyModel: 'disposable_testnet',
-          storageNamespace,
-          walletId: activeWallet.id,
-          publicKey: generated.publicKey,
-        };
+        // The DB has an active wallet binding but the local secret is gone (new
+        // device, cleared secure storage, reinstalled app, etc). Silently
+        // generating a replacement key here would permanently orphan any funds
+        // already issued to `activeWallet.address` on-chain, since nothing
+        // migrates or re-provisions the balance. Surface the explicit recovery
+        // state instead so the user goes through the documented rotation flow
+        // (`wallet-recovery.tsx`), which the server can reconcile against.
+        return recovery(storageNamespace, 'missing_signer', activeWallet, null);
       }
 
       const generated = dependencies.keypairs.generate();
@@ -129,26 +116,10 @@ export const resolvePilotWallet = async (
       };
     }
     if (derivedAddress !== activeWallet.address) {
-      // Auto-heal signer mismatch
-      const generated = dependencies.keypairs.generate();
-      await dependencies.secretStore.set(storageNamespace, generated.secret);
-      
-      const { error: updateError } = await supabase
-        .from('wallets')
-        .update({ address: generated.publicKey })
-        .eq('id', activeWallet.id);
-        
-      if (updateError) {
-         return recovery(storageNamespace, 'signer_mismatch', activeWallet, derivedAddress);
-      }
-      
-      return {
-        status: 'ready',
-        custodyModel: 'disposable_testnet',
-        storageNamespace,
-        walletId: activeWallet.id,
-        publicKey: generated.publicKey,
-      };
+      // The locally-derived key no longer matches the DB-bound wallet address.
+      // As above, silently rebinding to a fresh key would orphan the funded
+      // account; surface the recovery state instead.
+      return recovery(storageNamespace, 'signer_mismatch', activeWallet, derivedAddress);
     }
     return {
       status: 'ready',

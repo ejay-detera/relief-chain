@@ -1,6 +1,6 @@
 // src/hooks/use-pending-payments.ts
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Represents a pending payment intent visible to the merchant.
@@ -66,17 +66,24 @@ export function usePendingPayments(merchantEntityId: string | null) {
   useEffect(() => {
     if (!merchantEntityId) return;
     const channel = supabase
-      .channel('public:payment_intents')
+      .channel(`payment_intents:merchant:${merchantEntityId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'payment_intents',
-          filter: `merchant_entity_id=eq.${merchantEntityId}&status=eq.pending`,
+          // `postgres_changes` filters support exactly one `column=operator.value`
+          // condition; chaining a second condition with `&` is not valid syntax
+          // and is silently ignored, so it does NOT additionally scope by
+          // status. Scope the subscription to this merchant only (the
+          // security-relevant boundary) and re-check `status` client-side
+          // below before ever showing the row.
+          filter: `merchant_entity_id=eq.${merchantEntityId}`,
         },
         (payload) => {
           const row = payload.new;
+          if (row.status !== 'pending') return;
           const newPayment: PendingPayment = {
             id: row.id,
             amountStroops: row.amount_stroops.toString(),
@@ -84,7 +91,9 @@ export function usePendingPayments(merchantEntityId: string | null) {
             transactionHash: row.transaction_hash ?? null,
           };
           // Prepend the new payment to the list to keep most recent first.
-          setPayments((prev) => [newPayment, ...prev]);
+          // De-dupe defensively in case the realtime event and the initial
+          // `load()` race and both deliver the same row.
+          setPayments((prev) => (prev.some((p) => p.id === newPayment.id) ? prev : [newPayment, ...prev]));
         },
       )
       .subscribe();

@@ -112,8 +112,22 @@ export const amountToStroops = (decimal: string): bigint => {
   return BigInt(whole) * STROOPS_PER_UNIT + BigInt(fractionStroops);
 };
 
-/** Formats integer stroops as a 7-decimal `RCPHP` amount string for an operation. */
+/**
+ * Formats integer stroops as a 7-decimal `RCPHP` amount string for an
+ * operation. When `stroops` is a `number` (as it is whenever it comes straight
+ * off a Postgres `bigint` column via the JS client), it must be a safe
+ * integer: `BigInt()` on an unsafe `number` silently converts the
+ * already-imprecise IEEE-754 value rather than failing, which would build a
+ * transaction for the wrong amount instead of raising an error.
+ */
 export const stroopsToAmount = (stroops: number | bigint): string => {
+  if (typeof stroops === 'number' && !Number.isSafeInteger(stroops)) {
+    throw FinancialErrorException.of(
+      'validation_failed',
+      'The amount exceeds the safe integer range for stroops.',
+      { correlationId: newCorrelationId() },
+    );
+  }
   const value = BigInt(stroops);
   const whole = value / STROOPS_PER_UNIT;
   const fraction = value % STROOPS_PER_UNIT;
@@ -210,7 +224,11 @@ export const verifyTransactionSignedBy = (
 };
 
 const assertPositiveBudget = (budgetStroops: number, correlationId: string): void => {
-  if (!Number.isInteger(budgetStroops) || budgetStroops <= 0) {
+  // Must be a SAFE integer, not merely an integer: this value later passes
+  // through `BigInt()` directly (e.g. against the treasury balance below), and
+  // a `number` beyond `Number.MAX_SAFE_INTEGER` has already lost precision
+  // before that conversion, which would silently reserve the wrong amount.
+  if (!Number.isSafeInteger(budgetStroops) || budgetStroops <= 0) {
     throw FinancialErrorException.of(
       'validation_failed',
       'The program budget to reserve must be a positive integer number of stroops.',
@@ -251,7 +269,11 @@ const assertReservationMatchesIntent = (
     reject('The reservation must move the configured RCPHP asset, not native XLM.');
   }
   const paidStroops = amountToStroops(payment.amount);
-  if (intent.amount_stroops === null || paidStroops !== BigInt(intent.amount_stroops)) {
+  if (
+    intent.amount_stroops === null ||
+    !Number.isSafeInteger(intent.amount_stroops) ||
+    paidStroops !== BigInt(intent.amount_stroops)
+  ) {
     reject('The reservation amount must equal the full approved budget.');
   }
 };

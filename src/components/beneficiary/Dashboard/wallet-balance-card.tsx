@@ -1,7 +1,8 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Skeleton } from '@/components/shared/Skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
@@ -26,9 +27,9 @@ function BalanceBody({ balance }: { balance: ProjectionState<PilotBalanceSummary
   switch (balance.status) {
     case 'loading':
       return (
-        <View style={styles.stateRow}>
-          <ActivityIndicator color="white" />
-          <ThemedText style={styles.stateText}>Loading balance…</ThemedText>
+        <View>
+          <Skeleton borderRadius={BorderRadius.sm} height={30} style={[styles.balanceSkeleton, styles.balanceSkeletonOnGradient]} width={160} />
+          <Skeleton borderRadius={BorderRadius.sm} height={14} style={styles.balanceSkeletonOnGradient} width={130} />
         </View>
       );
     case 'unavailable':
@@ -136,6 +137,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
     marginTop: Spacing.one,
+  },
+  balanceSkeleton: {
+    marginBottom: Spacing.one,
+  },
+  balanceSkeletonOnGradient: {
+    backgroundColor: 'rgba(255,255,255,0.35)',
   },
   actionsRow: {
     flexDirection: 'row',

@@ -10,32 +10,32 @@
 // Validates: Requirements 6.4, 8.6, 8.7, 18.1, 18.5, 18.6, 18.8
 
 import { requireOrganizationRole } from '../_shared/auth.ts';
-import { createCashReconcilerBundle, createCashProgramReconcilerBundle, createHorizonCashLookup } from '../_shared/edge-cash-reconciler.ts';
+import { createCashProgramReconcilerBundle, createCashReconcilerBundle, createHorizonCashLookup } from '../_shared/edge-cash-reconciler.ts';
 import {
-  createEdgeServiceBinding,
-  handleEdgeRequest,
-  parseJsonBody,
-  type EdgeRequestScope,
+    createEdgeServiceBinding,
+    handleEdgeRequest,
+    parseJsonBody,
+    type EdgeRequestScope,
 } from '../_shared/edge.ts';
 import { FinancialErrorException } from '../_shared/errors.ts';
 import { jsonResponse } from '../_shared/response.ts';
 import { serveEdge } from '../_shared/runtime.ts';
 import {
-  buildBeneficiaryCashBalanceRow,
-  createCashDistributionReconciler,
-  createMerchantSettlementProjector,
-  buildMerchantCashBalanceRow,
-  type MerchantPaymentStore,
-  createCashTransactionObserver,
+    buildBeneficiaryCashBalanceRow,
+    buildMerchantCashBalanceRow,
+    createCashDistributionReconciler,
+    createCashTransactionObserver,
+    createMerchantSettlementProjector,
+    type MerchantPaymentStore,
 } from '../_shared/stellar/cash-reconciliation.ts';
 import { requireRCPHPIdentifiers } from '../_shared/stellar/config.ts';
 import {
-  createServiceProjectionWriter,
-  createReconciliationWorker,
-  createServiceEvidenceStore,
-  createServiceReconciliationStores,
-  createServiceCursorGateway,
-  createServiceIssueGateway,
+    createReconciliationWorker,
+    createServiceCursorGateway,
+    createServiceEvidenceStore,
+    createServiceIssueGateway,
+    createServiceProjectionWriter,
+    createServiceReconciliationStores,
 } from '../_shared/stellar/reconciliation.ts';
 import type { OrganizationRole } from '../_shared/tenant-authorization.ts';
 
@@ -450,6 +450,25 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
       const settledBalanceStroopsVal = grossSettledStroops - completedCashoutStroops - refundedStroops;
       const settledBalanceStroops = settledBalanceStroopsVal < 0n ? 0n : settledBalanceStroopsVal;
 
+      // These sums are computed in BigInt specifically to avoid overflow, but
+      // the projection row's fields are typed `number` (they round-trip
+      // through a Postgres `bigint` column via the JS client either way).
+      // `Number(bigint)` silently truncates once a value exceeds
+      // `Number.MAX_SAFE_INTEGER` instead of throwing, which would persist a
+      // wrong balance rather than fail loudly. Guard every value before the
+      // narrowing conversion.
+      const toSafeNumber = (value: bigint, field: string): number => {
+        const asNumber = Number(value);
+        if (!Number.isSafeInteger(asNumber)) {
+          throw FinancialErrorException.of(
+            'validation_failed',
+            `The computed ${field} exceeds the safe integer range for a projection row.`,
+            { correlationId },
+          );
+        }
+        return asNumber;
+      };
+
       // Get projection version
       const { data: existing } = await service
         .from('merchant_balance_projection')
@@ -465,11 +484,11 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
         merchantId,
         assetCode: rcphp.code,
         assetIssuer: rcphp.issuer,
-        settledBalanceStroops: Number(settledBalanceStroops),
-        grossSettledStroops: Number(grossSettledStroops),
-        refundedStroops: Number(refundedStroops),
-        pendingCashoutStroops: Number(pendingCashoutStroops),
-        completedCashoutStroops: Number(completedCashoutStroops),
+        settledBalanceStroops: toSafeNumber(settledBalanceStroops, 'settledBalanceStroops'),
+        grossSettledStroops: toSafeNumber(grossSettledStroops, 'grossSettledStroops'),
+        refundedStroops: toSafeNumber(refundedStroops, 'refundedStroops'),
+        pendingCashoutStroops: toSafeNumber(pendingCashoutStroops, 'pendingCashoutStroops'),
+        completedCashoutStroops: toSafeNumber(completedCashoutStroops, 'completedCashoutStroops'),
         confirmedSettlementCount,
         reconciliationRunId: runRow.id,
         asOfLedger: endLedger,

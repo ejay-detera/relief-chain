@@ -4,7 +4,7 @@ import type {
     WalletProofChallengeV1,
     WalletProofResponse,
 } from '@/types/wallet-custody';
-import { authorizeEntry, Keypair, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
+import { authorizeEntry, Keypair, Transaction, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
 import { Buffer } from 'buffer';
 import * as SecureStore from 'expo-secure-store';
 import 'react-native-get-random-values';
@@ -155,75 +155,38 @@ export const signPreparedCashTransaction = async (
   expectedSigner: string,
   pkg: Extract<ClientSigningPackage, { kind: 'classic_envelope' }>,
 ): Promise<ClientSignedSubmission> => {
-  console.log('[signPreparedCashTransaction] Starting');
-  console.log('[signPreparedCashTransaction] userId:', userId);
-  console.log('[signPreparedCashTransaction] expectedSigner:', expectedSigner);
-  console.log('[signPreparedCashTransaction] unsignedEnvelopeXdr:', pkg.unsignedEnvelopeXdr);
-  console.log('[signPreparedCashTransaction] networkPassphrase:', pkg.networkPassphrase);
-  
-  try {
-    console.log('[signPreparedCashTransaction] Loading namespaced keypair');
-    const keypair = await loadNamespacedKeypair(userId);
-    const actualSigner = keypair.publicKey();
-    console.log('[signPreparedCashTransaction] Actual signer:', actualSigner);
-    console.log('[signPreparedCashTransaction] Expected signer:', expectedSigner);
-    console.log('[signPreparedCashTransaction] Match:', actualSigner === expectedSigner);
-    
-    if (actualSigner !== expectedSigner) {
-      throw new Error('The local signer does not match the prepared payment wallet.');
-    }
-    
-    console.log('[signPreparedCashTransaction] About to parse transaction from XDR');
-    console.log('[signPreparedCashTransaction] XDR first 100 chars:', pkg.unsignedEnvelopeXdr.substring(0, 100));
-    
-    let transaction;
-    try {
-      transaction = TransactionBuilder.fromXDR(pkg.unsignedEnvelopeXdr, pkg.networkPassphrase);
-      console.log('[signPreparedCashTransaction] Transaction parsed successfully');
-    } catch (xdrError) {
-      console.error('[signPreparedCashTransaction] XDR parsing failed with SDK, trying workaround...');
-      
-      // WORKAROUND: React Native SDK v16 has a bug parsing valid XDR with certain asset codes.
-      // We'll parse the XDR envelope directly using xdr module and sign it manually.
-      try {
-        const { xdr: xdrModule, Transaction } = await import('@stellar/stellar-sdk');
-        
-        // Parse the envelope directly from base64
-        const envelope = xdrModule.TransactionEnvelope.fromXDR(pkg.unsignedEnvelopeXdr, 'base64');
-        
-        // Extract the transaction from the envelope
-        let tx;
-        if (envelope.switch().name === 'envelopeTypeTx') {
-          tx = envelope.v1().tx();
-        } else {
-          throw new Error('Unexpected envelope type');
-        }
-        
-        // Create a Transaction object manually
-        transaction = new Transaction(envelope, pkg.networkPassphrase);
-        
-        console.log('[signPreparedCashTransaction] XDR parsed successfully using workaround');
-      } catch (workaroundError) {
-        console.error('[signPreparedCashTransaction] Workaround also failed:', workaroundError);
-        console.error('[signPreparedCashTransaction] Original XDR error:', xdrError);
-        console.error('[signPreparedCashTransaction] XDR error message:', xdrError instanceof Error ? xdrError.message : String(xdrError));
-        console.error('[signPreparedCashTransaction] Full XDR:', pkg.unsignedEnvelopeXdr);
-        throw xdrError;
-      }
-    }
-    
-    console.log('[signPreparedCashTransaction] Signing transaction');
-    transaction.sign(keypair);
-    console.log('[signPreparedCashTransaction] Transaction signed successfully');
-    const signedXdr = transaction.toXDR();
-    console.log('[signPreparedCashTransaction] Signed XDR length:', signedXdr.length);
-    return { kind: 'classic_envelope', signedEnvelopeXdr: signedXdr };
-  } catch (error) {
-    console.error('[signPreparedCashTransaction] Error during signing:', error);
-    console.error('[signPreparedCashTransaction] Error message:', error instanceof Error ? error.message : String(error));
-    console.error('[signPreparedCashTransaction] Error stack:', error instanceof Error ? error.stack : 'N/A');
-    throw error;
+  const keypair = await loadNamespacedKeypair(userId);
+  const actualSigner = keypair.publicKey();
+  if (actualSigner !== expectedSigner) {
+    throw new Error('The local signer does not match the prepared payment wallet.');
   }
+
+  let transaction: Transaction;
+  try {
+    transaction = TransactionBuilder.fromXDR(
+      pkg.unsignedEnvelopeXdr,
+      pkg.networkPassphrase,
+    ) as Transaction;
+  } catch (xdrError) {
+    // Do not attempt a silent fallback here: an earlier "workaround" reparsed
+    // the same envelope through the same asset-validation path and could never
+    // actually recover from this failure. If XDR parsing fails, something about
+    // the prepared transaction or the runtime XDR codec is genuinely broken and
+    // must fail loudly rather than risk signing a mis-parsed transaction.
+    if (__DEV__) {
+      console.error(
+        '[signPreparedCashTransaction] Failed to parse the prepared transaction XDR.',
+        xdrError instanceof Error ? xdrError.message : xdrError,
+      );
+    }
+    throw new Error(
+      'Unable to read the prepared payment transaction. Please try again or contact support if this persists.',
+    );
+  }
+
+  transaction.sign(keypair);
+  const signedXdr = transaction.toXDR();
+  return { kind: 'classic_envelope', signedEnvelopeXdr: signedXdr };
 };
 
 /**
