@@ -154,11 +154,16 @@ Before running the seed, ensure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
 
 | Role | Email | Password |
 | --- | --- | --- |
-| LGU / organization admin | `admin@example.com` | `ReliefChain!123` |
-| Beneficiary | `beneficiary@example.com` | `ReliefChain!123` |
-| Merchant | `merchant@example.com` | `ReliefChain!123` |
+| LGU / organization admin | `admin@example.com` | `password` |
+| Beneficiary | `beneficiary@example.com` | `password` |
+| Merchant | `merchant@example.com` | `password` |
+| Super admin | `superadmin@example.com` | `password` |
 
-These are stable local demo credentials only. The seed does not delete old timestamped demo accounts. Run the local database reset before recreating a complete fixture. Make sure the app's `.env` points to the same Supabase instance where the seed ran.
+The password is the literal string `password`, defined in `scripts/seed-merchant-demo.mjs`. The super admin is created only if the database has none.
+
+These are demo credentials only — for the local stack, and for the hosted testnet demo project where the same seed has been run. The seed does not delete old timestamped demo accounts.
+
+`scripts/seed-test-users.mjs` and `scripts/seed-full-demo.mjs` use different addresses (`beneficary@example.com`, note the missing `i`, and `admin@merchant.com`). Use one seed script per fixture so the credentials stay unambiguous. Run the local database reset before recreating a complete fixture. Make sure the app's `.env` points to the same Supabase instance where the seed ran.
 
 ## 7. Stellar testnet bootstrap
 
@@ -201,7 +206,7 @@ Functions are grouped by workflow:
 - **Merchant cash-out:** `request-cashout`
 - **Reconciliation:** `reconcile-stellar`
 
-There is no verified hosted Edge deployment workflow in this repository. Local serving is the supported path.
+Local serving is the supported path for development. Hosted Edge deployment is now verified as well — all 13 functions are deployed to the demo project. The procedure is in `docs/build-reliefchain.md` §15, not here. The generated `supabase/functions/.env` has no role in it.
 
 ## 9. Run the mobile app
 
@@ -383,4 +388,8 @@ Confirm that the topology and asset bootstrap completed on testnet, RCPHP trustl
 
 ## 13. Production boundary
 
-This guide is for local development and Stellar testnet only. It does not define hosted Supabase migrations, hosted Edge deployment, EAS credentials, Android release signing, app-store submission, or production secret management. The committed Android release configuration is not a production signing setup. Create a separate deployment runbook before using any hosted or production environment.
+This guide is for local development and Stellar testnet only. It does not define hosted Supabase migrations, hosted Edge deployment, EAS credentials, Android release signing, app-store submission, or production secret management.
+
+**The hosted demo runbook is `docs/build-reliefchain.md` §15.** It covers linking a project, pushing the schema, setting Edge secrets, deploying functions, EAS environment variables, building a demo APK, and seeding — and §15.0 records what has actually been executed against the live demo project. Keep hosted credentials in the gitignored `.env.hosted.local`, loaded with `scripts/load-hosted-env.ps1`.
+
+That environment is a **testnet demo**, not production. There is still no release signing, no monitoring, no alerting, and no incident response. The committed Android release configuration is not a production signing setup.

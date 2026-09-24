@@ -34,8 +34,13 @@ const publicConfig = [
   'STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org',
   'STELLAR_RPC_URL=https://soroban-testnet.stellar.org',
   'STELLAR_MAINNET_ENABLED=false',
-  'STELLAR_RCPHP_ISSUER=GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7',
-  'STELLAR_RCPHP_SAC_ID=CAB57LDDYPIMK7H57KZ52JIIPOSNN7GHYLN4636D7SX76KQWGKLLA43N',
+  // Bootstrapped 2026-09-24. The previous pair
+  // (GBC6HZTI… / CAB57LDD…) belonged to a topology whose secrets were lost and
+  // is unrecoverable; do not reuse it. Re-running bootstrap-asset.mjs changes
+  // these, and they must then be updated in .env, the Supabase Function
+  // secrets, and the EAS environment variables as well.
+  'STELLAR_RCPHP_ISSUER=GAIKYUNHR734V5CKHXYE6PJOTIVIGT5B6W23TOFLMDKF525W3HASPO5I',
+  'STELLAR_RCPHP_SAC_ID=CCDE3J63TTF6W3LPDUOLPSEZYRJ675CTT2FTLWVZKMZIGJIQHUXEUTJA',
 ];
 
 const contents = [
