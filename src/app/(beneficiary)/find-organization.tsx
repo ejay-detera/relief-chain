@@ -1,9 +1,11 @@
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
+import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 
 import { OrganizationProgramList } from '@/components/beneficiary/FindOrganization/organization-program-list';
 import { VerificationRequiredBanner } from '@/components/beneficiary/FindOrganization/verification-required-banner';
@@ -29,14 +31,22 @@ export default function FindOrganizationScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>Find Organization</ThemedText>
-          <ThemedText style={styles.subtitle}>Locate relief organizations with ongoing programs.</ThemedText>
-        </View>
-
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {!isVerified && <VerificationRequiredBanner />}
+          <LogoHeader />
+
+          <FadeInView delay={0}>
+            <View style={styles.header}>
+              <ThemedText style={styles.title}>Find Organization</ThemedText>
+              <ThemedText style={styles.subtitle}>Locate relief organizations with ongoing programs.</ThemedText>
+            </View>
+          </FadeInView>
+
+          {!isVerified && (
+            <FadeInView delay={40}>
+              <VerificationRequiredBanner />
+            </FadeInView>
+          )}
 
           <OrganizationProgramList
             applyDisabled={!isVerified}
@@ -59,10 +69,13 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.six,
+    paddingTop: Spacing.two,
     paddingBottom: Spacing.four,
   },
   title: {

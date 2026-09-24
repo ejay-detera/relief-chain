@@ -1,13 +1,15 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { MyAssistanceSkeleton } from '@/components/beneficiary/MyAssistance/my-assistance-skeleton';
 import { ProgramVoucherCard } from '@/components/beneficiary/MyAssistance/program-voucher-card';
 import { TotalBalanceCard } from '@/components/beneficiary/MyAssistance/total-balance-card';
+import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -53,41 +55,44 @@ export default function MyAssistanceScreen() {
         >
           <LogoHeader />
 
-          <ThemedText style={styles.title}>My Assistance</ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Manage your active relief programs and redeem your available vouchers at authorized partner centers.
-          </ThemedText>
+          <FadeInView delay={0}>
+            <ThemedText style={styles.title}>My Assistance</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Manage your active relief programs and redeem your available vouchers at authorized partner centers.
+            </ThemedText>
+          </FadeInView>
 
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={BrandColors.navy} size="large" />
-            </View>
-          )}
+          {isLoading && <MyAssistanceSkeleton />}
 
           {!isLoading && error && (
             <ErrorState message="We couldn't load your assistance data." onRetry={refetch} />
           )}
 
           {hasNoAssistance && (
-            <EmptyState
-              actionLabel="Find Organizations"
-              description="You don't have any assistance yet. Apply to a program to get started."
-              onAction={() => router.push('/(beneficiary)/find-organization')}
-              title="No Assistance Yet"
-            />
+            <FadeInView delay={40}>
+              <EmptyState
+                actionLabel="Find Organizations"
+                description="You don't have any assistance yet. Apply to a program to get started."
+                onAction={() => router.push('/(beneficiary)/find-organization')}
+                title="No Assistance Yet"
+              />
+            </FadeInView>
           )}
 
           {!isLoading && !error && programs.length > 0 && (
             <>
-              <TotalBalanceCard activeProgramCount={programs.length} state={entitlements} />
+              <FadeInView delay={40}>
+                <TotalBalanceCard activeProgramCount={programs.length} state={entitlements} />
+              </FadeInView>
 
-              {programs.map((program) => (
-                <ProgramVoucherCard
-                  key={program.id}
-                  program={program}
-                  entitlement={entitlementForProgram(entitlements, program.id)}
-                  balanceState={entitlements}
-                />
+              {programs.map((program, index) => (
+                <FadeInView delay={80 + Math.min(index, 4) * 40} key={program.id}>
+                  <ProgramVoucherCard
+                    program={program}
+                    entitlement={entitlementForProgram(entitlements, program.id)}
+                    balanceState={entitlements}
+                  />
+                </FadeInView>
               ))}
             </>
           )}
@@ -110,10 +115,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: BottomTabInset + Spacing.six,
-  },
-  loadingContainer: {
-    paddingVertical: Spacing.six,
-    alignItems: 'center',
   },
   title: {
     fontSize: 22,

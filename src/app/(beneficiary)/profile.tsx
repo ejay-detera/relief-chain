@@ -4,11 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { ProfileDetailRow } from '@/components/beneficiary/Profile/profile-detail-row';
 import { ProfileHeader } from '@/components/beneficiary/Profile/profile-header';
-import { QrModal } from '@/components/shared/qr-modal';
+import { ProfileSkeleton } from '@/components/beneficiary/Profile/profile-skeleton';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { LogoutButton } from '@/components/shared/LogoutButton';
+import { QrModal } from '@/components/shared/qr-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
+import { BorderRadius, BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { FontAwesome } from '@expo/vector-icons';
@@ -18,7 +20,7 @@ import { useState } from 'react';
 export default function ProfileScreen() {
   const router = useRouter();
   const { state: walletState, isLoading: isWalletLoading } = usePilotWallet();
-  const { profile, session } = useAuth();
+  const { profile, session, isLoading: isAuthLoading } = useAuth();
   const [isQrVisible, setIsQrVisible] = useState(false);
 
   const mobileNumber = typeof session?.user?.user_metadata?.mobile_number === 'string'
@@ -38,31 +40,45 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <LogoHeader />
 
-          <ProfileHeader fullName={profile?.full_name ?? null} />
+          {isAuthLoading ? (
+            <ProfileSkeleton />
+          ) : (
+            <>
+              <FadeInView delay={0}>
+                <ProfileHeader fullName={profile?.full_name ?? null} />
+              </FadeInView>
 
-          <View style={styles.panel}>
-            <ProfileDetailRow iconName="id-card" label="Government ID" value={profile?.gov_id || 'Not verified'} />
-            <ProfileDetailRow iconName="link" label="Testnet Wallet Address (No real monetary value)" value={truncatedWallet} />
-            <ProfileDetailRow iconName="phone" label="Mobile Number" value={mobileNumber} />
+              <FadeInView delay={40}>
+                <View style={styles.panel}>
+                  <ProfileDetailRow iconName="id-card" label="Government ID" value={profile?.gov_id || 'Not verified'} />
+                  <ProfileDetailRow iconName="link" label="Testnet Wallet Address (No real monetary value)" value={truncatedWallet} />
+                  <ProfileDetailRow iconName="phone" label="Mobile Number" value={mobileNumber} />
 
-            <Pressable onPress={() => setIsQrVisible(true)} style={styles.qrButton}>
-              <FontAwesome color="white" name="qrcode" size={16} />
-              <ThemedText style={styles.qrButtonText}>Show my QR</ThemedText>
-            </Pressable>
-          </View>
+                  <Pressable onPress={() => setIsQrVisible(true)} style={styles.qrButton}>
+                    <FontAwesome color="white" name="qrcode" size={16} />
+                    <ThemedText style={styles.qrButtonText}>Show my QR</ThemedText>
+                  </Pressable>
+                </View>
+              </FadeInView>
 
-          <Pressable onPress={() => router.push('/(beneficiary)/wallet-recovery' as any)} style={styles.recoveryRow}>
-            <View style={styles.recoveryRowLeft}>
-              <FontAwesome color={BrandColors.navy} name="shield" size={16} />
-              <View>
-                <ThemedText style={styles.recoveryTitle}>Wallet & recovery</ThemedText>
-                <ThemedText style={styles.recoverySubtitle}>Payment approval and recovery options</ThemedText>
-              </View>
-            </View>
-            <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
-          </Pressable>
+              <FadeInView delay={80}>
+                <Pressable onPress={() => router.push('/(beneficiary)/wallet-recovery' as any)} style={styles.recoveryRow}>
+                  <View style={styles.recoveryRowLeft}>
+                    <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+                    <View>
+                      <ThemedText style={styles.recoveryTitle}>Wallet & recovery</ThemedText>
+                      <ThemedText style={styles.recoverySubtitle}>Payment approval and recovery options</ThemedText>
+                    </View>
+                  </View>
+                  <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+                </Pressable>
+              </FadeInView>
 
-          <LogoutButton />
+              <FadeInView delay={120}>
+                <LogoutButton />
+              </FadeInView>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
 
@@ -78,6 +94,9 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    width: '100%',
   },
   scrollContent: {
     paddingHorizontal: Spacing.four,
