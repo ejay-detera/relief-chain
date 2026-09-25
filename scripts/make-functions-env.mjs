@@ -6,6 +6,15 @@
 // SERVICE_ROLE are injected automatically by the local runtime, so they are not
 // written here. Secret values are copied file-to-file and never printed.
 //
+// The RCPHP issuer and SAC are DERIVED from STELLAR_ISSUER_SECRET in
+// .env.bootstrap.local rather than hardcoded, so this script always targets
+// whichever topology is actually bootstrapped locally. A previously hardcoded
+// pair here silently pointed the local Edge Functions runtime at a issuer
+// with zero funded RCPHP supply (the hosted project's pair) while the actual
+// locally bootstrapped issuer sat unused in the mobile .env. Never hardcode a
+// second, independently-typed copy of the SAC — it must always be derived
+// from (code, issuer, network) or verified against that derivation.
+//
 // Usage: node ./scripts/make-functions-env.mjs
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -19,13 +28,34 @@ if (!existsSync(bootstrapPath)) {
   throw new Error('.env.bootstrap.local not found; run the topology bootstrap first.');
 }
 
-const secretLines = readFileSync(bootstrapPath, 'utf8')
+const bootstrapContent = readFileSync(bootstrapPath, 'utf8');
+
+const secretLines = bootstrapContent
   .split(/\r?\n/)
   .filter((line) => /^STELLAR_[A-Z_]+_SECRET=/.test(line.trim()));
 
 if (secretLines.length === 0) {
   throw new Error('No STELLAR_*_SECRET entries found in .env.bootstrap.local.');
 }
+
+const readBootstrapValue = (key) => {
+  const match = bootstrapContent
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .reverse() // last assignment wins, matching how the file is later appended to
+    .find((line) => line.startsWith(`${key}=`));
+  return match ? match.slice(key.length + 1).trim() : undefined;
+};
+
+const issuerSecret = readBootstrapValue('STELLAR_ISSUER_SECRET');
+if (!issuerSecret) {
+  throw new Error('STELLAR_ISSUER_SECRET not found in .env.bootstrap.local; run the topology bootstrap first.');
+}
+
+const { Keypair, Asset, Networks } = await import('@stellar/stellar-sdk');
+const rcphpIssuer = Keypair.fromSecret(issuerSecret).publicKey();
+const rcphpSacId = new Asset('RCPHP', rcphpIssuer).contractId(Networks.TESTNET);
 
 // Public, non-secret RCPHP testnet configuration (safe to write in cleartext).
 const publicConfig = [
@@ -34,13 +64,9 @@ const publicConfig = [
   'STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org',
   'STELLAR_RPC_URL=https://soroban-testnet.stellar.org',
   'STELLAR_MAINNET_ENABLED=false',
-  // Bootstrapped 2026-09-24. The previous pair
-  // (GBC6HZTI… / CAB57LDD…) belonged to a topology whose secrets were lost and
-  // is unrecoverable; do not reuse it. Re-running bootstrap-asset.mjs changes
-  // these, and they must then be updated in .env, the Supabase Function
-  // secrets, and the EAS environment variables as well.
-  'STELLAR_RCPHP_ISSUER=GAIKYUNHR734V5CKHXYE6PJOTIVIGT5B6W23TOFLMDKF525W3HASPO5I',
-  'STELLAR_RCPHP_SAC_ID=CCDE3J63TTF6W3LPDUOLPSEZYRJ675CTT2FTLWVZKMZIGJIQHUXEUTJA',
+  // Derived below from STELLAR_ISSUER_SECRET — never hardcode this pair.
+  `STELLAR_RCPHP_ISSUER=${rcphpIssuer}`,
+  `STELLAR_RCPHP_SAC_ID=${rcphpSacId}`,
 ];
 
 const contents = [
@@ -55,8 +81,10 @@ const contents = [
 
 writeFileSync(outPath, contents, { encoding: 'utf8', mode: 0o600 });
 console.log(`Wrote ${outPath}`);
-console.log(`  public config keys: ${publicConfig.length}`);
+console.log(`  RCPHP issuer (derived): ${rcphpIssuer}`);
+console.log(`  RCPHP SAC (derived):    ${rcphpSacId}`);
 console.log(`  institutional secret keys: ${secretLines.length} (values not shown)`);
 console.log('');
+console.log('Confirm this issuer matches EXPO_PUBLIC_STELLAR_RCPHP_ISSUER in the mobile .env.');
 console.log('Start the functions runtime with this env file:');
 console.log('  npx supabase functions serve --env-file supabase/functions/.env');

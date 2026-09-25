@@ -1,22 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  ActivityIndicator,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useCreateProgram } from './_layout';
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { FadeInView } from '@/components/shared/FadeInView';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { fetchRegisteredMerchants } from '@/services/programService';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useCreateProgram } from './_layout';
 
 const DEFAULT_MERCHANTS = [
   'SM Supermarket',
@@ -176,6 +177,7 @@ export default function VoucherScreen() {
       <StepIndicator currentStep={5} title="Voucher Configuration" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <FadeInView delay={0}>
         {/* BUDGET ALLOCATION INFO CARD */}
         <View style={styles.budgetCard}>
           <Text style={styles.budgetCardTitle}>Step 2 Budget Reference</Text>
@@ -370,6 +372,7 @@ export default function VoucherScreen() {
             </Text>
           </View>
         )}
+        </FadeInView>
       </ScrollView>
 
       <WizardNavigation onBack={handleBack} onNext={handleNext} disableNext={isNextDisabled} />

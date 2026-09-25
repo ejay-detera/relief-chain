@@ -6,15 +6,19 @@ import pg from 'pg';
 
 const HORIZON_URL = process.env.EXPO_PUBLIC_STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org';
 const NETWORK_PASSPHRASE = Networks.TESTNET;
-const RCPHP_ISSUER = 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7';
 
 const orgTreasurySecret = process.env.STELLAR_ORGANIZATION_TREASURY_SECRET?.trim();
 const beneficiarySecret = process.env.STELLAR_BENEFICIARY_SECRET?.trim();
+const issuerSecret = process.env.STELLAR_ISSUER_SECRET?.trim();
 const databaseUrl = process.env.SUPABASE_DB_URL?.trim() || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
-if (!orgTreasurySecret || !beneficiarySecret) {
-  throw new Error('Missing STELLAR_ORGANIZATION_TREASURY_SECRET or STELLAR_BENEFICIARY_SECRET');
+if (!orgTreasurySecret || !beneficiarySecret || !issuerSecret) {
+  throw new Error('Missing STELLAR_ORGANIZATION_TREASURY_SECRET, STELLAR_BENEFICIARY_SECRET, or STELLAR_ISSUER_SECRET');
 }
+
+// Derived, never hardcoded — a stale hardcoded issuer here would build
+// transactions against an asset with zero funded supply.
+const RCPHP_ISSUER = Keypair.fromSecret(issuerSecret).publicKey();
 
 const orgTreasuryKp = Keypair.fromSecret(orgTreasurySecret);
 const beneficiaryKp = Keypair.fromSecret(beneficiarySecret);

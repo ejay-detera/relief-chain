@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { MerchantBottomNavigation } from '@/components/MerchantDashboard/MerchantBottomNavigation';
 import { MerchantProfileContent } from '@/components/MerchantProfile/MerchantProfileContent';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
@@ -52,9 +53,9 @@ const MerchantProfileScreen = () => {
             <ThemedText style={styles.securityTitle}>Security & MFA</ThemedText>
             <ThemedText style={styles.securitySubtitle}>Authenticator and step-up for financial actions</ThemedText>
           </View>
-        </View>
-        <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
-      </Pressable>
+          <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+        </Pressable>
+      </FadeInView>
     </ScrollView>
     <MerchantBottomNavigation active="profile" />
   </View></SafeAreaView>;

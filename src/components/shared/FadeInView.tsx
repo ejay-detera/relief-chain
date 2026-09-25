@@ -14,11 +14,12 @@ type Props = Readonly<{
  * dashboard cards/sections so content cascades in on mount instead of
  * popping in all at once. Purely a mount-time animation — it does not
  * re-trigger on re-renders (Reanimated's entering animations only run once
- * per mount by design).
+ * per mount by design). Timing-based (no spring/bounce) so the motion settles
+ * cleanly instead of overshooting.
  */
 export function FadeInView({ children, delay = 0, style }: Props) {
   return (
-    <Animated.View entering={FadeInDown.duration(280).delay(delay).springify().damping(18)} style={style}>
+    <Animated.View entering={FadeInDown.duration(280).delay(delay)} style={style}>
       {children}
     </Animated.View>
   );

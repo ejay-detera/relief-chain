@@ -36,6 +36,17 @@ if (!beneficiarySecret) {
   throw new Error('STELLAR_BENEFICIARY_SECRET is required (load .env.bootstrap.local into the env first).');
 }
 const beneficiaryWalletAddress = Keypair.fromSecret(beneficiarySecret).publicKey();
+
+// Derived, never hardcoded: a hardcoded issuer here can silently drift from
+// whichever topology is actually bootstrapped and funded locally (this
+// happened — see docs/build-reliefchain.md §8 item 15). The program's
+// asset_issuer must always match the issuer behind STELLAR_ISSUER_SECRET.
+const issuerSecret = process.env.STELLAR_ISSUER_SECRET?.trim();
+if (!issuerSecret) {
+  throw new Error('STELLAR_ISSUER_SECRET is required (load .env.bootstrap.local into the env first).');
+}
+const rcphpIssuer = Keypair.fromSecret(issuerSecret).publicKey();
+
 const databaseUrl = process.env.SUPABASE_DB_URL?.trim() || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 const admin = createClient(url, serviceRoleKey, {
@@ -48,11 +59,32 @@ const beneficiaryEmail = `cash-beneficiary-${runId}@example.test`;
 const password = 'ReliefChain!123';
 
 const createUser = async (email, role) => {
+  // LGU users trigger create_registration_on_lgu_signup(), which inserts a
+  // `registrations` row with NOT NULL organization_name/organization_type/etc.
+  // Omitting this metadata makes that trigger fail on a not-null constraint,
+  // which aborts the whole createUser call (and, worse, poisons the shared
+  // Postgres connection for later requests in the same session — see
+  // docs/build-reliefchain.md §8 for the class of bug this is).
+  const userMetadata = {
+    role,
+    registration_role: role,
+    ...(role === 'lgu'
+      ? {
+          organization_name: 'Cash Demo LGU Organization',
+          organization_type: 'Municipal',
+          location: 'Demo City, Demo Province',
+          representative_first_name: 'Cash',
+          representative_last_name: 'Admin',
+          representative_position: 'Administrator',
+          organization_document_reference: 'CASH-DEMO-DOC-001',
+        }
+      : {}),
+  };
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { role, registration_role: role },
+    user_metadata: userMetadata,
   });
   if (error || !data.user) throw new Error(`createUser(${email}) failed: ${error?.message}`);
   return data.user.id;
@@ -100,7 +132,7 @@ async function main() {
       `insert into public.programs (name, organization_id, aid_type, created_by,
          total_budget, amount_per_beneficiary, asset_code, asset_issuer)
        values ($1,$2,'cash',$3,10000,100,'RCPHP',$4) returning id`,
-      [`Cash Demo Program ${runId}`, org.id, adminUserId, 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7'],
+      [`Cash Demo Program ${runId}`, org.id, adminUserId, rcphpIssuer],
     )).rows[0];
 
     await db.query(

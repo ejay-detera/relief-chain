@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Text,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  ActivityIndicator,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useCreateProgram } from './_layout';
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { FadeInView } from '@/components/shared/FadeInView';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useCreateProgram } from './_layout';
 
 export default function BasicInfoScreen() {
   const router = useRouter();
@@ -99,6 +100,7 @@ export default function BasicInfoScreen() {
       <StepIndicator currentStep={1} title="Basic Information" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <FadeInView delay={0}>
         {/* Program Name */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Program Name <Text style={styles.required}>*</Text></Text>
@@ -212,6 +214,7 @@ export default function BasicInfoScreen() {
             <Text style={styles.dropdownChevron}>▼</Text>
           </TouchableOpacity>
         </View>
+        </FadeInView>
       </ScrollView>
 
       <WizardNavigation onNext={handleNext} disableNext={isNextDisabled} />

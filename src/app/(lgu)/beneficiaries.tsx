@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,10 +8,11 @@ import { BrandColors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 
-import { BeneficiaryList } from '@/components/BeneficiaryVerification/BeneficiaryList';
 import { BeneficiaryDetailModal } from '@/components/BeneficiaryVerification/BeneficiaryDetailModal';
+import { BeneficiaryList } from '@/components/BeneficiaryVerification/BeneficiaryList';
 import { FilterStatus, StatusFilterTabs } from '@/components/BeneficiaryVerification/StatusFilterTabs';
 import { VerificationSearch } from '@/components/BeneficiaryVerification/VerificationSearch';
+import { FadeInView } from '@/components/shared/FadeInView';
 
 export default function BeneficiariesVerificationScreen() {
   const [beneficiaries, setBeneficiaries] = useState<UserProfile[]>([]);
@@ -95,18 +96,24 @@ export default function BeneficiariesVerificationScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
         {/* Header */}
-        <View style={styles.header}>
-          <ThemedText style={styles.title}>Beneficiary Verification</ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Review registration submissions and verify citizen identities.
-          </ThemedText>
-        </View>
+        <FadeInView delay={0}>
+          <View style={styles.header}>
+            <ThemedText style={styles.title}>Beneficiary Verification</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Review registration submissions and verify citizen identities.
+            </ThemedText>
+          </View>
+        </FadeInView>
 
         {/* Search */}
-        <VerificationSearch value={searchQuery} onChangeText={setSearchQuery} />
+        <FadeInView delay={40}>
+          <VerificationSearch value={searchQuery} onChangeText={setSearchQuery} />
+        </FadeInView>
 
         {/* Filter Tabs */}
-        <StatusFilterTabs selected={selectedStatus} onSelect={setSelectedStatus} />
+        <FadeInView delay={80}>
+          <StatusFilterTabs selected={selectedStatus} onSelect={setSelectedStatus} />
+        </FadeInView>
 
         {/* List */}
         <BeneficiaryList

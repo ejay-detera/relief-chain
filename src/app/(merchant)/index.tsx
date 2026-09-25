@@ -13,6 +13,7 @@ import { RecentPayments } from '@/components/MerchantDashboard/RecentPayments';
 import { SalesSummaryCard } from '@/components/MerchantDashboard/SalesSummaryCard';
 import { WalletBalanceCard } from '@/components/MerchantDashboard/WalletBalanceCard';
 import { RequestRefundModal, type RefundSubmitOutcome } from '@/components/Refund/RequestRefundModal';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { QrModal } from '@/components/shared/qr-modal';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
@@ -93,24 +94,38 @@ const MerchantDashboardScreen = () => {
   };
 
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
-    <MerchantDashboardHeader onNotificationsPress={() => showComingSoon('Notifications')} onShowQr={() => setIsQrVisible(true)} />
+    <MerchantDashboardHeader onShowQr={() => setIsQrVisible(true)} />
     <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }]} refreshControl={<RefreshControl onRefresh={handleRefresh} refreshing={refreshing} />} showsVerticalScrollIndicator={false}>
-      <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Merchant Account'}</ThemedText>
-      <WalletBalanceCard balance={settledBalance} onSettlementsPress={() => showComingSoon('Settlements')} onWithdrawPress={() => setCashOutVisible(true)} />
-      <ReceivePaymentCard onPress={() => router.push('/(merchant)/receive')} />
-      <SalesSummaryCard isLoading={isMetricsLoading} metrics={metrics} />
-      <CashOutAndRefunds
-        cashOut={cashOutState}
-        onRequestCashOut={() => setCashOutVisible(true)}
-        onRequestRefund={setRefundSettlement}
-        onRetryCashOut={() => void refreshCashOut()}
-        onRetryRefunds={() => void refreshRefunds()}
-        onRetrySettlements={() => void refreshSettlements()}
-        refunds={refundsState}
-        settlements={settlementsState}
-      />
-      <RecentPayments onViewAll={() => showComingSoon('Payment History')} payments={payments} />
-      <ActiveProgramsCard error={programsError} isLoading={areProgramsLoading} onBrowsePress={() => router.push('/(merchant)/programs')} onRetry={() => void refresh()} programs={activePrograms} />
+      <FadeInView delay={0}>
+        <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Merchant Account'}</ThemedText>
+      </FadeInView>
+      <FadeInView delay={40}>
+        <WalletBalanceCard balance={settledBalance} onSettlementsPress={() => showComingSoon('Settlements')} onWithdrawPress={() => setCashOutVisible(true)} />
+      </FadeInView>
+      <FadeInView delay={80}>
+        <ReceivePaymentCard onPress={() => router.push('/(merchant)/receive')} />
+      </FadeInView>
+      <FadeInView delay={120}>
+        <SalesSummaryCard isLoading={isMetricsLoading} metrics={metrics} />
+      </FadeInView>
+      <FadeInView delay={160}>
+        <CashOutAndRefunds
+          cashOut={cashOutState}
+          onRequestCashOut={() => setCashOutVisible(true)}
+          onRequestRefund={setRefundSettlement}
+          onRetryCashOut={() => void refreshCashOut()}
+          onRetryRefunds={() => void refreshRefunds()}
+          onRetrySettlements={() => void refreshSettlements()}
+          refunds={refundsState}
+          settlements={settlementsState}
+        />
+      </FadeInView>
+      <FadeInView delay={200}>
+        <RecentPayments onViewAll={() => showComingSoon('Payment History')} payments={payments} />
+      </FadeInView>
+      <FadeInView delay={240}>
+        <ActiveProgramsCard error={programsError} isLoading={areProgramsLoading} onBrowsePress={() => router.push('/(merchant)/programs')} onRetry={() => void refresh()} programs={activePrograms} />
+      </FadeInView>
     </ScrollView>
     <MerchantBottomNavigation active="dashboard" />
     <RequestCashOutModal availableStroops={settledBalance} onClose={() => setCashOutVisible(false)} onSubmit={submitCashOut} visible={cashOutVisible} />

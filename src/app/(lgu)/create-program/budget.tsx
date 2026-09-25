@@ -1,5 +1,6 @@
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -33,6 +34,7 @@ export default function BudgetScreen() {
       <StepIndicator currentStep={2} title="Budget Allocation" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <FadeInView delay={0}>
         {/* Total Budget */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Total Budget (₱) <Text style={styles.required}>*</Text></Text>
@@ -92,6 +94,7 @@ export default function BudgetScreen() {
             Formula: Estimated Beneficiaries = Total Budget / Aid Amount
           </Text>
         </View>
+        </FadeInView>
       </ScrollView>
 
       <WizardNavigation onBack={handleBack} onNext={handleNext} disableNext={isNextDisabled} />

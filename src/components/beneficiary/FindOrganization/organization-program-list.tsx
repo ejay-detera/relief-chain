@@ -1,10 +1,12 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
-import { BrandColors, Spacing } from '@/constants/theme';
+import { FadeInView } from '@/components/shared/FadeInView';
+import { Spacing } from '@/constants/theme';
 import { OrganizationProgram } from '@/types/organization';
 
+import { FindOrganizationSkeleton } from './find-organization-skeleton';
 import { OrganizationProgramCard } from './organization-program-card';
 
 type OrganizationProgramListProps = {
@@ -25,11 +27,7 @@ export function OrganizationProgramList({
   onRetry,
 }: OrganizationProgramListProps) {
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={BrandColors.navy} size="large" />
-      </View>
-    );
+    return <FindOrganizationSkeleton />;
   }
 
   if (error) {
@@ -49,23 +47,20 @@ export function OrganizationProgramList({
 
   return (
     <View style={styles.list}>
-      {organizations.map((program) => (
-        <OrganizationProgramCard
-          key={program.id}
-          disabled={applyDisabled}
-          onApply={onApply}
-          program={program}
-        />
+      {organizations.map((program, index) => (
+        <FadeInView delay={Math.min(index, 4) * 40} key={program.id}>
+          <OrganizationProgramCard
+            disabled={applyDisabled}
+            onApply={onApply}
+            program={program}
+          />
+        </FadeInView>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    paddingVertical: Spacing.six,
-    alignItems: 'center',
-  },
   list: {
     paddingHorizontal: Spacing.four,
   },

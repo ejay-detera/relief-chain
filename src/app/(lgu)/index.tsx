@@ -1,20 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BrandColors, Spacing, BottomTabInset, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 
-import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
-import { BudgetCard } from '@/components/Dashboard/BudgetCard';
-import { QuickActionGrid } from '@/components/Dashboard/QuickActionGrid';
-import { ProgramCard } from '@/components/Dashboard/ProgramCard';
 import { ActivityRow } from '@/components/Dashboard/ActivityRow';
+import { BudgetCard } from '@/components/Dashboard/BudgetCard';
+import { ProgramCard } from '@/components/Dashboard/ProgramCard';
+import { QuickActionGrid } from '@/components/Dashboard/QuickActionGrid';
+import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { FadeInView } from '@/components/shared/FadeInView';
 
+import { ActivityItem, Program, QuickAction } from '@/types/dashboard';
 import { useRouter } from 'expo-router';
-import { Program, ActivityItem, QuickAction } from '@/types/dashboard';
 
 export default function HomeDashboard() {
   const router = useRouter();
@@ -141,27 +142,40 @@ export default function HomeDashboard() {
         >
           <LogoHeader />
 
-          <View style={styles.welcomeSection}>
-            <ThemedText style={styles.welcomeTitle}>Welcome Back, LGU Administrator !</ThemedText>
-            <ThemedText style={styles.welcomeSubtitle}>Monitor and manage aid distribution in real-time.</ThemedText>
-          </View>
-
-          <BudgetCard />
-          <QuickActionGrid actions={actions} />
-
-          <View style={styles.programSection}>
-            <ProgramCard program={programs[0]} />
-          </View>
-
-          <View style={styles.activitySection}>
-            <View style={styles.activityHeader}>
-              <ThemedText style={styles.activityTitle}>Recent Activity</ThemedText>
-              <ThemedText style={styles.viewAllText}>View All</ThemedText>
+          <FadeInView delay={0}>
+            <View style={styles.welcomeSection}>
+              <ThemedText style={styles.welcomeTitle}>Welcome Back, LGU Administrator !</ThemedText>
+              <ThemedText style={styles.welcomeSubtitle}>Monitor and manage aid distribution in real-time.</ThemedText>
             </View>
-            {activities.map(activity => (
-              <ActivityRow key={activity.id} item={activity} />
-            ))}
-          </View>
+          </FadeInView>
+
+          <FadeInView delay={40}>
+            <BudgetCard />
+          </FadeInView>
+
+          <FadeInView delay={80}>
+            <QuickActionGrid actions={actions} />
+          </FadeInView>
+
+          <FadeInView delay={120}>
+            <View style={styles.programSection}>
+              <ProgramCard program={programs[0]} />
+            </View>
+          </FadeInView>
+
+          <FadeInView delay={160}>
+            <View style={styles.activitySection}>
+              <View style={styles.activityHeader}>
+                <ThemedText style={styles.activityTitle}>Recent Activity</ThemedText>
+                <ThemedText style={styles.viewAllText}>View All</ThemedText>
+              </View>
+              {activities.map((activity, index) => (
+                <FadeInView delay={index * 40} key={activity.id}>
+                  <ActivityRow item={activity} />
+                </FadeInView>
+              ))}
+            </View>
+          </FadeInView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
