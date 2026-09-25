@@ -1,6 +1,18 @@
 import { supabase } from '@/lib/supabase';
 import { ProgramDraft } from '@/types/program';
 
+// No hardcoded fallback: a stale default here previously created programs
+// tagged with an orphaned issuer that has zero funded RCPHP supply, which
+// silently broke every downstream disbursement/entitlement for that program.
+// Fail closed instead so a missing env var surfaces immediately.
+const requireRcphpIssuer = (): string => {
+  const issuer = process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER;
+  if (!issuer) {
+    throw new Error('EXPO_PUBLIC_STELLAR_RCPHP_ISSUER is not configured; cannot create or update a program.');
+  }
+  return issuer;
+};
+
 export interface LookupData {
   disasterTypes: { id: number; name: string }[];
   cities: { id: number; name: string }[];

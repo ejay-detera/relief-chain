@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FadeInView } from '@/components/shared/FadeInView';
 import { LogoutButton } from '@/components/shared/LogoutButton';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
@@ -15,67 +16,79 @@ const SettingsScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <ThemedText style={styles.title}>Settings</ThemedText>
+        <FadeInView delay={0}>
+          <ThemedText style={styles.title}>Settings</ThemedText>
+        </FadeInView>
         <View style={styles.content}>
           <View>
-            <ThemedText style={styles.description}>Manage your organization account and secure session.</ThemedText>
+            <FadeInView delay={40}>
+              <ThemedText style={styles.description}>Manage your organization account and secure session.</ThemedText>
+            </FadeInView>
 
-            <Pressable onPress={() => router.push('/(lgu)/edit-profile' as any)} style={styles.menuRow}>
-              <View style={styles.menuRowLeft}>
-                <View style={styles.menuIconCircle}>
-                  <FontAwesome color={BrandColors.navy} name="user" size={16} />
+            <FadeInView delay={80}>
+              <Pressable onPress={() => router.push('/(lgu)/edit-profile' as any)} style={styles.menuRow}>
+                <View style={styles.menuRowLeft}>
+                  <View style={styles.menuIconCircle}>
+                    <FontAwesome color={BrandColors.navy} name="user" size={16} />
+                  </View>
+                  <View>
+                    <ThemedText style={styles.menuRowTitle}>Edit Profile</ThemedText>
+                    <ThemedText style={styles.menuRowSubtitle}>{profile?.full_name ?? 'Organization account'}</ThemedText>
+                  </View>
                 </View>
-                <View>
-                  <ThemedText style={styles.menuRowTitle}>Edit Profile</ThemedText>
-                  <ThemedText style={styles.menuRowSubtitle}>{profile?.full_name ?? 'Organization account'}</ThemedText>
-                </View>
-              </View>
-              <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
-            </Pressable>
+                <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+              </Pressable>
+            </FadeInView>
 
-            <Pressable onPress={() => router.push('/(lgu)/security' as any)} style={[styles.menuRow, styles.menuRowSpacing]}>
-              <View style={styles.menuRowLeft}>
-                <View style={styles.menuIconCircle}>
-                  <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+            <FadeInView delay={120}>
+              <Pressable onPress={() => router.push('/(lgu)/security' as any)} style={[styles.menuRow, styles.menuRowSpacing]}>
+                <View style={styles.menuRowLeft}>
+                  <View style={styles.menuIconCircle}>
+                    <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+                  </View>
+                  <View>
+                    <ThemedText style={styles.menuRowTitle}>Security & MFA</ThemedText>
+                    <ThemedText style={styles.menuRowSubtitle}>Authenticator and step-up for financial actions</ThemedText>
+                  </View>
                 </View>
-                <View>
-                  <ThemedText style={styles.menuRowTitle}>Security & MFA</ThemedText>
-                  <ThemedText style={styles.menuRowSubtitle}>Authenticator and step-up for financial actions</ThemedText>
-                </View>
-              </View>
-              <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
-            </Pressable>
+                <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+              </Pressable>
+            </FadeInView>
 
-            <Pressable onPress={async () => {
-              try {
-                const { supabase } = await import('@/lib/supabase');
-                const { Alert } = await import('react-native');
-                const { data: job } = await supabase.from('distribution_jobs').select('id').eq('status', 'reconciling').order('created_at', { ascending: false }).limit(1).maybeSingle();
-                if (job) {
-                  const { data, error } = await supabase.functions.invoke('reconcile-stellar', { body: { jobId: job.id } });
-                  if (error) throw error;
-                  if (data?.error) throw new Error(data.error.message);
+            <FadeInView delay={160}>
+              <Pressable onPress={async () => {
+                try {
+                  const { supabase } = await import('@/lib/supabase');
+                  const { Alert } = await import('react-native');
+                  const { data: job } = await supabase.from('distribution_jobs').select('id').eq('status', 'reconciling').order('created_at', { ascending: false }).limit(1).maybeSingle();
+                  if (job) {
+                    const { data, error } = await supabase.functions.invoke('reconcile-stellar', { body: { jobId: job.id } });
+                    if (error) throw error;
+                    if (data?.error) throw new Error(data.error.message);
+                  }
+                  Alert.alert('Reconciliation Complete', 'Stellar testnet balances and transactions have been reconciled.');
+                } catch (e: any) {
+                  const { Alert } = await import('react-native');
+                  Alert.alert('Reconciliation Failed', e.message || 'An error occurred.');
                 }
-                Alert.alert('Reconciliation Complete', 'Stellar testnet balances and transactions have been reconciled.');
-              } catch (e: any) {
-                const { Alert } = await import('react-native');
-                Alert.alert('Reconciliation Failed', e.message || 'An error occurred.');
-              }
-            }} style={[styles.menuRow, styles.menuRowSpacing]}>
-              <View style={styles.menuRowLeft}>
-                <View style={styles.menuIconCircle}>
-                  <FontAwesome color={BrandColors.navy} name="refresh" size={16} />
+              }} style={[styles.menuRow, styles.menuRowSpacing]}>
+                <View style={styles.menuRowLeft}>
+                  <View style={styles.menuIconCircle}>
+                    <FontAwesome color={BrandColors.navy} name="refresh" size={16} />
+                  </View>
+                  <View>
+                    <ThemedText style={styles.menuRowTitle}>Trigger Reconciliation</ThemedText>
+                    <ThemedText style={styles.menuRowSubtitle}>Sync on-chain records with Relief Chain</ThemedText>
+                  </View>
                 </View>
-                <View>
-                  <ThemedText style={styles.menuRowTitle}>Trigger Reconciliation</ThemedText>
-                  <ThemedText style={styles.menuRowSubtitle}>Sync on-chain records with Relief Chain</ThemedText>
-                </View>
-              </View>
-              <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
-            </Pressable>
+                <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+              </Pressable>
+            </FadeInView>
           </View>
 
-          <LogoutButton />
+          <FadeInView delay={200}>
+            <LogoutButton />
+          </FadeInView>
         </View>
       </View>
     </SafeAreaView>

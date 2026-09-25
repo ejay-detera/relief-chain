@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
@@ -82,23 +83,31 @@ export default function EditProfileScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <Field label="Organization Name" onChangeText={setFullName} placeholder="Organization name" value={fullName} />
-          <Field
-            keyboardType="phone-pad"
-            label="Mobile Number"
-            onChangeText={setMobileNumber}
-            placeholder="Mobile number"
-            value={mobileNumber}
-          />
-          <Field label="Location" onChangeText={setLocation} placeholder="Office / area location" value={location} />
+          <FadeInView delay={0}>
+            <Field label="Organization Name" onChangeText={setFullName} placeholder="Organization name" value={fullName} />
+          </FadeInView>
+          <FadeInView delay={40}>
+            <Field
+              keyboardType="phone-pad"
+              label="Mobile Number"
+              onChangeText={setMobileNumber}
+              placeholder="Mobile number"
+              value={mobileNumber}
+            />
+          </FadeInView>
+          <FadeInView delay={80}>
+            <Field label="Location" onChangeText={setLocation} placeholder="Office / area location" value={location} />
+          </FadeInView>
 
-          <TouchableOpacity
-            disabled={isSaving}
-            onPress={handleSave}
-            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          >
-            {isSaving ? <ActivityIndicator color="#FFFFFF" /> : <ThemedText style={styles.saveButtonText}>Save Changes</ThemedText>}
-          </TouchableOpacity>
+          <FadeInView delay={120}>
+            <TouchableOpacity
+              disabled={isSaving}
+              onPress={handleSave}
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            >
+              {isSaving ? <ActivityIndicator color="#FFFFFF" /> : <ThemedText style={styles.saveButtonText}>Save Changes</ThemedText>}
+            </TouchableOpacity>
+          </FadeInView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>

@@ -1,5 +1,6 @@
 import { ProgramApplicantsSection } from '@/components/LguPrograms/ProgramApplicantsSection';
 import { resolveProgramStatus } from '@/components/LguPrograms/ProgramCard';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { deleteLguProgram, updateProgramStatus } from '@/services/programService';
 import { FontAwesome } from '@expo/vector-icons';
@@ -155,17 +156,20 @@ export default function ProgramDetailsScreen() {
       {/* Details Body */}
       <ScrollView style={styles.detailsScrollView} contentContainerStyle={styles.scrollContent}>
         {/* Title Card */}
-        <View style={styles.titleCard}>
-          <View style={styles.statusBadgeRow}>
-            <View style={[styles.statusBadge, { backgroundColor: badgeInfo.bg }]}>
-              <Text style={styles.statusText}>{badgeInfo.text}</Text>
+        <FadeInView delay={0}>
+          <View style={styles.titleCard}>
+            <View style={styles.statusBadgeRow}>
+              <View style={[styles.statusBadge, { backgroundColor: badgeInfo.bg }]}>
+                <Text style={styles.statusText}>{badgeInfo.text}</Text>
+              </View>
             </View>
+            <Text style={styles.programName}>{program.name}</Text>
+            <Text style={styles.programDesc}>{program.description || 'No description provided.'}</Text>
           </View>
-          <Text style={styles.programName}>{program.name}</Text>
-          <Text style={styles.programDesc}>{program.description || 'No description provided.'}</Text>
-        </View>
+        </FadeInView>
 
         {/* General Metadata Info */}
+        <FadeInView delay={40}>
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>General Information</Text>
           <View style={styles.detailGrid}>
@@ -193,8 +197,10 @@ export default function ProgramDetailsScreen() {
             </View>
           </View>
         </View>
+        </FadeInView>
 
         {/* Financial Configuration */}
+        <FadeInView delay={80}>
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Financial Allocation</Text>
           <View style={styles.detailGrid}>
@@ -214,8 +220,10 @@ export default function ProgramDetailsScreen() {
             </View>
           </View>
         </View>
+        </FadeInView>
 
         {/* Schedule */}
+        <FadeInView delay={120}>
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Schedule</Text>
           <View style={styles.detailGrid}>
@@ -253,8 +261,10 @@ export default function ProgramDetailsScreen() {
             </View>
           </View>
         </View>
+        </FadeInView>
 
         {/* Vouchers configuration */}
+        <FadeInView delay={160}>
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Voucher Settings</Text>
           <View style={styles.detailGrid}>
@@ -300,8 +310,10 @@ export default function ProgramDetailsScreen() {
             </>
           )}
         </View>
+        </FadeInView>
 
         {/* Distribution and Wallet settings */}
+        <FadeInView delay={200}>
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Distribution Settings</Text>
           <View style={styles.detailGrid}>
@@ -325,32 +337,37 @@ export default function ProgramDetailsScreen() {
             </View>
           </View>
         </View>
+        </FadeInView>
 
         {/* Applicants (pending/approved/rejected Enrollments for this Program) */}
-        <ProgramApplicantsSection programId={program.id} />
+        <FadeInView delay={240}>
+          <ProgramApplicantsSection programId={program.id} />
+        </FadeInView>
 
         {/* Eligibility criteria list */}
         {program.eligibilityCriteria && program.eligibilityCriteria.length > 0 && (
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Eligibility Criteria</Text>
-            {program.eligibilityCriteria.map((item: string, index: number) => (
-              <View key={index} style={styles.bulletRow}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.bulletText}>{item}</Text>
-              </View>
-            ))}
+          <FadeInView delay={280}>
+            <View style={styles.infoSection}>
+              <Text style={styles.sectionTitle}>Eligibility Criteria</Text>
+              {program.eligibilityCriteria.map((item: string, index: number) => (
+                <View key={index} style={styles.bulletRow}>
+                  <Text style={styles.bullet}>•</Text>
+                  <Text style={styles.bulletText}>{item}</Text>
+                </View>
+              ))}
 
-            {/* Auto-Eligibility Notice */}
-            {!program.registrationOpen && !program.registrationClose && (
-              <View style={styles.autoEligibilityNotice}>
-                <Text style={styles.noticeIcon}>ℹ️</Text>
-                <Text style={styles.noticeText}>
-                  <Text style={styles.noticeBoldText}>Auto-Eligibility: </Text>
-                  Registration period is open indefinitely. Any beneficiary passing the eligibility criteria is automatically eligible.
-                </Text>
-              </View>
-            )}
-          </View>
+              {/* Auto-Eligibility Notice */}
+              {!program.registrationOpen && !program.registrationClose && (
+                <View style={styles.autoEligibilityNotice}>
+                  <Text style={styles.noticeIcon}>ℹ️</Text>
+                  <Text style={styles.noticeText}>
+                    <Text style={styles.noticeBoldText}>Auto-Eligibility: </Text>
+                    Registration period is open indefinitely. Any beneficiary passing the eligibility criteria is automatically eligible.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </FadeInView>
         )}
       </ScrollView>
 

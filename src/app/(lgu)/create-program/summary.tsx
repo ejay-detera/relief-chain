@@ -1,4 +1,5 @@
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -44,11 +45,14 @@ export default function SummaryScreen() {
       <StepIndicator currentStep={7} title="Review Summary" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionDescription}>
-          Review all configured parameters for this aid program. Once published, vouchers will be ready for allocation.
-        </Text>
+        <FadeInView delay={0}>
+          <Text style={styles.sectionDescription}>
+            Review all configured parameters for this aid program. Once published, vouchers will be ready for allocation.
+          </Text>
+        </FadeInView>
 
         {/* SECTION 1: BASIC INFO */}
+        <FadeInView delay={40}>
         <View style={styles.summaryCard}>
           <Text style={styles.cardHeader}>1. Basic Information</Text>
           <View style={styles.detailRow}>
@@ -76,8 +80,10 @@ export default function SummaryScreen() {
             <Text style={styles.detailValue}>{draft.fundingSource}</Text>
           </View>
         </View>
+        </FadeInView>
 
         {/* SECTION 2: BUDGET & SCHEDULE */}
+        <FadeInView delay={80}>
         <View style={styles.summaryCard}>
           <Text style={styles.cardHeader}>2. Budget & Schedule</Text>
           <View style={styles.detailRow}>
@@ -101,8 +107,10 @@ export default function SummaryScreen() {
             <Text style={styles.detailValue}>{draft.endDate}</Text>
           </View>
         </View>
+        </FadeInView>
 
         {/* SECTION 3: ELIGIBILITY */}
+        <FadeInView delay={120}>
         <View style={styles.summaryCard}>
           <Text style={styles.cardHeader}>3. Eligibility Criteria</Text>
           {draft.eligibilityCriteria.map((item, index) => (
@@ -112,8 +120,10 @@ export default function SummaryScreen() {
             </View>
           ))}
         </View>
+        </FadeInView>
 
         {/* SECTION 4: VOUCHER CONFIG */}
+        <FadeInView delay={160}>
         <View style={styles.summaryCard}>
           <Text style={styles.cardHeader}>4. Voucher Configuration</Text>
           <View style={styles.detailRow}>
@@ -162,18 +172,21 @@ export default function SummaryScreen() {
             </View>
           )}
         </View>
+        </FadeInView>
 
         {/* SECTION 5: SUPPORTING DOCUMENTS */}
         {draft.supportingDocuments.length > 0 && (
-          <View style={styles.summaryCard}>
-            <Text style={styles.cardHeader}>5. Supporting Documents</Text>
-            {draft.supportingDocuments.map((item, index) => (
-              <View key={index} style={styles.bulletRow}>
-                <Text style={styles.bullet}>📄</Text>
-                <Text style={styles.bulletText}>{item.name}</Text>
-              </View>
-            ))}
-          </View>
+          <FadeInView delay={200}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.cardHeader}>5. Supporting Documents</Text>
+              {draft.supportingDocuments.map((item, index) => (
+                <View key={index} style={styles.bulletRow}>
+                  <Text style={styles.bullet}>📄</Text>
+                  <Text style={styles.bulletText}>{item.name}</Text>
+                </View>
+              ))}
+            </View>
+          </FadeInView>
         )}
       </ScrollView>
 

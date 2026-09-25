@@ -1,11 +1,13 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TransactionRow } from '@/components/beneficiary/Transactions/transaction-row';
+import { TransactionsSkeleton } from '@/components/beneficiary/Transactions/transactions-skeleton';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
@@ -26,11 +28,7 @@ export default function TransactionsScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={BrandColors.navy} size="large" />
-            </View>
-          )}
+          {isLoading && <TransactionsSkeleton />}
 
           {!isLoading && error && (
             <ErrorState message="We couldn't load your transactions." onRetry={refresh} />
@@ -43,8 +41,10 @@ export default function TransactionsScreen() {
             />
           )}
 
-          {!isLoading && !error && redemptions.map(record => (
-            <TransactionRow key={record.id} record={record} />
+          {!isLoading && !error && redemptions.map((record, index) => (
+            <FadeInView delay={Math.min(index, 4) * 40} key={record.id}>
+              <TransactionRow record={record} />
+            </FadeInView>
           ))}
         </ScrollView>
       </SafeAreaView>
@@ -81,9 +81,5 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: BottomTabInset + Spacing.six,
-  },
-  loadingContainer: {
-    paddingVertical: Spacing.six,
-    alignItems: 'center',
   },
 });

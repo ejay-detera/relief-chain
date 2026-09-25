@@ -1,9 +1,9 @@
-import React from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing, BorderRadius } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import type { UserProfile } from '@/types/auth';
 
 type Props = {
@@ -34,11 +34,12 @@ export const BeneficiaryList = ({ data, loading, refreshing, onRefresh, onSelect
     }
   };
 
-  const renderItem = ({ item }: { item: UserProfile }) => {
+  const renderItem = ({ item, index }: { item: UserProfile; index: number }) => {
     const status = item.verification_status || 'Pending';
     const statusStyle = getStatusStyle(status);
 
     return (
+      <FadeInView delay={Math.min(index, 4) * 40}>
       <Pressable onPress={() => onSelect(item)} style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.profileInfo}>
@@ -73,6 +74,7 @@ export const BeneficiaryList = ({ data, loading, refreshing, onRefresh, onSelect
           </View>
         </View>
       </Pressable>
+      </FadeInView>
     );
   };
 

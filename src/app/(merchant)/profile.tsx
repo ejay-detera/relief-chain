@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { MerchantBottomNavigation } from '@/components/MerchantDashboard/MerchantBottomNavigation';
 import { MerchantProfileContent } from '@/components/MerchantProfile/MerchantProfileContent';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
@@ -34,17 +35,21 @@ const MerchantProfileScreen = () => {
   const mobileNumber = profile?.mobile_number || session?.user.phone || metadataString(metadata, 'mobile_number') || 'Not available';
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }} showsVerticalScrollIndicator={false}>
-      <MerchantProfileContent fullName={fullName} handle={createHandle(fullName)} merchantId={merchantId} mobileNumber={mobileNumber} walletAddress={walletAddress} />
-      <Pressable onPress={() => router.push('/(merchant)/security' as any)} style={styles.securityRow}>
-        <View style={styles.securityRowLeft}>
-          <FontAwesome color={BrandColors.navy} name="shield" size={16} />
-          <View>
-            <ThemedText style={styles.securityTitle}>Security & MFA</ThemedText>
-            <ThemedText style={styles.securitySubtitle}>Authenticator and step-up for financial actions</ThemedText>
+      <FadeInView delay={0}>
+        <MerchantProfileContent fullName={fullName} handle={createHandle(fullName)} merchantId={merchantId} mobileNumber={mobileNumber} walletAddress={walletAddress} />
+      </FadeInView>
+      <FadeInView delay={40}>
+        <Pressable onPress={() => router.push('/(merchant)/security' as any)} style={styles.securityRow}>
+          <View style={styles.securityRowLeft}>
+            <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+            <View>
+              <ThemedText style={styles.securityTitle}>Security & MFA</ThemedText>
+              <ThemedText style={styles.securitySubtitle}>Authenticator and step-up for financial actions</ThemedText>
+            </View>
           </View>
-        </View>
-        <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
-      </Pressable>
+          <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+        </Pressable>
+      </FadeInView>
     </ScrollView>
     <MerchantBottomNavigation active="profile" />
   </View></SafeAreaView>;

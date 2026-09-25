@@ -10,7 +10,11 @@ export interface TreasuryBalances {
 }
 
 const HORIZON_URL = process.env.EXPO_PUBLIC_STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org';
-const RCPHP_ISSUER = process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER || 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7';
+// No hardcoded fallback: a stale default here previously matched against an
+// orphaned issuer with zero funded supply, which would silently show a 0
+// treasury balance even when the real, correctly-issued RCPHP was present.
+// Fail closed instead so a missing env var surfaces as a visible error.
+const RCPHP_ISSUER = process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER;
 
 export function useOrganizationTreasury() {
   const { profile } = useAuth();
@@ -38,6 +42,13 @@ export function useOrganizationTreasury() {
         reservedStroops: BigInt(50000 * 10000000),   // 50,000 RCPHP reserved
         totalStroops: BigInt(263000 * 10000000),     // 263,000 RCPHP total
       });
+      setIsLoading(false);
+      return;
+    }
+
+    if (!RCPHP_ISSUER) {
+      if (request !== requestRef.current) return;
+      setError('RCPHP issuer is not configured (EXPO_PUBLIC_STELLAR_RCPHP_ISSUER missing).');
       setIsLoading(false);
       return;
     }

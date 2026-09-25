@@ -1,10 +1,11 @@
-import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MerchantBottomNavigation } from '@/components/MerchantDashboard/MerchantBottomNavigation';
 import { MerchantDashboardHeader } from '@/components/MerchantDashboard/MerchantDashboardHeader';
 import { MerchantProgramCard } from '@/components/MerchantPrograms/MerchantProgramCard';
 import { ProgramsSummary } from '@/components/MerchantPrograms/ProgramsSummary';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useMerchantMetrics } from '@/hooks/use-merchant-metrics';
@@ -15,15 +16,14 @@ const MerchantProgramsScreen = () => {
   const { metrics } = useMerchantMetrics();
   const { error, isLoading, programs, refresh } = useMerchantPrograms();
   const activePrograms = programs.filter((program) => program.status === 'active').length;
-  const showNotifications = () => Alert.alert('Notifications', 'This feature will be available soon.');
   const emptyMessage = error ? 'Unable to load programs.' : 'No programs are available for this merchant.';
 
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
-    <MerchantDashboardHeader onNotificationsPress={showNotifications} onShowQr={() => {}} />
+    <MerchantDashboardHeader onShowQr={() => {}} />
     <FlatList contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }]} data={programs} keyExtractor={(item) => item.id}
-      ListHeaderComponent={<View style={styles.intro}><ThemedText style={styles.title}>Accepted Programs</ThemedText><ThemedText style={styles.subtitle}>View the relief programs whose digital vouchers your business can accept.</ThemedText><ProgramsSummary activePrograms={activePrograms} vouchersProcessed={metrics?.vouchersProcessed ?? null} />{error && programs.length > 0 ? <ThemedText style={styles.error}>Programs could not be refreshed. Showing the latest available list.</ThemedText> : null}</View>}
+      ListHeaderComponent={<FadeInView delay={0}><View style={styles.intro}><ThemedText style={styles.title}>Accepted Programs</ThemedText><ThemedText style={styles.subtitle}>View the relief programs whose digital vouchers your business can accept.</ThemedText><ProgramsSummary activePrograms={activePrograms} vouchersProcessed={metrics?.vouchersProcessed ?? null} />{error && programs.length > 0 ? <ThemedText style={styles.error}>Programs could not be refreshed. Showing the latest available list.</ThemedText> : null}</View></FadeInView>}
       ListEmptyComponent={<View style={styles.empty}><ThemedText style={styles.emptyTitle}>{isLoading ? 'Loading programs…' : emptyMessage}</ThemedText>{error && !isLoading ? <Pressable accessibilityRole="button" onPress={() => void refresh()} style={styles.retry}><ThemedText style={styles.retryText}>Try Again</ThemedText></Pressable> : null}</View>}
-      renderItem={({ item }) => <MerchantProgramCard program={item} />} ItemSeparatorComponent={() => <View style={styles.separator} />} refreshing={isLoading && programs.length > 0} onRefresh={() => void refresh()} showsVerticalScrollIndicator={false} />
+      renderItem={({ item, index }) => <FadeInView delay={Math.min(index, 4) * 40}><MerchantProgramCard program={item} /></FadeInView>} ItemSeparatorComponent={() => <View style={styles.separator} />} refreshing={isLoading && programs.length > 0} onRefresh={() => void refresh()} showsVerticalScrollIndicator={false} />
     <MerchantBottomNavigation active="programs" />
   </View></SafeAreaView>;
 };

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useCreateProgram } from './_layout';
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { FadeInView } from '@/components/shared/FadeInView';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCreateProgram } from './_layout';
 
 type PickerType = 'programStart' | 'programEnd' | 'regOpen' | 'regClose' | 'distStart' | 'distEnd';
 
@@ -195,7 +196,7 @@ export default function ScheduleScreen() {
       <StepIndicator currentStep={3} title="Program Schedule" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+        <FadeInView delay={0}>
         {/* SECTION 1: PROGRAM TIMELINE */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeader}>1. Program Period (Required)</Text>
@@ -357,6 +358,8 @@ export default function ScheduleScreen() {
             </View>
           </View>
         </View>
+
+        </FadeInView>
 
         {/* Date picker modal overlay */}
         {currentPicker && (

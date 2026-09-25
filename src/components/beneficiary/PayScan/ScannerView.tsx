@@ -8,7 +8,7 @@ import { QrViewfinder } from '@/components/beneficiary/PayScan/qr-viewfinder';
 import { ScanHeader } from '@/components/beneficiary/PayScan/scan-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BrandColors, Spacing } from '@/constants/theme';
+import { BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
 
 type Props = {
   /** When false, scanned frames are ignored (e.g. while a scan is being processed). */
@@ -104,9 +104,9 @@ const styles = StyleSheet.create({
   dimOverlay: { backgroundColor: 'rgba(0, 0, 0, 0.6)', bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
   overlay: { flex: 1, justifyContent: 'space-between' },
   viewfinderContainer: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingBottom: Spacing.eight },
-  permissionFooter: { bottom: 0, left: 0, paddingHorizontal: Spacing.four, position: 'absolute', right: 0 },
+  permissionFooter: { bottom: BottomTabInset, left: 0, paddingHorizontal: Spacing.four, position: 'absolute', right: 0 },
   cameraText: { color: 'white', fontSize: 14, marginBottom: Spacing.three, textAlign: 'center' },
-  errorFooter: { backgroundColor: 'rgba(17,46,88,0.92)', borderRadius: 16, gap: Spacing.two, margin: Spacing.three, padding: Spacing.four },
+  errorFooter: { backgroundColor: 'rgba(17,46,88,0.92)', borderRadius: 16, gap: Spacing.two, marginBottom: BottomTabInset, marginHorizontal: Spacing.three, padding: Spacing.four },
   errorTitle: { color: 'white', fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
   errorBody: { color: 'rgba(255,255,255,0.85)', fontFamily: 'PlusJakartaSans_500Medium', fontSize: 13, lineHeight: 18 },
   button: { alignItems: 'center', backgroundColor: BrandColors.green, borderRadius: 12, marginBottom: Spacing.two, marginTop: Spacing.one, padding: Spacing.four },

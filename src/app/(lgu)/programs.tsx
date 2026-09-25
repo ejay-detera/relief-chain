@@ -1,6 +1,7 @@
 import { ProgramItem } from '@/components/LguPrograms/ProgramCard';
 import { ProgramFilterTabs, ProgramFilterType } from '@/components/LguPrograms/ProgramFilterTabs';
 import { ProgramList } from '@/components/LguPrograms/ProgramList';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -37,17 +38,21 @@ export default function LguProgramsScreen() {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Aid Programs</Text>
-        <Text style={styles.headerSubtitle}>
-          Manage and monitor active relief distribution programs for transparency and community resilience.
-        </Text>
-      </View>
+      <FadeInView delay={0}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Aid Programs</Text>
+          <Text style={styles.headerSubtitle}>
+            Manage and monitor active relief distribution programs for transparency and community resilience.
+          </Text>
+        </View>
+      </FadeInView>
 
-      <ProgramFilterTabs
-        selectedTab={selectedTab}
-        onChangeTab={setSelectedTab}
-      />
+      <FadeInView delay={40}>
+        <ProgramFilterTabs
+          selectedTab={selectedTab}
+          onChangeTab={setSelectedTab}
+        />
+      </FadeInView>
 
       <ProgramList
         programs={programsList as ProgramItem[]}
