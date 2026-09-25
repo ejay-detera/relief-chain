@@ -14,6 +14,8 @@ import type { FinancialError, FinancialResult } from '@/types/errors';
 
 const PREPARE_FUNCTION = 'prepare-wallet-provision';
 const SUBMIT_FUNCTION = 'submit-wallet-provision';
+const PREPARE_MERCHANT_FUNCTION = 'prepare-merchant-provision';
+const SUBMIT_MERCHANT_FUNCTION = 'submit-merchant-provision';
 
 /** Server-prepared provisioning transaction (or a signal it is already done). */
 export type PreparedProvision = Readonly<{
@@ -98,6 +100,63 @@ export const submitWalletProvision = async (
     return {
       ok: false,
       error: unknownError(err instanceof Error ? err.message : 'Wallet provisioning is unavailable.'),
+    };
+  }
+};
+
+/**
+ * Merchant settlement-wallet boundary. Asks the server to build the exact
+ * sponsored RCPHP trustline for the replacement wallet. When the merchant
+ * still uses an old active wallet, `submitMerchantProvision` supersedes it
+ * (old deactivated with supersession link, replacement activated) so only one
+ * active settlement wallet ever exists.
+ */
+export const prepareMerchantProvision = async (
+  walletAddress: string,
+): Promise<FinancialResult<PreparedProvision>> => {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      provision?: PreparedProvision;
+      error?: FinancialError;
+    }>(PREPARE_MERCHANT_FUNCTION, { body: { walletAddress } });
+
+    if (error) {
+      return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+    }
+    if (!data?.provision) {
+      return { ok: false, error: toFinancialError(data?.error, 'Merchant wallet provisioning could not be prepared.') };
+    }
+    return { ok: true, data: data.provision };
+  } catch (err) {
+    return {
+      ok: false,
+      error: unknownError(err instanceof Error ? err.message : 'Merchant wallet provisioning is unavailable.'),
+    };
+  }
+};
+
+/** Relays the merchant-signed trustline for sponsor co-signature, issuer authorization, and rotation binding. */
+export const submitMerchantProvision = async (
+  walletAddress: string,
+  signedTxXdr: string,
+): Promise<FinancialResult<SubmittedProvision>> => {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      provision?: SubmittedProvision;
+      error?: FinancialError;
+    }>(SUBMIT_MERCHANT_FUNCTION, { body: { walletAddress, signedTxXdr } });
+
+    if (error) {
+      return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+    }
+    if (!data?.provision) {
+      return { ok: false, error: toFinancialError(data?.error, 'Merchant wallet provisioning could not be submitted.') };
+    }
+    return { ok: true, data: data.provision };
+  } catch (err) {
+    return {
+      ok: false,
+      error: unknownError(err instanceof Error ? err.message : 'Merchant wallet provisioning is unavailable.'),
     };
   }
 };

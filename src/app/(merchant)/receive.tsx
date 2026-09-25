@@ -12,7 +12,7 @@ import { InvoiceSigningStatus } from '@/components/MerchantInvoice/InvoiceSignin
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
+import { isVerifiedMerchantWallet, merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
 import { createSignedInvoice } from '@/services/invoice-service';
 import type {
     InvoiceTransport,
@@ -40,15 +40,31 @@ const MerchantReceiveScreen = () => {
   // The backend prepare-payment function strictly expects the merchant entity ID to resolve accreditations.
   const resolvedMerchantId = merchantEntityId ?? null;
   const merchantWallet = merchantWalletPublicKey(walletState);
+  // Invoice signing requires the local secret to match the verified active
+  // wallet. `merchantWalletPublicKey` also returns the expected address while
+  // in `recovery_required` for display, so gate creation on verified readiness
+  // explicitly — otherwise `signMerchantInvoice` fails late with the low-level
+  // "disposable testnet signer is unavailable" error.
+  const isReady = isVerifiedMerchantWallet(walletState);
   // The pilot only surfaces voucher programs that already have a deployed,
   // activated contract. None are wired to the client yet, so voucher invoices
   // are honestly shown as unavailable rather than fabricated.
   const voucherPrograms = useMemo<readonly VoucherInvoiceProgramOption[]>(() => [], []);
 
-  const canCreate = Boolean(userId && resolvedMerchantId && merchantWallet);
+  const canCreate = Boolean(userId && resolvedMerchantId && merchantWallet && isReady);
+  const needsRecovery = walletState?.status === 'recovery_required';
+
+  const handleStartRecovery = useCallback(() => {
+    router.push('/(merchant)/wallet-recovery' as never);
+  }, [router]);
 
   const handleSubmit = useCallback(async (draft: MerchantInvoiceDraft) => {
     if (!userId || !resolvedMerchantId || !merchantWallet) return;
+    if (!isReady) {
+      setFormError('Complete wallet recovery before creating invoices. Your verified merchant signer is not ready on this device.');
+      setStep('collect');
+      return;
+    }
     setStep('signing');
     setFormError(null);
     try {
@@ -67,10 +83,17 @@ const MerchantReceiveScreen = () => {
       setSettlement({ status: 'awaiting_scan' });
       setStep('present');
     } catch (caught: unknown) {
-      setFormError(caught instanceof Error ? caught.message : 'Could not create the invoice.');
+      const message = caught instanceof Error ? caught.message : 'Could not create the invoice.';
+      // Map the low-level missing-secret error to the actionable recovery message
+      // when the wallet is in recovery — the signer, not the form, is the blocker.
+      setFormError(
+        needsRecovery && message.includes('disposable testnet signer')
+          ? 'This device has no signer for the active merchant wallet. Start wallet recovery before creating invoices.'
+          : message,
+      );
       setStep('collect');
     }
-  }, [userId, resolvedMerchantId, merchantWallet]);
+  }, [userId, resolvedMerchantId, merchantWallet, isReady, needsRecovery]);
 
   const startNewInvoice = useCallback(() => {
     setPresented(null);
@@ -95,6 +118,7 @@ const MerchantReceiveScreen = () => {
           bindingError={bindingError}
           isLoading={isLoading}
           isSigning={step === 'signing'}
+          onStartRecovery={needsRecovery ? handleStartRecovery : undefined}
           walletState={walletState}
         />
 
@@ -114,6 +138,15 @@ const MerchantReceiveScreen = () => {
             {formError && <ThemedText style={styles.error}>{formError}</ThemedText>}
             {canCreate ? (
               <InvoiceAmountForm isSubmitting={step === 'signing'} onSubmit={(draft) => void handleSubmit(draft)} voucherPrograms={voucherPrograms} />
+            ) : needsRecovery ? (
+              <View style={styles.recoveryBlock}>
+                <ThemedText style={styles.helper}>
+                  A verified merchant signer is required before you can create invoices.
+                </ThemedText>
+                <Pressable accessibilityRole="button" onPress={handleStartRecovery} style={styles.recoveryButton}>
+                  <ThemedText style={styles.recoveryButtonText}>Start wallet recovery</ThemedText>
+                </Pressable>
+              </View>
             ) : (
               <ThemedText style={styles.helper}>
                 A verified merchant signer is required before you can create invoices.
@@ -139,4 +172,7 @@ const styles = StyleSheet.create({
   newInvoiceText: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
   helper: { color: BrandColors.grey, fontFamily: 'PlusJakartaSans_500Medium', fontSize: 13, lineHeight: 18 },
   error: { color: '#C0392B', fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13 },
+  recoveryBlock: { gap: Spacing.two },
+  recoveryButton: { alignItems: 'center', backgroundColor: BrandColors.navy, borderRadius: 24, padding: Spacing.three },
+  recoveryButtonText: { color: '#FFFFFF', fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
 });

@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
@@ -9,6 +9,7 @@ type Props = {
   isLoading: boolean;
   isSigning: boolean;
   bindingError: string | null;
+  onStartRecovery?: () => void;
 };
 
 const recoveryMessage = (reason: 'missing_signer' | 'invalid_signer' | 'signer_mismatch'): string => {
@@ -27,7 +28,7 @@ const recoveryMessage = (reason: 'missing_signer' | 'invalid_signer' | 'signer_m
  * a missing, mismatched, or unavailable key is surfaced as an explicit blocker,
  * and an unverified (binding_required) key is clearly labelled.
  */
-export const InvoiceSigningStatus = ({ walletState, isLoading, isSigning, bindingError }: Props) => {
+export const InvoiceSigningStatus = ({ walletState, isLoading, isSigning, bindingError, onStartRecovery }: Props) => {
   // Demo mode is invisible - no banner shown to users
   
   if (isLoading) {
@@ -68,6 +69,11 @@ export const InvoiceSigningStatus = ({ walletState, isLoading, isSigning, bindin
     return (
       <View style={[styles.card, styles.blocked, { flexDirection: 'column', alignItems: 'stretch' }]}>
         <ThemedText style={styles.blockedText}>{recoveryMessage(walletState.reason)}</ThemedText>
+        {onStartRecovery ? (
+          <Pressable accessibilityRole="button" onPress={onStartRecovery} style={styles.recoveryButton}>
+            <ThemedText style={styles.recoveryButtonText}>Start wallet recovery</ThemedText>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -99,4 +105,6 @@ const styles = StyleSheet.create({
   readyText: { color: BrandColors.navy, flex: 1, fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 12 },
   warnText: { color: BrandColors.navy, flex: 1, fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 12, lineHeight: 17 },
   blockedText: { color: '#C0392B', flex: 1, fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 12, lineHeight: 17 },
+  recoveryButton: { alignItems: 'center', backgroundColor: BrandColors.navy, borderRadius: BorderRadius.md, marginTop: Spacing.two, padding: Spacing.two },
+  recoveryButtonText: { color: '#FFFFFF', fontFamily: 'PlusJakartaSans_700Bold', fontSize: 13 },
 });

@@ -35,6 +35,16 @@ const MerchantProfileScreen = () => {
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }} showsVerticalScrollIndicator={false}>
       <MerchantProfileContent fullName={fullName} handle={createHandle(fullName)} merchantId={merchantId} mobileNumber={mobileNumber} walletAddress={walletAddress} />
+      <Pressable onPress={() => router.push('/(merchant)/wallet-recovery' as never)} style={styles.securityRow}>
+        <View style={styles.securityRowLeft}>
+          <FontAwesome color={BrandColors.navy} name="refresh" size={16} />
+          <View>
+            <ThemedText style={styles.securityTitle}>Wallet & recovery</ThemedText>
+            <ThemedText style={styles.securitySubtitle}>Replace a lost signer and activate settlement</ThemedText>
+          </View>
+        </View>
+        <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+      </Pressable>
       <Pressable onPress={() => router.push('/(merchant)/security' as any)} style={styles.securityRow}>
         <View style={styles.securityRowLeft}>
           <FontAwesome color={BrandColors.navy} name="shield" size={16} />

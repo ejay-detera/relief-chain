@@ -18,11 +18,14 @@ import { StartSplash } from '@/components/StartSplash/StartSplash';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { shouldShowProfileAccessError } from '@/utils/auth-profile';
 import { getRoleHome, isAuthContinuationRoute, isRoleGroupForRole } from '@/utils/auth-routing';
+import { ensureBufferSubarrayReturnsBuffer } from '@/utils/buffer-compat';
 import { getLguNavigationDecision } from '@/utils/lgu-navigation-guard';
 
 type RuntimeGlobal = typeof globalThis & { Buffer?: typeof Buffer };
 const runtimeGlobal = globalThis as RuntimeGlobal;
 runtimeGlobal.Buffer = Buffer;
+// Stellar XDR parsing depends on subarray views decoding as Buffers; see buffer-compat.ts.
+ensureBufferSubarrayReturnsBuffer();
 
 void SplashScreen.preventAutoHideAsync();
 
