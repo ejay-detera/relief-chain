@@ -16,7 +16,7 @@
 8. `docs/flow-reliefchain.md` — what is built, gated, or planned
 9. `docs/build-reliefchain.md` — setup, commands, guardrails, known issues
 10. `docs/sprint-reliefchain.md` — sprint backlog: user stories, acceptance criteria, priorities
-11. `SETUP.md` — full environment procedure
+11. `docs/SETUP.md` — full environment procedure
 
 `docs/index.md` maps the whole suite.
 

@@ -13,13 +13,15 @@ This is the canonical setup guide for local development on **Windows PowerShell*
 
 All Stellar work in this repository is locked to **Stellar testnet**. RCPHP is a test asset with no real monetary value. Do not use these instructions, credentials, or keys for production.
 
+> **There is a second, shorter path.** A hosted Supabase testnet demo project now exists. If you only need to *run* the app — not develop against the database — you can point `.env` at it and skip Docker, Supabase CLI, and the Stellar bootstrap entirely. See [`build-reliefchain.md`](build-reliefchain.md) §15. This guide covers the full local stack, which is still what you need for migrations, `supabase test db`, and `npm run test:integration`.
+
 ## 1. Prerequisites
 
 Install the following before cloning the project:
 
 - **Node.js 20 or newer** and npm. The repository preflight rejects Node 18.
 - **Git**.
-- **Docker Desktop** with the Linux container engine enabled and running. There is no project Dockerfile or `docker-compose.yml`; the Supabase CLI starts the required containers through Docker Desktop.
+- **Docker Desktop** with the Linux container engine enabled and running. There is no project Dockerfile or `docker-compose.yml`; the Supabase CLI starts the required containers through Docker Desktop. Needed for the local stack, `supabase test db`, and `npm run test:integration` — not needed if you only run the app against the hosted demo project.
 - **Android Studio**, including Android SDK Platform Tools (`adb`), an Android SDK platform, and an emulator image if you want an emulator.
 - **Java/JDK** supported by the installed Expo/RN Android toolchain. Android Studio's bundled JDK is the preferred Windows choice. Verify with `java -version`.
 - A physical Android phone with a USB data cable for the primary workflow, or an Android Studio emulator.
@@ -36,7 +38,13 @@ adb version
 java -version
 ```
 
-The project uses Expo SDK 57, React Native 0.86, Gradle 9.3.1 through the committed wrapper, Hermes, and a committed native `android/` project. `npx expo run:android` downloads and uses the Gradle wrapper version; do not install a separate Gradle version just for this repository.
+The project uses Expo SDK 57, React Native 0.86, and Hermes.
+
+**There is no committed native project.** `android/` and `ios/` do not exist in the repository and are both gitignored as generated output. `npx expo run:android` therefore runs **prebuild** first, generating `android/` from `app.config.js` before it builds — which is why the first run takes several minutes. Consequences worth knowing:
+
+- Any hand-edit inside `android/` is local and disposable; a later prebuild can overwrite it. Native configuration belongs in `app.config.js` or a config plugin.
+- The Gradle version comes from the generated wrapper, not from anything committed here. Do not install a standalone Gradle for this repository.
+- `npx expo prebuild --clean` is the recovery step when the generated project goes bad.
 
 ## 2. Clone and install
 
@@ -46,7 +54,9 @@ Set-Location .\relief-chain
 npm install
 ```
 
-Do not commit local environment files. The repository's `.gitignore` is expected to exclude `.env`, `.env.bootstrap.local`, `supabase/functions/.env`, Android machine-local configuration, and generated validation output.
+Do not commit local environment files. `.gitignore` excludes `.env`, everything matching `.env*.local` (so `.env.bootstrap.local` and `.env.hosted.local` are both covered), `supabase/functions/.env`, the generated `/android` and `/ios` folders, keystores and signing material (`*.jks`, `*.p8`, `*.p12`, `*.key`, `*.pem`, `*.mobileprovision`), and validation output (`.validation-artifacts/`, `.validation-mobile-smoke/`).
+
+The `.example` counterparts are tracked and safe to read: `.env.example`, `.env.bootstrap.example`, `.env.hosted.example`. None contains a real credential.
 
 ## 3. Configure the app environment
 
@@ -66,9 +76,14 @@ EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 EXPO_PUBLIC_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
 EXPO_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 EXPO_PUBLIC_STELLAR_MAINNET_ENABLED=false
+EXPO_PUBLIC_DEMO_MODE=false
 ```
 
-Leave `EXPO_PUBLIC_STELLAR_RCPHP_ISSUER` and `EXPO_PUBLIC_STELLAR_RCPHP_SAC_ID` blank until the asset bootstrap reports the public identifiers. Copy only public identifiers into `.env`; never copy secret seeds or service-role keys into `EXPO_PUBLIC_*` variables.
+`EXPO_PUBLIC_DEMO_MODE` is read through `Constants.expoConfig.extra` in `src/config/demo-mode.ts`. Leave it `false` for normal development.
+
+Leave `EXPO_PUBLIC_STELLAR_RCPHP_ISSUER` and `EXPO_PUBLIC_STELLAR_RCPHP_SAC_ID` blank until the asset bootstrap reports the public identifiers. They must match the topology behind whichever Supabase project the build targets — a re-bootstrap or a Stellar testnet reset changes both values. Copy only public identifiers into `.env`; never copy secret seeds or service-role keys into `EXPO_PUBLIC_*` variables.
+
+Metro **inlines every `EXPO_PUBLIC_*` value at bundle time**, so `.env` must be correct before a build, not after. If `EXPO_PUBLIC_SUPABASE_URL` is missing, `src/lib/supabase.ts` falls back to `https://placeholder.supabase.co` with only a `console.warn` — the app starts and silently cannot sign in. Run `npm run check:release-env` to catch that before any release build.
 
 For a LAN-connected physical device instead, replace `127.0.0.1` with the Windows host's IPv4 address and allow the required ports through the Windows firewall. Restart Expo after every `.env` change.
 
@@ -99,7 +114,9 @@ Reset the **local** database after migrations change or before a clean demo fixt
 npx supabase db reset --local
 ```
 
-This is destructive to local database data. Never run it against a hosted or production project. The reset applies migrations and the intentionally empty `supabase/seed.sql`; JavaScript demo scripts are the authoritative fixture layer.
+This is destructive to local database data. The reset applies migrations and the intentionally empty `supabase/seed.sql`; JavaScript demo scripts are the authoritative fixture layer.
+
+**Keep the `--local` flag.** The sibling command `npx supabase db reset --linked` drops the schema and data of the **linked hosted project**, which is irreversible and has no free-tier backup. Do not run it casually.
 
 If you only need to inspect the schema without resetting, use the local Supabase Studio URL or the repository's verification scripts instead.
 
@@ -150,7 +167,7 @@ node .\scripts\seed-merchant-demo.mjs
 
 Before running the seed, ensure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL` are set in the current PowerShell session. `SUPABASE_SERVICE_ROLE_KEY` comes from `npx supabase status -o env`; do not put it in the mobile `.env` file. The seed reads Stellar signer values from the generated `supabase/functions/.env`.
 
-`seed-merchant-demo.mjs` creates or updates these local Auth accounts and writes fresh IDs to `scripts/seed-info.json`:
+`seed-merchant-demo.mjs` creates or updates these Auth accounts in whichever Supabase instance it is pointed at, and writes fresh IDs to `scripts/seed-info.json`:
 
 | Role | Email | Password |
 | --- | --- | --- |
@@ -178,7 +195,15 @@ The Stellar path is optional for app-only development but required for real test
 
 The bootstrap scripts are intentionally testnet-only and fail closed on mainnet settings. They may contact Stellar Horizon and Friendbot. Keep the command output, but never log or commit secret seeds.
 
-The contract/voucher path is advanced and optional. Edge code expects `STELLAR_CONTRACT_ADMIN_SECRET`, but the topology bootstrap does not provision that role. Configure it manually in the secret store only when working on contract/voucher operations; it is not required for the normal merchant/payment/disbursement setup.
+The contract/voucher path is advanced and optional. Edge code expects `STELLAR_CONTRACT_ADMIN_SECRET`, and `bootstrap-topology.mjs` still does not provision that role. A dedicated script does:
+
+```powershell
+node .\scripts\provision-contract-admin.mjs
+```
+
+It generates the account, funds it on testnet, and appends the secret to `.env.bootstrap.local` idempotently, so it is safe to re-run. Run it after the topology bootstrap. It is not required for the normal merchant, payment, or disbursement setup.
+
+**Guard `.env.bootstrap.local` carefully.** It is the only copy of the signer seeds, and it is gitignored. If it is lost, the accounts behind the current RCPHP asset become unrecoverable and the whole topology must be re-bootstrapped under **new** issuer and SAC identifiers — which orphans the old asset permanently. This has already happened once in this project.
 
 ## 8. Run local Edge Functions
 
@@ -205,6 +230,9 @@ Functions are grouped by workflow:
 - **Disbursements:** `prepare-disbursement`, `submit-disbursement`
 - **Merchant cash-out:** `request-cashout`
 - **Reconciliation:** `reconcile-stellar`
+- **Organization sign-up:** `lgu-signup`
+
+That is **13** functions. `lgu-signup` is the odd one out: it takes no Stellar path, does not use the `_shared` runtime, and creates a pre-confirmed `lgu` account through the Auth Admin API so organization sign-up skips email OTP without changing the project-wide Auth setting. It needs no Stellar secrets, so it runs under `functions serve` with no extra setup.
 
 Local serving is the supported path for development. Hosted Edge deployment is now verified as well — all 13 functions are deployed to the demo project. The procedure is in `docs/build-reliefchain.md` §15, not here. The generated `supabase/functions/.env` has no role in it.
 
@@ -220,7 +248,9 @@ With the phone connected and ADB reverse forwarding configured:
 npx expo run:android
 ```
 
-This builds/installs the committed Android project and starts the app. It may take several minutes the first time.
+Because no native project is committed, this **prebuilds** `android/` from `app.config.js`, then builds and installs it. Expect several minutes on the first run. Re-run it after any change to `app.config.js`, a native dependency, or app permissions. If the generated project ends up in a bad state, `npx expo prebuild --clean` regenerates it from scratch.
+
+This command reads `.env` directly, so it is also the simplest way to build against the hosted demo project without configuring EAS environment variables.
 
 ### Normal daily development loop
 
@@ -260,8 +290,24 @@ Run `npx supabase db reset --local` before creating a clean fixture. Use only on
 | `node .\scripts\make-functions-env.mjs` | Generate ignored `supabase/functions/.env` | `.env.bootstrap.local` with `STELLAR_*_SECRET` entries |
 | `node .\scripts\fund-demo-treasury.mjs --amount 1000` | Transfer testnet RCPHP to organization treasury | Distribution and organization-treasury secrets; authorized trustlines |
 | `node .\scripts\seed-treasury.mjs distribution organization_treasury 50000` | Transfer issued RCPHP between topology roles | Matching role secrets and authorized testnet trustlines |
+| `node .\scripts\provision-contract-admin.mjs` | Create, fund, and persist `STELLAR_CONTRACT_ADMIN_SECRET` | `.env.bootstrap.local`; only needed for contract/voucher work |
+| `node .\scripts\verify-db-state.mjs` | Print row counts and key fixture state | `SUPABASE_DB_URL` |
+| `node .\scripts\verify-hosted-schema.mjs` | Introspect tables, policies, triggers, enums, functions — and print the host it connected to | `SUPABASE_DB_URL`; use this rather than counting migration text |
+| `npm run check:release-env` | Fail early if the environment would build an app that cannot sign in | Reads `.env` if present |
 
 The UI, cash, and extra-beneficiary seeds use timestamped emails and print their generated values. The merchant seed is the only official default-account fixture.
+
+**Three other seed scripts exist and are not interchangeable with the table above.** `seed-test-users.mjs`, `seed-full-demo.mjs`, and `seed-with-wallets.mjs` are not part of the verified path, and the first two use addresses that conflict with `seed-merchant-demo.mjs` — `beneficary@example.com` (missing the `i`) and `admin@merchant.com`. Running them alongside the merchant seed leaves overlapping fixtures with different credentials. Use exactly one seed script per fixture.
+
+**Every script defaults to the local stack** — `http://127.0.0.1:54321` and `postgresql://postgres:postgres@127.0.0.1:54322/postgres`. They accept `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL` overrides to target a hosted project, and they fail silently in the useful-looking direction: run one without the overrides and it writes to local Docker successfully, with no warning that you missed the target. Confirm the destination before trusting a run. For the hosted project, load credentials from the gitignored `.env.hosted.local`:
+
+```powershell
+. .\scripts\load-hosted-env.ps1        # prints key names only, never values
+# ... run seeds ...
+. .\scripts\load-hosted-env.ps1 -Clear
+```
+
+Session variables set this way **override** `node --env-file`, so clear them before switching back to local work.
 
 ### End-to-end payment
 
@@ -279,7 +325,7 @@ Run `seed-cash-demo.mjs`, then set the IDs printed by that script:
 
 ```powershell
 $env:ADMIN_EMAIL = 'cash-admin-<run-id>@example.test'
-$env:ADMIN_PASSWORD = 'ReliefChain!123'
+$env:ADMIN_PASSWORD = 'ReliefChain!123'   # seed-cash-demo.mjs's own password, not the merchant seed's
 $env:PROGRAM_ID = '<program-id>'
 $env:BENEFICIARY_PROFILE_ID = '<beneficiary-profile-id>'
 node .\scripts\invoke-disbursement.mjs
@@ -321,6 +367,24 @@ npm run validate
 
 The full suite includes property tests, database integration tests, schema checks, and an Android export smoke test. Validation artifacts are written to `.validation-artifacts` and should not be committed. `preflight` checks Node 20+, Expo 57, Rust/WASM, Stellar CLI, Docker, Supabase CLI, and local Supabase; it does not prove that an Android phone or emulator is connected.
 
+The individual stages behind `validate`, if you want to run one at a time:
+
+```powershell
+npm run test:property        # fast-check property tests
+npm run test:integration     # database integration tests — needs Docker and local Supabase
+npm run test:mobile-smoke    # Android export smoke test
+```
+
+Before any release build:
+
+```powershell
+npm run check:release-env
+```
+
+Deployment commands are documented in [`build-reliefchain.md`](build-reliefchain.md) §15, not here: `npm run deploy:db` (`supabase db push`) and `npm run deploy:functions` (`supabase functions deploy`). Both act on the **linked** project.
+
+Tests use the Node test runner plus `fast-check`, with `supabase test db` for SQL. There is no jest and no vitest.
+
 ## 12. Common troubleshooting
 
 ### Docker or Supabase will not start
@@ -333,7 +397,7 @@ npx supabase stop
 npx supabase start
 ```
 
-If local data can be discarded, use `npx supabase db reset --local`. Do not use a hosted project URL for this reset.
+If local data can be discarded, use `npx supabase db reset --local`. Never drop the `--local` flag: `--linked` resets the hosted project instead.
 
 ### The app says Supabase is not configured
 
@@ -369,7 +433,7 @@ npx supabase db reset --local
 node .\scripts\seed-merchant-demo.mjs
 ```
 
-The three fixed accounts are local only. Old timestamped users are not deleted by the merchant seed.
+The four fixed accounts are demo fixtures. Old timestamped users are not deleted by the merchant seed. If a login fails on a fixture you are sure exists, check that you seeded the same instance the app is pointing at — a seed run without the hosted overrides writes to local Docker and reports success either way.
 
 ### Edge Functions fail at startup
 
@@ -380,7 +444,7 @@ node .\scripts\make-functions-env.mjs
 npx supabase functions serve --env-file supabase/functions/.env
 ```
 
-Check that `.env.bootstrap.local` contains the required testnet signer names and that `STELLAR_CONTRACT_ADMIN_SECRET` is configured only when using contract/voucher code.
+Check that `.env.bootstrap.local` contains the required testnet signer names, and that `STELLAR_CONTRACT_ADMIN_SECRET` is present if you are working on contract/voucher code (`node .\scripts\provision-contract-admin.mjs`).
 
 ### Stellar operations fail
 

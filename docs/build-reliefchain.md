@@ -12,7 +12,7 @@
 
 > **Source-of-truth rule.** [`relief-chain.md`](relief-chain.md) is the canonical foundation document. Resolve conflicts there first, then propagate. Agents and developers should read `relief-chain.md`, then the rest of `docs/`, before reading code.
 >
-> **Scope.** This is the developer operating manual: read order, environment setup, pinned stack, commands, code patterns, guardrails, demo accounts, and the Definition of Done. Canonical step-by-step environment instructions live in [`../SETUP.md`](../SETUP.md); this guide references it rather than duplicating it.
+> **Scope.** This is the developer operating manual: read order, environment setup, pinned stack, commands, code patterns, guardrails, demo accounts, and the Definition of Done. Canonical step-by-step environment instructions live in [`SETUP.md`](SETUP.md); this guide references it rather than duplicating it.
 >
 > **Boundary.** Local development plus a **hosted Supabase testnet demo environment** (§15). RCPHP has no monetary value. Mainnet is hard-disabled. There is still no *production* deployment: no release signing, monitoring, alerting, or incident response (SETUP.md §13).
 
@@ -27,7 +27,7 @@
 5. [`dsd-reliefchain.md`](dsd-reliefchain.md) — design system and tokens
 6. [`flow-reliefchain.md`](flow-reliefchain.md) — what is built, gated, or planned
 7. This guide — setup and conventions
-8. [`../SETUP.md`](../SETUP.md) — full environment procedure
+8. [`SETUP.md`](SETUP.md) — full environment procedure
 
 Before any frontend work, project rules additionally require `.agents/skills/expo-expert/SKILL.md` and `context/frontend-skills/frontend-rule.md`.
 
@@ -217,8 +217,8 @@ Verify these before trusting any surrounding document or config.
 | 1 | ✅ **Resolved.** `20260717130000_dev_disable_wallet_binding_trigger.sql` dropped `wallets_protect_verified_binding` | Applying it to a shared environment left verified wallet-binding protection **off** | `20260925090000_restore_wallet_binding_trigger.sql` re-creates it, so the sequence ends with protection on. Verify after every `db push` — see §15.3 |
 | 2 | `20260717122817_hotfix_wallets.sql` is a **0-line** migration | Dead artifact in a security-sensitive sequence | Remove or document why it is empty |
 | 3 | ✅ **Resolved.** `app.json` and `app.config.js` both existed | `app.config.js` won; `app.json` was silent drift and lacked `extra.eas.projectId` | `app.json` deleted. `app.config.js` is now the single Expo config |
-| 4 | SETUP.md describes a committed native `android/` project and Gradle wrapper, but **no `android/` directory exists** | `expo run:android` will prebuild instead | Correct SETUP.md or commit the native project |
-| 5 | README references `ReliefChain_Project_Direction.md` and `.kiro/specs/` — neither exists | Broken onboarding trail | Remove the references |
+| 4 | ✅ **Resolved.** SETUP.md described a committed native `android/` project and Gradle wrapper, but neither `android/` nor `ios/` exists — both are gitignored generated output | Readers expected a committed native build; `expo run:android` actually prebuilds | `docs/SETUP.md` §1 and §9 now state that prebuild runs first, that native config belongs in `app.config.js`, and that `expo prebuild --clean` is the recovery step |
+| 5 | ✅ **Resolved.** README referenced `ReliefChain_Project_Direction.md` and `.kiro/specs/` — neither exists | Broken onboarding trail | Replaced with links to `docs/index.md`, `docs/relief-chain.md`, `docs/SETUP.md`, `docs/build-reliefchain.md`, and `docs/flow-reliefchain.md` |
 | 6 | 🟡 **Partly resolved.** `production` emitted an APK, not an AAB | Not Play-Store-capable | `production` now emits `app-bundle`; a new `demo` profile emits the sideloadable APK. Signing is still EAS-managed and unexercised — see §15.8 |
 | 7 | `jsonwebtoken` is a runtime dependency in an RN bundle | Likely script-only; bloats or breaks the bundle | Move to `devDependencies` if it is script-only |
 | 8 | No `src/app/index.tsx`; entry route resolves via a redirect effect | Cold-start routing depends on an effect, guarded by `hasRedirectedRef` | Keep the integration test `src/app/_layout.integration.test.mjs` green |
