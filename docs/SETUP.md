@@ -34,9 +34,10 @@ npm --version
 git --version
 docker --version
 docker info
-adb version
 java -version
 ```
+
+**ADB may not be on your PATH yet.** If `adb version` fails with "not recognized", see §5 — the Android SDK is installed, but Windows doesn't know where to find it until you add it.
 
 The project uses Expo SDK 57, React Native 0.86, and Hermes.
 
@@ -122,13 +123,56 @@ If you only need to inspect the schema without resetting, use the local Supabase
 
 ## 5. Connect a physical Android device with ADB
 
-On the phone, enable Developer options and USB debugging. Connect it by USB, accept the RSA authorization prompt, then verify it from PowerShell:
+On the phone, enable Developer options and USB debugging. Connect it by USB, then verify the connection from PowerShell.
+
+### If `adb` is not recognized
+
+Android Studio installs the SDK to `%LOCALAPPDATA%\Android\Sdk`, but does not add it to your PATH. Test:
+
+```powershell
+adb version
+```
+
+If you see "not recognized", add the SDK to your PATH for the current session:
+
+```powershell
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:PATH += ";$env:ANDROID_HOME\platform-tools;$env:ANDROID_HOME\emulator"
+```
+
+For a permanent fix, add those two paths to your user `PATH` environment variable:
+
+1. Press `Win + R`, type `SystemPropertiesAdvanced`, press Enter.
+2. Click **Environment Variables…**
+3. Under "User variables", find `Path`. Click **Edit** → **New**.
+4. Add:
+   - `C:\Users\<your-username>\AppData\Local\Android\Sdk\platform-tools`
+   - `C:\Users\<your-username>\AppData\Local\Android\Sdk\emulator`
+5. Click OK on all dialogs, then close and reopen your terminal.
+
+### Authorize the USB debugging connection
+
+After `adb` is available, check the device:
 
 ```powershell
 adb devices
 ```
 
-The device should appear as `device`, not `unauthorized` or `offline`. For the primary USB workflow, forward Metro and the local Supabase API from the Windows host to the phone:
+If the output shows `unauthorized`, unlock your phone and look for the "Allow USB debugging?" RSA prompt. Check "Always allow from this computer" and tap **Allow**. Run `adb devices` again — it should now show `device`.
+
+If it shows `offline` or nothing at all, try:
+
+```powershell
+adb kill-server
+adb start-server
+adb devices
+```
+
+Also try: unlock the phone, re-plug the USB cable, try a different port or cable, and confirm USB debugging is still enabled in Developer options.
+
+### Port forwarding (local stack only)
+
+For the primary USB workflow against **local Supabase**, forward Metro and the API from the Windows host to the phone:
 
 ```powershell
 adb reverse tcp:8081 tcp:8081
@@ -137,6 +181,8 @@ adb reverse --list
 ```
 
 If Expo selects a different Metro port, forward that port instead. A LAN fallback is available: find the Windows IPv4 address with `ipconfig`, use it in `EXPO_PUBLIC_SUPABASE_URL`, and start Expo with a LAN-accessible host. The phone and Windows machine must be on the same network, and Windows Firewall must allow the development ports.
+
+**Against the hosted demo project, `adb reverse` is not required.** The app reaches `https://hmbraapdnkoxpepdqgaa.supabase.co` directly over HTTPS, not through `localhost`.
 
 ## 6. Choose a setup path
 
@@ -174,9 +220,16 @@ Before running the seed, ensure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
 | LGU / organization admin | `admin@example.com` | `password` |
 | Beneficiary | `beneficiary@example.com` | `password` |
 | Merchant | `merchant@example.com` | `password` |
-| Super admin | `superadmin@example.com` | `password` |
 
-The password is the literal string `password`, defined in `scripts/seed-merchant-demo.mjs`. The super admin is created only if the database has none.
+The password is the literal string `password`, defined in `scripts/seed-merchant-demo.mjs`.
+
+A fourth account exists but does **not** come from this seed:
+
+| Role | Email | Password | Source |
+| --- | --- | --- | --- |
+| Super admin | `superadmin@reliefchain.app` | `ReliefChainSuperAdmin!2026` | migration `20260716000100_super_admin_role_and_seed.sql` |
+
+It is created by a **migration**, so it exists in every database the migrations have been applied to, including the hosted demo project. `seed-merchant-demo.mjs` has a fallback that would create `superadmin@example.com` instead, but only when no `super_admin` profile exists — since the migration always seeds one, that branch never runs in practice. Use the `reliefchain.app` address. The super admin is the role that approves organization registrations.
 
 These are demo credentials only — for the local stack, and for the hosted testnet demo project where the same seed has been run. The seed does not delete old timestamped demo accounts.
 
@@ -423,6 +476,8 @@ adb kill-server
 adb start-server
 adb devices
 ```
+
+If `adb` itself is not recognized, add the Android SDK to your PATH — see §5 for both session-scoped and permanent instructions.
 
 ### The seed reports duplicate data or login still fails
 

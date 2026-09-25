@@ -232,6 +232,7 @@ Verify these before trusting any surrounding document or config.
 | 15 | ✅ **Resolved.** The signer secrets were absent, so the old RCPHP asset (issuer `GBC6HZTI…`, SAC `CAB57LDD…`) was unrecoverable | Nothing could sign as issuer, distribution, or treasury | Re-bootstrapped 2026-09-24: 8 accounts created and funded, plus `STELLAR_CONTRACT_ADMIN_SECRET` via the new `scripts/provision-contract-admin.mjs`. Seeds are in `.env.bootstrap.local`. **New identifiers: issuer `GAIKYUNHR734V5CKHXYE6PJOTIVIGT5B6W23TOFLMDKF525W3HASPO5I`, SAC `CCDE3J63TTF6W3LPDUOLPSEZYRJ675CTT2FTLWVZKMZIGJIQHUXEUTJA`.** The old pair must never be reused |
 | 16 | `reconciliation_cursors` and `registration_access_denials` have RLS **enabled with zero policies** | Deny-all to every non-service-role caller | Intentional — Edge Functions reach them through the service-role binding, which bypasses RLS. Do not "fix" by adding a policy |
 | 17 | `scripts/seed-test-users.mjs` and `seed-full-demo.mjs` use `beneficary@example.com` (missing `i`) and `admin@merchant.com`, which conflict with `seed-merchant-demo.mjs` | Two seed runs produce overlapping fixtures with different credentials; a demo script can reference an account that does not exist | Reconcile the addresses across the three scripts, or use exactly one per fixture |
+| 18 | ⚠️ **A migration hardcodes a Super Admin credential.** `20260716000100_super_admin_role_and_seed.sql` inserts `superadmin@reliefchain.app` with the password `ReliefChainSuperAdmin!2026` written in a comment and in the insert | The account is created in **every** database the migrations touch, including the hosted project. Super Admin approves organization registrations and reads every registration through `is_super_admin()`. The credential is in git history, so rotating the migration does not un-publish it | Acceptable for a testnet demo; **must not survive a pilot**. Before any environment holding real data: change the password out-of-band, or replace the seed with an invite/first-run flow. Do not treat "it is only a migration" as containment |
 
 ---
 
@@ -374,9 +375,9 @@ Created by `node .\scripts\seed-merchant-demo.mjs`; IDs are written to `scripts/
 | LGU / organization admin | `admin@example.com` | `password` |
 | Beneficiary | `beneficiary@example.com` | `password` |
 | Merchant | `merchant@example.com` | `password` |
-| Super admin | `superadmin@example.com` | `password` |
+| Super admin | `superadmin@reliefchain.app` | `ReliefChainSuperAdmin!2026` |
 
-The password is the literal string `password`, set at `scripts/seed-merchant-demo.mjs:70`. The super admin is created only when the database has none.
+The first three use the literal string `password`, set at `scripts/seed-merchant-demo.mjs:70`. **The super admin comes from a migration, not the seed** — `20260716000100_super_admin_role_and_seed.sql` inserts it with its own hardcoded password, so it exists wherever the migrations have run (§8 item 18). The seed's `superadmin@example.com` fallback only fires when no `super_admin` profile exists, which the migration guarantees is never the case. All four verified working against the hosted project on 2026-09-24.
 
 **Demo fixtures, not production credentials.** These now also exist on the hosted project (§15.0), where after seeding the row counts were `users=4 profiles=4 organizations=1 programs=1 wallets=3 registrations=1`. The merchant seed does not delete older timestamped demo accounts — run `npx supabase db reset --local` for a clean local fixture, and confirm the app points at the same Supabase instance where the seed ran.
 
