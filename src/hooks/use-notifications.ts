@@ -26,6 +26,15 @@ export type NotificationsHook = Readonly<{
  * refresh. RLS already scopes reads to `recipient_id = auth.uid()`; the
  * subscription filter mirrors that boundary rather than relying on it alone.
  */
+/** Module-level counter so every hook instance gets a distinct Realtime channel
+ * topic. `LogoHeader` (and thus this hook) mounts once per tab screen, and
+ * Expo Router's tab navigator keeps inactive tabs mounted rather than
+ * unmounting them — so multiple instances are live at once for the same
+ * user. Supabase's client reuses a channel object for a topic it has already
+ * seen, and calling `.on()` on an already-`subscribe()`d channel throws; a
+ * per-instance suffix keeps each mount's channel independent. */
+let notificationsChannelSequence = 0;
+
 export function useNotifications(): NotificationsHook {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
@@ -34,6 +43,10 @@ export function useNotifications(): NotificationsHook {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef(0);
+  const instanceIdRef = useRef<number | null>(null);
+  if (instanceIdRef.current === null) {
+    instanceIdRef.current = ++notificationsChannelSequence;
+  }
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -63,7 +76,7 @@ export function useNotifications(): NotificationsHook {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
-      .channel(`notifications:recipient:${userId}`)
+      .channel(`notifications:recipient:${userId}:${instanceIdRef.current}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}` },
