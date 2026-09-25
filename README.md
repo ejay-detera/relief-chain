@@ -13,9 +13,11 @@ Relief Chain is a mobile-first Expo/React Native application connecting LGUs, me
 
 ## Quick links
 
-- **Full Windows/Android setup:** [`SETUP.md`](./SETUP.md)
-- **Project direction:** [`ReliefChain_Project_Direction.md`](./ReliefChain_Project_Direction.md)
-- **Feature specifications:** [`.kiro/specs/`](./.kiro/specs/)
+- **Documentation map:** [`docs/index.md`](./docs/index.md)
+- **Source of truth:** [`docs/relief-chain.md`](./docs/relief-chain.md)
+- **Full Windows/Android setup:** [`docs/SETUP.md`](./docs/SETUP.md)
+- **Developer manual and deployment runbook:** [`docs/build-reliefchain.md`](./docs/build-reliefchain.md)
+- **What is built, gated, or planned:** [`docs/flow-reliefchain.md`](./docs/flow-reliefchain.md)
 
 ## Technology
 
@@ -27,10 +29,10 @@ Relief Chain is a mobile-first Expo/React Native application connecting LGUs, me
 
 ## Important boundaries
 
-This repository is configured for local development and Stellar **testnet only**. Mainnet is hard-disabled in the pilot configuration. Do not put secret seeds, signing keys, service-role keys, or other credentials in `EXPO_PUBLIC_*` variables, source files, logs, or documentation.
+Stellar **testnet only**. Mainnet is hard-disabled in the pilot configuration. Do not put secret seeds, signing keys, service-role keys, or other credentials in `EXPO_PUBLIC_*` variables, source files, logs, or documentation.
 
-The default demo accounts in `SETUP.md` are local/testnet credentials only. They must never be reused for a hosted or production environment.
+A hosted Supabase **testnet demo** project exists for running the app on real devices ([`docs/build-reliefchain.md`](./docs/build-reliefchain.md) §15). It is a demo environment, not production: no release signing, monitoring, alerting, or incident response. The demo accounts are fixtures and must never be reused anywhere real.
 
 ## Start here
 
-Follow [`SETUP.md`](./SETUP.md) for prerequisites, Docker/Supabase, ADB, Edge Functions, Stellar bootstrap, demo seeds, feature-specific scripts, validation, troubleshooting, and the production boundary.
+Follow [`docs/SETUP.md`](./docs/SETUP.md) for prerequisites, Docker/Supabase, ADB, Edge Functions, Stellar bootstrap, demo seeds, feature-specific scripts, validation, troubleshooting, and the production boundary.

@@ -75,7 +75,13 @@ async function main() {
   const line = (account.balances ?? []).find((b) => b.asset_code === 'RCPHP');
   console.log('\non-chain RCPHP trustline authorized:', line?.is_authorized === true);
 
-  const db = new pg.Client('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+  // Override SUPABASE_DB_URL to run this against a hosted project; the default is
+// the local `supabase start` stack.
+const db = new pg.Client({
+  connectionString:
+    process.env.SUPABASE_DB_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  ...(process.env.SUPABASE_DB_URL ? { ssl: { rejectUnauthorized: false } } : {}),
+});
   await db.connect();
   const w = await db.query(
     "select verification_status, is_active from public.wallets where address=$1 and owner_type='beneficiary_identity'",

@@ -1,9 +1,10 @@
 // A simple script to verify database state after E2E runs.
 import pg from 'pg';
-import fs from 'node:fs';
-import path from 'node:path';
 
-const databaseUrl = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+// Override SUPABASE_DB_URL to inspect a hosted project instead of the local stack.
+// Hosted connection string: Supabase dashboard → Project Settings → Database → Connection string.
+const databaseUrl =
+  process.env.SUPABASE_DB_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 async function main() {
   const db = new pg.Client(databaseUrl);

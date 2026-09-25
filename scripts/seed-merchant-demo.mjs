@@ -67,7 +67,7 @@ const runId = Date.now().toString(36);
 const adminEmail = 'admin@example.com';
 const beneficiaryEmail = 'beneficiary@example.com';
 const merchantEmail = 'merchant@example.com';
-const password = 'ReliefChain!123';
+const password = 'password';
 
 const findUserByEmail = async (email) => {
   for (let page = 1; ; page += 1) {

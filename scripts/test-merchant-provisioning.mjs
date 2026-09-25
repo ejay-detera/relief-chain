@@ -1,14 +1,21 @@
 // Test script for merchant wallet provisioning.
+import { Keypair, Transaction } from '@stellar/stellar-sdk';
 import { createClient } from '@supabase/supabase-js';
-import { Keypair, Transaction, Networks } from '@stellar/stellar-sdk';
-import pg from 'pg';
 import fs from 'node:fs';
 import path from 'node:path';
+import pg from 'pg';
 
 // Load env file if exists
-let serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
-let url = 'http://127.0.0.1:54321';
-const databaseUrl = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+// Env overrides win over these local defaults, so this script can target a
+// hosted project:  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL.
+// The default key below is the well-known public `supabase-demo` service-role
+// JWT — valid only against a local `supabase start` stack.
+let serviceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
+let url = process.env.SUPABASE_URL || 'http://127.0.0.1:54321';
+const databaseUrl =
+  process.env.SUPABASE_DB_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 try {
   const envPath = path.resolve('supabase/functions/.env');
@@ -22,7 +29,9 @@ try {
         if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
           val = val.substring(1, val.length - 1);
         }
-        if (key === 'SUPABASE_URL') url = val;
+        // An explicit SUPABASE_URL in the environment wins over the local
+        // functions env file, so this can be pointed at a hosted project.
+        if (key === 'SUPABASE_URL' && !process.env.SUPABASE_URL) url = val;
       }
     }
   }
