@@ -1,6 +1,6 @@
-import React from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { BrandColors, Spacing } from '@/constants/theme';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { ProgramCard, ProgramItem, resolveProgramStatus } from './ProgramCard';
 import { ProgramFilterType } from './ProgramFilterTabs';
 
@@ -59,12 +59,14 @@ export const ProgramList = ({
     <FlatList
       data={filteredPrograms}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <ProgramCard
-          program={item}
-          onPress={onCardPress}
-          onOpenMenu={onOpenMenu}
-        />
+      renderItem={({ item, index }) => (
+        <FadeInView delay={Math.min(index, 4) * 40}>
+          <ProgramCard
+            program={item}
+            onPress={onCardPress}
+            onOpenMenu={onOpenMenu}
+          />
+        </FadeInView>
       )}
       contentContainerStyle={styles.listContainer}
       refreshControl={

@@ -57,6 +57,16 @@ if (!merchantSecret) {
 }
 const merchantWalletAddress = Keypair.fromSecret(merchantSecret).publicKey();
 
+// Derived, never hardcoded: a hardcoded issuer here can silently drift from
+// whichever topology is actually bootstrapped and funded locally (this
+// happened — see docs/build-reliefchain.md §8 item 15). The program's
+// asset_issuer must always match the issuer behind STELLAR_ISSUER_SECRET.
+const issuerSecret = process.env.STELLAR_ISSUER_SECRET?.trim();
+if (!issuerSecret) {
+  throw new Error('STELLAR_ISSUER_SECRET is required (load .env.bootstrap.local into the env first).');
+}
+const rcphpIssuer = Keypair.fromSecret(issuerSecret).publicKey();
+
 const databaseUrl = process.env.SUPABASE_DB_URL?.trim() || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 const admin = createClient(url, serviceRoleKey, {
@@ -138,7 +148,7 @@ async function main() {
        values ($1,'lgu','Merchant Demo Admin','Verified'), 
               ($2,'beneficiary','Merchant Demo Beneficiary','Verified'),
               ($3,'merchant','Merchant Demo User','Verified')
-       on conflict (id) do update set verification_status = 'Verified'`,
+       on conflict (id) do update set verification_status = 'Verified', full_name = excluded.full_name`,
       [adminUserId, beneficiaryUserId, merchantUserId],
     );
 
@@ -250,7 +260,7 @@ async function main() {
       `insert into public.programs (name, organization_id, aid_type, created_by,
          total_budget, amount_per_beneficiary, asset_code, asset_issuer)
        values ($1,$2,'cash',$3,50000,1000,'RCPHP',$4) returning id`,
-      [`Merchant Demo Program ${runId}`, org.id, adminUserId, 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7'],
+      [`Merchant Demo Program ${runId}`, org.id, adminUserId, rcphpIssuer],
     )).rows[0];
 
     // Enrollment

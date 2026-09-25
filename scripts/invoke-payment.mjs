@@ -13,12 +13,12 @@
 //   $env:MERCHANT_ENTITY_ID="<merchant entity id>"
 //   node ./scripts/invoke-payment.mjs
 
+import { Keypair, Networks, Transaction } from '@stellar/stellar-sdk';
 import { createClient } from '@supabase/supabase-js';
-import { Keypair, Transaction, Networks } from '@stellar/stellar-sdk';
-import { signInvoice, deriveExpiresAt } from '../shared/invoice-codec.ts';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { deriveExpiresAt, signInvoice } from '../shared/invoice-codec.ts';
 
 // Load env file if exists
 try {
@@ -103,8 +103,14 @@ async function main() {
   const nonce = createHash('sha256').update(Date.now().toString()).digest('hex');
   const issuedAt = new Date().toISOString();
   const expiresAt = deriveExpiresAt(issuedAt);
-  const rcphpIssuer = process.env.STELLAR_RCPHP_ISSUER?.trim() || 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7';
-  const rcphpSacId = process.env.STELLAR_RCPHP_SAC_ID?.trim() || 'CAB57LDDYPIMK7H57KZ52JIIPOSNN7GHYLN4636D7SX76KQWGKLLA43N';
+  const rcphpIssuer = process.env.STELLAR_RCPHP_ISSUER?.trim();
+  const rcphpSacId = process.env.STELLAR_RCPHP_SAC_ID?.trim();
+  if (!rcphpIssuer || !rcphpSacId) {
+    throw new Error(
+      'STELLAR_RCPHP_ISSUER / STELLAR_RCPHP_SAC_ID missing. Run node ./scripts/make-functions-env.mjs first ' +
+        '(no hardcoded fallback here — a stale pair previously pointed at an asset with zero funded supply).',
+    );
+  }
 
   const unsignedInvoice = {
     version: 1,

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TextInput, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useCreateProgram } from './_layout';
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { FadeInView } from '@/components/shared/FadeInView';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCreateProgram } from './_layout';
 
 export default function EligibilityScreen() {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function EligibilityScreen() {
       <StepIndicator currentStep={4} title="Eligibility Criteria" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <FadeInView delay={0}>
         <Text style={styles.sectionDescription}>
           Select the criteria beneficiaries must meet to be eligible for this aid program. You can check/uncheck these or add custom rules.
         </Text>
@@ -89,6 +91,7 @@ export default function EligibilityScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        </FadeInView>
       </ScrollView>
 
       <WizardNavigation onBack={handleBack} onNext={handleNext} disableNext={draft.eligibilityCriteria.length === 0} />

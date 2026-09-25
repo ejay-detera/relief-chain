@@ -9,6 +9,7 @@ import { InvoiceExpiryCountdown } from '@/components/MerchantInvoice/InvoiceExpi
 import { InvoiceQrCard } from '@/components/MerchantInvoice/InvoiceQrCard';
 import { InvoiceSettlementState } from '@/components/MerchantInvoice/InvoiceSettlementState';
 import { InvoiceSigningStatus } from '@/components/MerchantInvoice/InvoiceSigningStatus';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
@@ -91,26 +92,30 @@ const MerchantReceiveScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <InvoiceSigningStatus
-          bindingError={bindingError}
-          isLoading={isLoading}
-          isSigning={step === 'signing'}
-          walletState={walletState}
-        />
+        <FadeInView delay={0}>
+          <InvoiceSigningStatus
+            bindingError={bindingError}
+            isLoading={isLoading}
+            isSigning={step === 'signing'}
+            walletState={walletState}
+          />
+        </FadeInView>
 
         {/* Pending payments UI removed – merchant receives instantly */}
 
         {step === 'present' && presented ? (
-          <View style={styles.presentBlock}>
-            <InvoiceExpiryCountdown expiresAt={presented.invoice.expiresAt} onExpired={handleExpired} />
-            <InvoiceQrCard invoice={presented.invoice} transport={presented.transport} />
-            <InvoiceSettlementState state={settlement} />
-            <Pressable accessibilityRole="button" onPress={startNewInvoice} style={styles.newInvoice}>
-              <ThemedText style={styles.newInvoiceText}>New invoice</ThemedText>
-            </Pressable>
-          </View>
+          <FadeInView delay={40}>
+            <View style={styles.presentBlock}>
+              <InvoiceExpiryCountdown expiresAt={presented.invoice.expiresAt} onExpired={handleExpired} />
+              <InvoiceQrCard invoice={presented.invoice} transport={presented.transport} />
+              <InvoiceSettlementState state={settlement} />
+              <Pressable accessibilityRole="button" onPress={startNewInvoice} style={styles.newInvoice}>
+                <ThemedText style={styles.newInvoiceText}>New invoice</ThemedText>
+              </Pressable>
+            </View>
+          </FadeInView>
         ) : (
-          <>
+          <FadeInView delay={40}>
             {formError && <ThemedText style={styles.error}>{formError}</ThemedText>}
             {canCreate ? (
               <InvoiceAmountForm isSubmitting={step === 'signing'} onSubmit={(draft) => void handleSubmit(draft)} voucherPrograms={voucherPrograms} />
@@ -119,7 +124,7 @@ const MerchantReceiveScreen = () => {
                 A verified merchant signer is required before you can create invoices.
               </ThemedText>
             )}
-          </>
+          </FadeInView>
         )}
       </ScrollView>
     </SafeAreaView>

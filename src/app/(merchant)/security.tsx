@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MfaSecurityPanel } from '@/components/Mfa/MfaSecurityPanel';
+import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
 
@@ -26,11 +27,15 @@ const MerchantSecurityScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ThemedText style={styles.intro}>
-          Protect your merchant account with multi-factor authentication. Wallet changes, refunds,
-          and cash-out require multi-factor and a recent step-up.
-        </ThemedText>
-        <MfaSecurityPanel accountLabel="merchant" stepUpActionDescription="authorize this financial action" />
+        <FadeInView delay={0}>
+          <ThemedText style={styles.intro}>
+            Protect your merchant account with multi-factor authentication. Wallet changes, refunds,
+            and cash-out require multi-factor and a recent step-up.
+          </ThemedText>
+        </FadeInView>
+        <FadeInView delay={40}>
+          <MfaSecurityPanel accountLabel="merchant" stepUpActionDescription="authorize this financial action" />
+        </FadeInView>
       </ScrollView>
     </SafeAreaView>
   );

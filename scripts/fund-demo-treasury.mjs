@@ -5,7 +5,7 @@
 //
 // Note: Amount is in RCPHP (e.g., 1000 = 1000.0000000 RCPHP).
 
-import { Keypair, Horizon, Asset, TransactionBuilder, Networks, BASE_FEE, Operation } from '@stellar/stellar-sdk';
+import { Asset, BASE_FEE, Horizon, Keypair, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -42,11 +42,12 @@ const server = new Horizon.Server(horizonUrl);
 
 const distributionSecret = process.env.STELLAR_DISTRIBUTION_SECRET?.trim();
 const treasurySecret = process.env.STELLAR_ORGANIZATION_TREASURY_SECRET?.trim();
+const issuerSecret = process.env.STELLAR_ISSUER_SECRET?.trim();
 
-if (!distributionSecret || !treasurySecret) {
+if (!distributionSecret || !treasurySecret || !issuerSecret) {
   throw new Error(
     'Missing required Stellar secrets.\n' +
-    'Please ensure STELLAR_DISTRIBUTION_SECRET and STELLAR_ORGANIZATION_TREASURY_SECRET are set.'
+    'Please ensure STELLAR_DISTRIBUTION_SECRET, STELLAR_ORGANIZATION_TREASURY_SECRET, and STELLAR_ISSUER_SECRET are set.'
   );
 }
 
@@ -54,7 +55,9 @@ const distributionKeypair = Keypair.fromSecret(distributionSecret);
 const treasuryKeypair = Keypair.fromSecret(treasurySecret);
 
 const ASSET_CODE = 'RCPHP';
-const ASSET_ISSUER = 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7';
+// Derived, never hardcoded — a stale hardcoded issuer here would build
+// trustline/payment transactions against an asset with zero funded supply.
+const ASSET_ISSUER = Keypair.fromSecret(issuerSecret).publicKey();
 const rcphpAsset = new Asset(ASSET_CODE, ASSET_ISSUER);
 
 // Parse arguments

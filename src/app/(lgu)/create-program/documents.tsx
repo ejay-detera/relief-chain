@@ -1,11 +1,11 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import { useCreateProgram } from './_layout';
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { FadeInView } from '@/components/shared/FadeInView';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import * as DocumentPicker from 'expo-document-picker';
+import { useRouter } from 'expo-router';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCreateProgram } from './_layout';
 
 export default function DocumentsScreen() {
   const router = useRouter();
@@ -60,6 +60,7 @@ export default function DocumentsScreen() {
       <StepIndicator currentStep={6} title="Supporting Documents" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <FadeInView delay={0}>
         <Text style={styles.sectionDescription}>
           Optionally upload any supporting program guidelines, office memorandums, or event details to attach to this program draft.
         </Text>
@@ -91,6 +92,7 @@ export default function DocumentsScreen() {
             ))}
           </View>
         ) : null}
+        </FadeInView>
       </ScrollView>
 
       <WizardNavigation onBack={handleBack} onNext={handleNext} />

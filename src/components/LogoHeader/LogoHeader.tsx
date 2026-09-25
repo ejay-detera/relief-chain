@@ -1,11 +1,17 @@
-import { FontAwesome } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
+import { NotificationBell } from '@/components/shared/NotificationBell';
+import { NotificationsModal } from '@/components/shared/NotificationsModal';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
+import { useNotifications } from '@/hooks/use-notifications';
 
 export const LogoHeader = () => {
+  const { notifications, unreadCount, isLoading, error, markRead, markAllRead } = useNotifications();
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
@@ -21,10 +27,18 @@ export const LogoHeader = () => {
           <ThemedText style={styles.chainText}>Chain</ThemedText>
         </View>
       </View>
-      
-      <Pressable style={styles.notificationButton}>
-        <FontAwesome name="bell" size={20} color="white" />
-      </Pressable>
+
+      <NotificationBell onPress={() => setIsModalVisible(true)} unreadCount={unreadCount} />
+
+      <NotificationsModal
+        error={error}
+        isLoading={isLoading}
+        notifications={notifications}
+        onClose={() => setIsModalVisible(false)}
+        onMarkAllRead={() => void markAllRead()}
+        onMarkRead={(id) => void markRead(id)}
+        visible={isModalVisible}
+      />
     </View>
   );
 };
@@ -70,13 +84,5 @@ const styles = StyleSheet.create({
     color: BrandColors.green,
     fontFamily: 'Sarina_400Regular',
     lineHeight: 22,
-  },
-  notificationButton: {
-    backgroundColor: BrandColors.navy,
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
