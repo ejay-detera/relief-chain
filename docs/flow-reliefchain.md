@@ -210,7 +210,7 @@ sequenceDiagram
 | Program wizard (7 steps) | Must | ✅ | `(lgu)/create-program/*` |
 | DB-enforced financial policy | Must | ✅ | `programs_validate_financial_policy` |
 | Wallet provisioning + proof | Must | ✅ | `prepare/submit-wallet-provision`, `complete_wallet_proof()` |
-| Wallet rotation + recovery | Should | ✅ | `wallet_rotation_intents`, `WalletRecovery/`, contract `rotate_entitlement` |
+| Wallet rotation + recovery | Should | ✅ | `wallet_rotation_intents` (beneficiary), `WalletRecovery/` + `(beneficiary)/wallet-recovery`, contract `rotate_entitlement`; merchant replacement via `prepare/submit-merchant-provision` supersession + `(merchant)/wallet-recovery` |
 | Batch disbursement (cash rail) | Must | ✅ | `DistributeAid/`, `prepare/submit-disbursement` |
 | QR invoice generation | Must | ✅ | `MerchantInvoice/InvoiceQrCard.tsx`, `shared/invoice-codec.ts` |
 | QR scan + validation | Must | ✅ | `PayScan/ScannerView.tsx`, `invoice-scan-service.ts` |

@@ -91,16 +91,23 @@ test('returns ready only when the local signer matches the active wallet row', a
   assert.equal(fixture.generated(), 0);
 });
 
-test('provisions a disposable signer when active wallet exists but secret is missing', async () => {
+test('requires recovery when active wallet exists but secret is missing', async () => {
   const fixture = makeDependencies();
   const row = activeWallet(Keypair.random()); // active wallet with address but no secret stored
   const state = await service.resolvePilotWallet('user-123', row, fixture.dependencies);
 
-  assert.equal(state.status, 'binding_required');
-  assert.equal(state.wasProvisioned, true);
+  // Silently provisioning a replacement here would orphan funds already issued
+  // to the active address. Surface explicit recovery instead so the user goes
+  // through rotation (merchant supersession or beneficiary rotation intent).
+  assert.equal(state.status, 'recovery_required');
+  assert.equal(state.reason, 'missing_signer');
   assert.equal(state.custodyModel, 'disposable_testnet');
-  // Ensure a write occurred to SecureStore
-  assert.equal(fixture.writes.length, 1);
+  assert.equal(state.walletId, row.id);
+  assert.equal(state.expectedAddress, row.address);
+  assert.equal(state.canStartRotation, true);
+  // Ensure no silent replacement was written to SecureStore
+  assert.equal(fixture.writes.length, 0);
+  assert.equal(fixture.generated(), 0);
 });
 
 test('surfaces invalid local signer material without exposing or replacing it', async () => {

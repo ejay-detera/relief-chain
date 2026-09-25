@@ -578,6 +578,8 @@ npx supabase functions list
 
 **Do not pass `--no-verify-jwt`.** JWT verification must stay in front of the checks in `supabase/functions/_shared/auth.ts`.
 
+**2026-09-25: pass `--import-map` explicitly.** Without Docker running, the CLI falls back to remote bundling, which ignores `supabase/functions/deno.json` and fails with `Relative import path "@supabase/supabase-js" not prefixed...` in `_shared/auth.ts`. Deploy per function as `npx supabase functions deploy <name> --import-map supabase/functions/deno.json` (verified for `prepare/submit-merchant-provision`, now at v2). `npm run deploy:functions` without the flag currently fails at `prepare-cash-activation` for the same reason.
+
 `supabase/functions/_shared/` is bundled into each function, not deployed as its own function. `scripts/make-functions-env.mjs` writes `supabase/functions/.env` for `functions serve` **only** — it has no role in a hosted deployment.
 
 **Formerly a gap, now resolved.** `src/components/OrganizationRegistration/OrganizationRegistrationFlow.tsx` invokes **`lgu-signup`**, which had no source under `supabase/functions/` — it existed only as a deployed orphan on the project. The source was recovered with `supabase functions download lgu-signup` and committed, so it is now part of the 13 and is redeployable. It was also running with `verify_jwt` **off**; `supabase/config.toml` now pins `[functions.lgu-signup] verify_jwt = true`. Note the anon key ships in the APK, so JWT verification is a weak control here — the real gate is the organization registration review state machine (§8 item 13).

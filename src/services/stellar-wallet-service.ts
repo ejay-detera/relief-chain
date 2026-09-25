@@ -62,6 +62,32 @@ export {
     pilotWalletStorageNamespace
 } from './stellar-wallet-service-core';
 
+/**
+ * Explicit user-initiated merchant recovery: generates a fresh disposable
+ * testnet keypair on this device and stores it in the namespaced SecureStore
+ * slot, overwriting a missing or mismatched secret. Unlike the silent
+ * auto-provision in `resolvePilotWallet` (which refuses to overwrite when an
+ * active binding exists, to avoid orphaning funds), this is only called from
+ * the merchant wallet-recovery screen after explicit disclosure — the old
+ * wallet stays bound in the DB until `submit-merchant-provision` supersedes it.
+ * Returns the new public key. Throws when secure storage is unavailable.
+ */
+export const generateAndStoreReplacementMerchantSigner = async (
+  userId: string,
+): Promise<string> => {
+  const storageNamespace = pilotWalletStorageNamespace(userId);
+  if (!await SecureStore.isAvailableAsync()) {
+    throw new Error('Secure wallet storage is unavailable.');
+  }
+  const keypair = Keypair.random();
+  await SecureStore.setItemAsync(
+    pilotWalletSecureStoreKey(storageNamespace),
+    keypair.secret(),
+    secureStoreOptions,
+  );
+  return keypair.publicKey();
+};
+
 
 /** Signs a short-lived server challenge with the namespaced disposable testnet key. */
 export const signPilotWalletProofChallenge = async (
@@ -206,7 +232,32 @@ export const signPreparedProvisionTransaction = async (
   if (keypair.publicKey() !== expectedSigner) {
     throw new Error('The local signer does not match the wallet being provisioned.');
   }
-  const transaction = TransactionBuilder.fromXDR(unsignedTxXdr, networkPassphrase);
+  let transaction: Transaction;
+  try {
+    transaction = TransactionBuilder.fromXDR(unsignedTxXdr, networkPassphrase) as Transaction;
+  } catch (xdrError) {
+    // Same fail-loud policy as the cash path, plus a base64 round-trip probe:
+    // a decoder mismatch on-device corrupts bytes before the XDR codec runs,
+    // which surfaces downstream as a misleading asset/code error. Report both
+    // so support can distinguish transport corruption from a bad transaction.
+    let roundTrip: string;
+    try {
+      const decoded = Buffer.from(unsignedTxXdr, 'base64');
+      roundTrip = `xdr ${unsignedTxXdr.length} chars, decoded ${decoded.length} bytes, roundtrip ${decoded.toString('base64') === unsignedTxXdr}`;
+    } catch {
+      roundTrip = `xdr ${unsignedTxXdr.length} chars, base64 decode failed`;
+    }
+    if (__DEV__) {
+      console.error(
+        '[signPreparedProvisionTransaction] Failed to parse the provisioning transaction XDR.',
+        xdrError instanceof Error ? xdrError.message : xdrError,
+        roundTrip,
+      );
+    }
+    throw new Error(
+      `Unable to read the provisioning transaction (${roundTrip}): ${xdrError instanceof Error ? xdrError.message : 'parse failed'}. Please try again or contact support if this persists.`,
+    );
+  }
   transaction.sign(keypair);
   return transaction.toXDR();
 };

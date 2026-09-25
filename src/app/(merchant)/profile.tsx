@@ -35,17 +35,23 @@ const MerchantProfileScreen = () => {
   const mobileNumber = profile?.mobile_number || session?.user.phone || metadataString(metadata, 'mobile_number') || 'Not available';
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }} showsVerticalScrollIndicator={false}>
-      <FadeInView delay={0}>
-        <MerchantProfileContent fullName={fullName} handle={createHandle(fullName)} merchantId={merchantId} mobileNumber={mobileNumber} walletAddress={walletAddress} />
-      </FadeInView>
-      <FadeInView delay={40}>
-        <Pressable onPress={() => router.push('/(merchant)/security' as any)} style={styles.securityRow}>
-          <View style={styles.securityRowLeft}>
-            <FontAwesome color={BrandColors.navy} name="shield" size={16} />
-            <View>
-              <ThemedText style={styles.securityTitle}>Security & MFA</ThemedText>
-              <ThemedText style={styles.securitySubtitle}>Authenticator and step-up for financial actions</ThemedText>
-            </View>
+      <MerchantProfileContent fullName={fullName} handle={createHandle(fullName)} merchantId={merchantId} mobileNumber={mobileNumber} walletAddress={walletAddress} />
+      <Pressable onPress={() => router.push('/(merchant)/wallet-recovery' as never)} style={styles.securityRow}>
+        <View style={styles.securityRowLeft}>
+          <FontAwesome color={BrandColors.navy} name="refresh" size={16} />
+          <View>
+            <ThemedText style={styles.securityTitle}>Wallet & recovery</ThemedText>
+            <ThemedText style={styles.securitySubtitle}>Replace a lost signer and activate settlement</ThemedText>
+          </View>
+        </View>
+        <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+      </Pressable>
+      <Pressable onPress={() => router.push('/(merchant)/security' as any)} style={styles.securityRow}>
+        <View style={styles.securityRowLeft}>
+          <FontAwesome color={BrandColors.navy} name="shield" size={16} />
+          <View>
+            <ThemedText style={styles.securityTitle}>Security & MFA</ThemedText>
+            <ThemedText style={styles.securitySubtitle}>Authenticator and step-up for financial actions</ThemedText>
           </View>
           <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
         </Pressable>
