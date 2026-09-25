@@ -1,10 +1,9 @@
 import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
-import { useActivateCashProgram } from '@/hooks/use-activate-cash-program';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useCreateProgram } from './_layout';
 
 export default function SummaryScreen() {
@@ -12,6 +11,7 @@ export default function SummaryScreen() {
   const { draft, publishProgram } = useCreateProgram();
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [publishedStatus, setPublishedStatus] = useState<'draft' | 'published'>('draft');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCloseSuccess = () => {
     setSuccessModalVisible(false);
@@ -19,21 +19,20 @@ export default function SummaryScreen() {
     router.replace('/(lgu)/programs' as any);
   };
 
-  const { activateProgram, isActivating } = useActivateCashProgram();
-
   const handleAction = async (status: 'draft' | 'published') => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setPublishedStatus(status);
-    const result = await publishProgram(status);
-    if (result.success) {
-      if (status === 'published' && result.programId && result.organizationId) {
-        try {
-          await activateProgram(result.organizationId, result.programId);
-        } catch (e) {
-          console.error(e);
-          Alert.alert('Activation Failed', 'Program was published but activation failed. You may need to fund the treasury.');
-        }
+    try {
+      // Single entry point: publishProgram already runs
+      // create/update + prepare/submit/reconcile activation internally.
+      // Do not call activateProgram a second time here (idempotency replay).
+      const result = await publishProgram(status);
+      if (result.success) {
+        setSuccessModalVisible(true);
       }
-      setSuccessModalVisible(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -200,11 +199,11 @@ export default function SummaryScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.publishButton, isActivating && { opacity: 0.7 }]}
+          style={[styles.publishButton, isSubmitting && { opacity: 0.7 }]}
           onPress={() => handleAction('published')}
-          disabled={isActivating}>
+          disabled={isSubmitting}>
           <Text style={styles.publishButtonText}>
-            {isActivating ? 'Activating...' : 'Publish Program'}
+            {isSubmitting ? 'Publishing...' : 'Publish Program'}
           </Text>
         </TouchableOpacity>
       </View>
