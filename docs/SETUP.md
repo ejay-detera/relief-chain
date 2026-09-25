@@ -479,6 +479,36 @@ adb devices
 
 If `adb` itself is not recognized, add the Android SDK to your PATH — see §5 for both session-scoped and permanent instructions.
 
+### Gradle build fails with "SDK location not found"
+
+The generated `android/` project needs to know where the Android SDK is. Create `android/local.properties` (it's gitignored) with:
+
+```ini
+sdk.dir=C\:\\Users\\<your-username>\\AppData\\Local\\Android\\Sdk
+```
+
+On your machine that's:
+
+```ini
+sdk.dir=C\:\\Users\\mobar\\AppData\\Local\\Android\\Sdk
+```
+
+The backslashes must be escaped as `\\` in this file.
+
+### Gradle build fails with JDK version errors
+
+Expo SDK 57 requires JDK 17 or 21. If you have a newer JDK (26+) installed, Gradle will fail during `JdkImageTransform`. Fix by telling Gradle which JDK to use — add this line to `android/local.properties`:
+
+```ini
+org.gradle.java.home=C\:\\Program Files\\Java\\jdk-17
+```
+
+Adjust the path if your JDK 17 is installed elsewhere. You can find all installed JDKs with:
+
+```powershell
+Get-ChildItem "C:\Program Files\Java" -Recurse -Filter "java.exe" | ForEach-Object { Write-Host $_.FullName; & $_.FullName -version 2>&1 | Select-Object -First 1 }
+```
+
 ### The seed reports duplicate data or login still fails
 
 Reset the local database, run the merchant seed again, and confirm the app points to the same local API:

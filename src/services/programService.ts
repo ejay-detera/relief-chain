@@ -148,7 +148,10 @@ export const createLguProgram = async (
       status: status === 'published' ? 'active' : 'draft',
       created_by: createdBy,
       asset_code: 'RCPHP',
-      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7',
+      // Re-bootstrapped 2026-09-24. Old GBC6HZTI…/CAB57LDD… pair is orphaned
+      // (secrets lost) and must never be reused. Edge prepare ignores this
+      // column and uses STELLAR_RCPHP_ISSUER, but keep rows honest.
+      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GAIKYUNHR734V5CKHXYE6PJOTIVIGT5B6W23TOFLMDKF525W3HASPO5I',
     })
     .select('id, organization_id')
     .single();
@@ -210,7 +213,8 @@ export const updateLguProgram = async (
       supporting_documents: draft.supportingDocuments,
       status: status === 'published' ? 'active' : 'draft',
       asset_code: 'RCPHP',
-      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GBC6HZTIUH6C3KQR5D3NOS2PJ7YKQJQNAQGAO3WO4PICJEXPAPGRKSQ7',
+      // See note above: post-2026-09-24 issuer, never the orphaned GBC6… pair.
+      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GAIKYUNHR734V5CKHXYE6PJOTIVIGT5B6W23TOFLMDKF525W3HASPO5I',
     })
     .eq('id', id)
     .select('id, organization_id')
