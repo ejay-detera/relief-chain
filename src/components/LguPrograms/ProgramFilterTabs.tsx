@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
 
-export type ProgramFilterType = 'All' | 'Active' | 'Scheduled' | 'Completed';
+export type ProgramFilterType = 'All' | 'Active' | 'Funding' | 'Scheduled' | 'Completed';
 
 interface ProgramFilterTabsProps {
   selectedTab: ProgramFilterType;
@@ -10,7 +10,7 @@ interface ProgramFilterTabsProps {
 }
 
 export const ProgramFilterTabs = ({ selectedTab, onChangeTab }: ProgramFilterTabsProps) => {
-  const tabs: ProgramFilterType[] = ['All', 'Active', 'Scheduled', 'Completed'];
+  const tabs: ProgramFilterType[] = ['All', 'Active', 'Funding', 'Scheduled', 'Completed'];
 
   return (
     <View style={styles.tabContainer}>

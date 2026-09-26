@@ -516,3 +516,38 @@ test('protocol: retry builds a fresh first attempt when none exist', async () =>
   assert.equal(outcome.settled, false);
   assert.equal(outcome.built.attempt.attempt_number, 1);
 });
+
+test('protocol: replay + latest accepted (orphan) → retry builds attempt 2 under the same intent/key', async () => {
+  // The orphan-accepted path behind the retry-payment Edge Function: PREPARE
+  // claimed the invoice-bound idempotency key and wrote an `accepted` attempt
+  // with no hash, then signing/submission never completed. A replay must reuse
+  // the prior intent (never a second intent) and the retry must build attempt 2
+  // under that same intent with a fresh signing package — never reconciling an
+  // `accepted` attempt that was never submitted.
+  const prior = intentRecord({ id: 'intent-orphan', operation_type: 'cash_payment' });
+  const intents = makeIntentStore();
+  intents.byKey.set('idem-1', prior);
+  const attempts = makeAttemptStore([attemptRecord({ status: 'accepted', envelope_xdr: builtEnvelopeXdr() })]);
+  const reconciler = makeReconciler('unknown');
+  const proto = engine({ intents, attempts, reconciler, claim: freshClaim(true) });
+
+  const prepared = await proto.prepare(prepareRequest({ operationType: 'cash_payment' }));
+  assert.equal(prepared.isReplay, true);
+  assert.equal(prepared.intent.id, 'intent-orphan');
+  assert.equal(intents.inserted.length, 0);
+
+  const outcome = await proto.retry(
+    prepared.intent,
+    stubStrategy({ overrides: { operationType: 'cash_payment' } }),
+  );
+  assert.equal(outcome.settled, false);
+  assert.equal(outcome.built.attempt.attempt_number, 2);
+  assert.equal(outcome.built.attempt.financial_intent_id, 'intent-orphan');
+  assert.equal(outcome.built.attempt.status, 'accepted');
+  assert.equal(outcome.built.signingPackage.kind, 'classic_envelope');
+  // An `accepted` retry never touches the reconciler: nothing was submitted.
+  assert.equal(reconciler.calls, 0);
+  // The reconciler-visible set is unchanged: accepted→submitted stays allowed
+  // and only the reconciler may confirm (no terminal transition here).
+  assert.equal(attempts.attempts.length, 2);
+});

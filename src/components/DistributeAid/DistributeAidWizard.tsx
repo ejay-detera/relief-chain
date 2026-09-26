@@ -17,6 +17,7 @@ import type { FinancialError } from '@/types/errors';
 
 import { DistributionFailureSummary } from './DistributionFailureSummary';
 import { DistributionProgress } from './DistributionProgress';
+import { DistributionReconcileCard } from './DistributionReconcileCard';
 import { RecipientResults } from './RecipientResults';
 import { DatabaseProgram, Step1ProgramSelect } from './Step1ProgramSelect';
 import { Step2ProgramSummary } from './Step2ProgramSummary';
@@ -198,6 +199,7 @@ export const DistributeAidWizard = ({ onClose, onCompleted }: Props) => {
               header={
                 <View>
                   <DistributionProgress job={job} refreshing={refreshing} onRefresh={refresh} />
+                  <DistributionReconcileCard jobId={jobId} onSynced={refresh} />
                   <DistributionFailureSummary
                     outcomes={outcomes}
                     onRetrySafe={retrySafe}

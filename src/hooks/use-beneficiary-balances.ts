@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import { fetchLiveRCPHPBalance } from '@/services/stellar-account-balance-service';
 import { parseStroopAmount, type StroopAmount } from '@/types/blockchain';
-import type { PilotBalanceSummary, ProjectionState } from '@/types/projection';
+import type { LiveBalanceState, PilotBalanceSummary, ProjectionState } from '@/types/projection';
 import { addStroops, ZERO_STROOPS } from '@/utils/format-stroops';
 
 type ProjectionRow = Readonly<{
@@ -18,6 +19,7 @@ type ProjectionRow = Readonly<{
 
 export type BeneficiaryBalancesHook = Readonly<{
   balance: ProjectionState<PilotBalanceSummary>;
+  liveBalance: LiveBalanceState;
   refresh: () => Promise<void>;
 }>;
 
@@ -81,39 +83,80 @@ const toProjectionState = (rows: readonly ProjectionRow[]): ProjectionState<Pilo
  * indexed projection. RLS scopes rows to the signed-in beneficiary. A failure is
  * surfaced as `unavailable`; it is never converted into a populated success
  * (Requirements 18.1, 21.2, 21.3, 21.4).
+ *
+ * When the active verified wallet address is supplied, refresh also fetches
+ * the live on-chain RCPHP balance for that wallet (read-only Horizon GET, no
+ * secrets, no signing). The live figure complements the reconciled summary —
+ * the two are exposed separately and never merged. The live fetch runs only
+ * on explicit refresh/mount with in-flight dedupe via `requestRef`; there is
+ * no polling loop.
  */
-export function useBeneficiaryBalances(): BeneficiaryBalancesHook {
+export function useBeneficiaryBalances(walletAddress?: string | null): BeneficiaryBalancesHook {
   const [balance, setBalance] = useState<ProjectionState<PilotBalanceSummary>>({ status: 'loading' });
+  const [liveBalance, setLiveBalance] = useState<LiveBalanceState>({ status: 'idle' });
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
     const request = ++requestRef.current;
+    const address = walletAddress && walletAddress.trim().length > 0 ? walletAddress : null;
     setBalance({ status: 'loading' });
-    try {
-      const { data, error } = await supabase
-        .from('beneficiary_balance_projection')
-        .select(
-          'aid_type, available_balance_stroops, confirmed_transaction_count, reconciled_at, as_of_ledger, is_stale, is_quarantined, quarantine_issue_id',
-        )
-        .order('reconciled_at', { ascending: false });
+    setLiveBalance(address ? { status: 'loading' } : { status: 'idle' });
 
-      if (error) throw error;
-      if (request !== requestRef.current) return;
+    const loadProjection = async (): Promise<void> => {
+      try {
+        const { data, error } = await supabase
+          .from('beneficiary_balance_projection')
+          .select(
+            'aid_type, available_balance_stroops, confirmed_transaction_count, reconciled_at, as_of_ledger, is_stale, is_quarantined, quarantine_issue_id',
+          )
+          .order('reconciled_at', { ascending: false });
 
-      setBalance(toProjectionState((data ?? []) as ProjectionRow[]));
-    } catch (err: unknown) {
-      if (request !== requestRef.current) return;
-      setBalance({
-        status: 'unavailable',
-        reason: err instanceof Error ? err.message : 'Balance service is unavailable.',
-        retryable: true,
-      });
-    }
-  }, []);
+        if (error) throw error;
+        if (request !== requestRef.current) return;
+
+        setBalance(toProjectionState((data ?? []) as ProjectionRow[]));
+      } catch (err: unknown) {
+        if (request !== requestRef.current) return;
+        setBalance({
+          status: 'unavailable',
+          reason: err instanceof Error ? err.message : 'Balance service is unavailable.',
+          retryable: true,
+        });
+      }
+    };
+
+    const loadLive = async (): Promise<void> => {
+      if (!address) return;
+      try {
+        const result = await fetchLiveRCPHPBalance(address);
+        if (request !== requestRef.current) return;
+        if (result.ok) {
+          setLiveBalance({ status: 'live', data: result.data });
+        } else {
+          setLiveBalance({
+            status: 'unavailable',
+            reason: result.error.message,
+            retryable: result.error.retryable,
+            checkedAt: new Date().toISOString(),
+          });
+        }
+      } catch (err: unknown) {
+        if (request !== requestRef.current) return;
+        setLiveBalance({
+          status: 'unavailable',
+          reason: err instanceof Error ? err.message : 'Live balance is unavailable.',
+          retryable: true,
+          checkedAt: new Date().toISOString(),
+        });
+      }
+    };
+
+    await Promise.all([loadProjection(), loadLive()]);
+  }, [walletAddress]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  return { balance, refresh: load };
+  return { balance, liveBalance, refresh: load };
 }

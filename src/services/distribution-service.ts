@@ -11,6 +11,7 @@ import type {
     PreparedDistribution
 } from '@/types/distribution';
 import type { FinancialError, FinancialResult } from '@/types/errors';
+import { extractEdgeErrorEnvelope } from '@/utils/financial-error';
 
 /**
  * Client boundary for server-managed distribution jobs.
@@ -71,7 +72,10 @@ export const prepareDistribution = async (
     }>(PREPARE_FUNCTION, { body: request });
 
     if (error) {
-      return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+      // Prefer the server's structured envelope over the transport generic so
+      // the UI shows the actionable reason (e.g. which validation failed).
+      const envelope = await extractEdgeErrorEnvelope(error);
+      return { ok: false, error: envelope ?? toFinancialError(error.context ?? error, error.message) };
     }
     if (!data?.job) {
       return { ok: false, error: toFinancialError(data?.error, 'Distribution could not be prepared.') };
@@ -100,7 +104,8 @@ export const authorizeDistribution = async (
     }>(SUBMIT_FUNCTION, { body: { ...authorization, mode: SUBMIT_MODE_AUTHORIZE } });
 
     if (error) {
-      return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+      const envelope = await extractEdgeErrorEnvelope(error);
+      return { ok: false, error: envelope ?? toFinancialError(error.context ?? error, error.message) };
     }
     if (!data?.job) {
       return { ok: false, error: toFinancialError(data?.error, 'Distribution could not be authorized.') };
@@ -134,7 +139,8 @@ export const retryDistribution = async (
     }>(SUBMIT_FUNCTION, { body: { ...request, mode: SUBMIT_MODE_RETRY } });
 
     if (error) {
-      return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+      const envelope = await extractEdgeErrorEnvelope(error);
+      return { ok: false, error: envelope ?? toFinancialError(error.context ?? error, error.message) };
     }
     if (!data?.job) {
       return { ok: false, error: toFinancialError(data?.error, 'Distribution could not be retried.') };

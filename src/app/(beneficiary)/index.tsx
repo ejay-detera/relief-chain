@@ -26,7 +26,7 @@ import { useBeneficiaryBalances } from '@/hooks/use-beneficiary-balances';
 import { entitlementForProgram, useBeneficiaryEntitlements } from '@/hooks/use-beneficiary-entitlements';
 import { useBeneficiaryPrograms } from '@/hooks/use-beneficiary-programs';
 import { useBeneficiaryRedemptions } from '@/hooks/use-beneficiary-redemptions';
-import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
+import { isVerifiedPilotWallet, pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { requestCashOut } from '@/services/cashout-service';
 import type { StroopAmount } from '@/types/blockchain';
 import { selectActiveProgram } from '@/utils/active-program';
@@ -37,7 +37,9 @@ export default function BeneficiaryDashboard() {
   const { profile, session } = useAuth();
   const { state: walletState } = usePilotWallet();
   const userId = session?.user.id ?? null;
-  const { balance, refresh: refreshBalance } = useBeneficiaryBalances();
+  const { balance, liveBalance, refresh: refreshBalance } = useBeneficiaryBalances(
+    isVerifiedPilotWallet(walletState) ? pilotWalletPublicKey(walletState) : null,
+  );
   const { entitlements, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
   const { redemptions } = useBeneficiaryRedemptions();
   const { programs, isLoading, error, refetch } = useBeneficiaryPrograms();
@@ -96,6 +98,7 @@ export default function BeneficiaryDashboard() {
               <FadeInView delay={40}>
                 <WalletBalanceCard
                   balance={balance}
+                  liveBalance={liveBalance}
                   onWithdraw={() => setIsCashOutVisible(true)}
                   onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
                 />

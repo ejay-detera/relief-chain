@@ -23,9 +23,11 @@ import { serveEdge } from '../_shared/runtime.ts';
 import {
     buildBeneficiaryCashBalanceRow,
     buildMerchantCashBalanceRow,
+    createBeneficiaryCashSpendRefresher,
     createCashDistributionReconciler,
     createCashTransactionObserver,
     createMerchantSettlementProjector,
+    selectSpendAttributionProgramId,
     type MerchantPaymentStore,
 } from '../_shared/stellar/cash-reconciliation.ts';
 import { requireRCPHPIdentifiers } from '../_shared/stellar/config.ts';
@@ -508,10 +510,177 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
       merchantProjectionWritten = true;
     }
 
+    // Refresh the beneficiary cash projection for spenders confirmed by this
+    // merchant. Payments carry no program scope, so each spender's totals are
+    // attributed only when they resolve to exactly one distributed-cash
+    // program; every other case skips fail-closed inside the refresher. This
+    // runs AFTER the settlement confirmations above and only reads confirmed
+    // rows — the reconciler-owned confirmation path is untouched. A refresh
+    // failure is logged and never fails the settlement pass.
+    let beneficiarySpendProjectionsWritten = 0;
+    let beneficiarySpendSkipped = 0;
+    try {
+      const { data: confirmedPayments } = await service
+        .from('payment_intents')
+        .select('beneficiary_identity_id, amount_stroops')
+        .eq('merchant_id', merchantId)
+        .eq('organization_id', organizationId)
+        .eq('status', 'confirmed')
+        .eq('funding_source', 'cash');
+
+      const spendByBeneficiary = new Map<string, number>();
+      for (const payment of confirmedPayments ?? []) {
+        const amount = Number(payment.amount_stroops);
+        if (!Number.isSafeInteger(amount) || amount < 0) continue;
+        const running = (spendByBeneficiary.get(payment.beneficiary_identity_id) ?? 0) + amount;
+        if (!Number.isSafeInteger(running)) continue;
+        spendByBeneficiary.set(payment.beneficiary_identity_id, running);
+      }
+
+      if (spendByBeneficiary.size > 0) {
+        const spendAsset = requireRCPHPIdentifiers(context.stellar);
+        const spendProjectionWriter = createServiceProjectionWriter(binding.serviceWriter);
+        const refresher = createBeneficiaryCashSpendRefresher({
+          snapshots: {
+            load: async ({ organizationId: snapshotOrgId, beneficiaryIdentityId }) => {
+              const { data: distributed } = await service
+                .from('distribution_recipients')
+                .select('program_id, amount_stroops')
+                .eq('organization_id', snapshotOrgId)
+                .eq('beneficiary_identity_id', beneficiaryIdentityId)
+                .eq('status', 'confirmed');
+              const programIds = [...new Set((distributed ?? []).map((row) => row.program_id))];
+              const programId = selectSpendAttributionProgramId(
+                programIds.map((id) => ({ programId: id })),
+              );
+              if (programId === null) return null;
+
+              const { data: program } = await service
+                .from('programs')
+                .select('id, organization_id, aid_type, asset_code, asset_issuer')
+                .eq('id', programId)
+                .maybeSingle();
+              if (!program || program.organization_id !== snapshotOrgId) return null;
+
+              const programRows = (distributed ?? []).filter((row) => row.program_id === programId);
+              const distributedStroops = programRows.reduce(
+                (sum, row) => sum + Number(row.amount_stroops),
+                0,
+              );
+
+              const { data: enrollment } = await service
+                .from('enrollments')
+                .select('allocation_amount_stroops')
+                .eq('program_id', programId)
+                .eq('beneficiary_identity_id', beneficiaryIdentityId)
+                .maybeSingle();
+
+              const { data: refunds } = await service
+                .from('refunds')
+                .select('amount_stroops')
+                .eq('organization_id', snapshotOrgId)
+                .eq('program_id', programId)
+                .eq('beneficiary_identity_id', beneficiaryIdentityId)
+                .eq('status', 'confirmed')
+                .eq('returns_to_entitlement', true);
+              const refundedStroops = (refunds ?? []).reduce(
+                (sum, row) => sum + Number(row.amount_stroops),
+                0,
+              );
+
+              const { data: existing } = await service
+                .from('beneficiary_balance_projection')
+                .select('projection_version')
+                .eq('organization_id', snapshotOrgId)
+                .eq('program_id', programId)
+                .eq('beneficiary_identity_id', beneficiaryIdentityId)
+                .eq('asset_code', spendAsset.code)
+                .maybeSingle();
+
+              return {
+                organizationId: snapshotOrgId,
+                programId,
+                beneficiaryIdentityId,
+                programAidType: program.aid_type,
+                programAssetCode: program.asset_code,
+                programAssetIssuer: program.asset_issuer,
+                hasEnrollment: enrollment !== null,
+                allocatedStroops: enrollment?.allocation_amount_stroops ?? distributedStroops,
+                distributedStroops,
+                distributedCount: programRows.length,
+                refundedStroops,
+                existingProjectionVersion: existing?.projection_version ?? 0,
+              };
+            },
+          },
+          evidence: {
+            runScopedStream: async ({ organizationId: evidenceOrgId, programId: evidenceProgramId }) => {
+              const spendSummary = await worker.runStream({
+                attempts: [],
+                streamName: `beneficiary_cash_spend:${evidenceProgramId}`,
+                network: 'stellar_testnet',
+                organizationId: evidenceOrgId,
+                programId: evidenceProgramId,
+                cursorValue: null,
+                correlationId,
+              });
+              const { data: spendRun } = await service
+                .from('reconciliation_runs')
+                .select('id, completed_at, end_ledger_sequence')
+                .eq('id', spendSummary.run.id)
+                .maybeSingle();
+              let spendLedger = spendRun?.end_ledger_sequence ? Number(spendRun.end_ledger_sequence) : 0;
+              if (spendRun?.completed_at && spendLedger === 0) {
+                try {
+                  const ledgerPage = await horizon.server.ledgers().order('desc').limit(1).call();
+                  if (ledgerPage.records && ledgerPage.records.length > 0) {
+                    const latestSeq = ledgerPage.records[0].sequence;
+                    const { error: updateError } = await service
+                      .from('reconciliation_runs')
+                      .update({ end_ledger_sequence: latestSeq })
+                      .eq('id', spendRun.id);
+                    if (!updateError) {
+                      spendLedger = latestSeq;
+                    }
+                  }
+                } catch (err) {
+                  console.error('Failed to resolve latest ledger sequence from Horizon:', err);
+                }
+              }
+              if (!spendRun?.completed_at || spendLedger <= 0) return null;
+              return {
+                runId: spendRun.id,
+                completedAt: spendRun.completed_at,
+                endLedgerSequence: spendLedger,
+                status: spendSummary.status === 'completed' ? 'completed' : 'partial',
+              };
+            },
+          },
+          projections: spendProjectionWriter,
+          asset: { code: spendAsset.code, issuer: spendAsset.issuer },
+        });
+
+        const spendResult = await refresher.refresh({
+          organizationId,
+          correlationId,
+          principals: [...spendByBeneficiary.entries()].map(([beneficiaryIdentityId, redeemedStroops]) => ({
+            beneficiaryIdentityId,
+            redeemedStroops,
+          })),
+        });
+        beneficiarySpendProjectionsWritten = spendResult.updated.length;
+        beneficiarySpendSkipped = spendResult.skipped.length;
+      }
+    } catch (err) {
+      console.error('Failed to refresh beneficiary spend projections:', err);
+    }
+
     return jsonResponse(
       {
         summary,
         merchantProjectionWritten,
+        beneficiarySpendProjectionsWritten,
+        beneficiarySpendSkipped,
       },
       200,
       correlationId,

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScannerView } from '@/components/beneficiary/PayScan/ScannerView';
+import { MIN_PLAUSIBLE_QR_LENGTH, ScannerView } from '@/components/beneficiary/PayScan/ScannerView';
 import { FundingSourceList } from '@/components/PaymentReview/FundingSourceList';
 import { InvoiceSummary } from '@/components/PaymentReview/InvoiceSummary';
 import { PaymentConfirmation } from '@/components/PaymentReview/PaymentConfirmation';
@@ -14,7 +14,7 @@ import { BrandColors, Spacing } from '@/constants/theme';
 import { useBeneficiaryBalances } from '@/hooks/use-beneficiary-balances';
 import { useBeneficiaryEntitlements } from '@/hooks/use-beneficiary-entitlements';
 import { usePaymentIntent } from '@/hooks/use-payment-intent';
-import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
+import { isVerifiedPilotWallet, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { decodeAndVerifyScannedInvoice } from '@/services/invoice-scan-service';
 import type { FundingSource, InvoiceV1 } from '@/types/invoice';
 import type { BeneficiaryProgramEntitlement, PilotBalanceSummary, ProjectionState } from '@/types/projection';
@@ -51,7 +51,17 @@ export default function PayScanScreen() {
     console.log('1. Raw scanned data (first 200 chars):', data.substring(0, 200));
     console.log('2. Data length:', data.length);
     console.log('3. Data prefix:', data.substring(0, 50));
-    
+
+    // Silently ignore sub-minimum/partial payloads: the first camera frame can
+    // be a truncated decode, and failing it closed here would latch the error
+    // state until manual rescan. Only well-formed-but-invalid invoices (long
+    // enough to be complete yet rejected by verification) surface a scan
+    // error. Decode strictness itself is untouched.
+    if (data.length < MIN_PLAUSIBLE_QR_LENGTH) {
+      console.log('4. Ignoring partial payload below minimum plausible length');
+      return;
+    }
+
     try {
       const result = decodeAndVerifyScannedInvoice(data);
       console.log('4. Decode result status:', result.ok ? 'SUCCESS' : 'FAILED');
@@ -127,16 +137,27 @@ export default function PayScanScreen() {
     void refreshEntitlements();
   }, [refreshBalance, refreshEntitlements]);
 
+  // Authorizing requires the local secret to match the verified active wallet.
+  // `pilotWalletPublicKey` also returns the expected address while in
+  // `recovery_required` for display, so gate explicitly — otherwise signing
+  // fails late with a low-level missing-signer error after biometric approval.
+  const isSignerReady = isVerifiedPilotWallet(walletState);
+  const needsRecovery = walletState?.status === 'recovery_required';
+
+  const handleStartRecovery = useCallback(() => {
+    router.push('/(beneficiary)/wallet-recovery' as never);
+  }, [router]);
+
   const handleConfirm = useCallback(
     (source: FundingSource) => {
       // The beneficiary explicitly approved this exact source. Run approval →
       // online revalidation → sign the exact prepared package → submit. No value
       // moves until the payment confirms on-chain (Requirements 11.5, 11.6, 11.8).
-      if (!invoice) return;
+      if (!invoice || !isSignerReady) return;
       setSelectedId(source.id);
       void authorizeAndPay(invoice, source);
     },
-    [invoice, authorizeAndPay],
+    [invoice, authorizeAndPay, isSignerReady],
   );
 
   const handleCheck = useCallback(async () => {
@@ -186,12 +207,22 @@ export default function PayScanScreen() {
               unavailableReason={unavailableReason}
             />
             <PaymentConfirmation
-              canAuthorize={pilotWalletPublicKey(walletState) !== null}
+              canAuthorize={isSignerReady}
               invoice={invoice}
               onCancel={rescan}
               onConfirm={handleConfirm}
               selected={selected}
             />
+            {needsRecovery ? (
+              <View>
+                <ThemedText style={styles.helper}>
+                  This device has no signer for your active wallet. Start wallet recovery before authorizing payments.
+                </ThemedText>
+                <Pressable accessibilityRole="button" onPress={handleStartRecovery} style={styles.recoveryButton}>
+                  <ThemedText style={styles.recoveryButtonText}>Start wallet recovery</ThemedText>
+                </Pressable>
+              </View>
+            ) : null}
           </>
         ) : (
           <PaymentFlowView
@@ -214,4 +245,7 @@ const styles = StyleSheet.create({
   back: { padding: Spacing.one },
   title: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 18 },
   content: { gap: Spacing.three, padding: Spacing.three, paddingBottom: Spacing.six },
+  helper: { color: BrandColors.grey, fontFamily: 'PlusJakartaSans_500Medium', fontSize: 13, lineHeight: 18 },
+  recoveryButton: { alignItems: 'center', backgroundColor: BrandColors.navy, borderRadius: 24, marginTop: Spacing.two, padding: Spacing.three },
+  recoveryButtonText: { color: '#FFFFFF', fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
 });

@@ -24,6 +24,28 @@ export type ProjectionState<T> =
 export type BalanceKind = 'voucher_entitlement' | 'unrestricted_cash' | 'merchant_settled';
 
 /**
+ * A read-only on-chain RCPHP balance for one wallet, fetched from Horizon.
+ * Chain truth complements (never replaces) the reconciled projection: the
+ * projection stays the entitlement record while this is the live figure shown
+ * next to it with its own freshness marker.
+ */
+export type LiveChainBalance = Readonly<{
+  balanceStroops: StroopAmount;
+  fetchedAt: string;
+  address: string;
+}>;
+
+/**
+ * Live-balance fetch state for the beneficiary dashboard. A Horizon failure
+ * is `unavailable` — it is never converted into a zero balance and never
+ * merged into the reconciled figure.
+ */
+export type LiveBalanceState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'live'; data: LiveChainBalance }
+  | { status: 'unavailable'; reason: string; retryable: boolean; checkedAt: string };
+/**
  * Aggregated, reconciliation-backed pilot balance for a beneficiary. Cash and
  * voucher entitlements are kept distinct (Requirement 21.7) and are always
  * expressed as canonical integer stroops of the non-monetary RCPHP test asset.

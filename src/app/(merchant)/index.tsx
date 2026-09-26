@@ -11,6 +11,7 @@ import { MerchantDashboardHeader } from '@/components/MerchantDashboard/Merchant
 import { ReceivePaymentCard } from '@/components/MerchantDashboard/ReceivePaymentCard';
 import { RecentPayments } from '@/components/MerchantDashboard/RecentPayments';
 import { SalesSummaryCard } from '@/components/MerchantDashboard/SalesSummaryCard';
+import { SettlementSyncCard } from '@/components/MerchantDashboard/SettlementSyncCard';
 import { WalletBalanceCard } from '@/components/MerchantDashboard/WalletBalanceCard';
 import { RequestRefundModal, type RefundSubmitOutcome } from '@/components/Refund/RequestRefundModal';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -47,7 +48,7 @@ const MerchantDashboardScreen = () => {
   const [refundSettlement, setRefundSettlement] = useState<RefundableSettlement | null>(null);
   const [isQrVisible, setIsQrVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { state: walletState } = useMerchantWallet();
+  const { state: walletState, merchantEntityId } = useMerchantWallet();
   const publicKey = merchantWalletPublicKey(walletState);
 
   const activePrograms = programs.filter((program) => program.status === 'active');
@@ -65,6 +66,13 @@ const MerchantDashboardScreen = () => {
     ]);
     setRefreshing(false);
   }, [refreshMetrics, refresh, refreshBalance, refreshCashOut, refreshRefunds, refreshSettlements]);
+
+  // After a successful merchant-scoped reconcile from the sync card, re-read
+  // dashboard state so balances/settlements/metrics/refunds reflect
+  // reconciler-owned DB truth.
+  const handleSettlementSynced = useCallback(() => {
+    void Promise.all([refreshSettlements(), refreshBalance(), refreshMetrics(), refreshRefunds()]);
+  }, [refreshBalance, refreshMetrics, refreshRefunds, refreshSettlements]);
 
   const settledBalance: StroopAmount =
     balance.status === 'current' || balance.status === 'stale'
@@ -104,6 +112,9 @@ const MerchantDashboardScreen = () => {
       </FadeInView>
       <FadeInView delay={80}>
         <ReceivePaymentCard onPress={() => router.push('/(merchant)/receive')} />
+      </FadeInView>
+      <FadeInView delay={100}>
+        <SettlementSyncCard merchantEntityId={merchantEntityId} onSynced={handleSettlementSynced} />
       </FadeInView>
       <FadeInView delay={120}>
         <SalesSummaryCard isLoading={isMetricsLoading} metrics={metrics} />

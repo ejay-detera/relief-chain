@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface ProgramItem {
   id: string;
+  organizationId?: string;
   name: string;
   description: string;
   disasterType: string;
@@ -43,11 +44,30 @@ interface ProgramCardProps {
   onOpenMenu: (program: ProgramItem) => void;
 }
 
-// Status badge helper
-export const resolveProgramStatus = (status: string, startDate?: string): 'active' | 'scheduled' | 'completed' | 'draft' => {
+// Status badge helper.
+//
+// Database truth first: workflow states (funding, funding_failed, closing,
+// closed) render as themselves. Only plain `active` rows fall back to the
+// schedule-derived active/scheduled display, and legacy `completed` keeps its
+// terminal badge. Deriving "Active" from dates for funding rows previously hid
+// the real workflow state from operators.
+export type ResolvedProgramStatus =
+  | 'active'
+  | 'scheduled'
+  | 'completed'
+  | 'draft'
+  | 'funding'
+  | 'funding_failed'
+  | 'closing'
+  | 'closed';
+
+export const resolveProgramStatus = (status: string, startDate?: string): ResolvedProgramStatus => {
   if (status === 'completed') return 'completed';
   if (status === 'draft') return 'draft';
-  
+  if (status === 'funding' || status === 'funding_failed' || status === 'closing' || status === 'closed') {
+    return status;
+  }
+
   if (startDate) {
     const todayStr = new Date().toISOString().split('T')[0];
     if (startDate <= todayStr) {
@@ -114,6 +134,26 @@ export const ProgramCard = ({ program, onPress, onOpenMenu }: ProgramCardProps) 
         return {
           bg: '#E4CF10', // Brand Yellow
           text: 'Scheduled',
+        };
+      case 'funding':
+        return {
+          bg: BrandColors.navy,
+          text: 'Funding',
+        };
+      case 'funding_failed':
+        return {
+          bg: '#C0392B',
+          text: 'Funding Failed',
+        };
+      case 'closing':
+        return {
+          bg: '#8E9AA8',
+          text: 'Closing',
+        };
+      case 'closed':
+        return {
+          bg: BrandColors.navy,
+          text: 'Closed',
         };
       case 'completed':
         return {

@@ -87,6 +87,28 @@ export type PaymentSubmitRequest = Readonly<{
 }>;
 
 /**
+ * A retried payment for an orphan-accepted intent. The server reuses the same
+ * intent (hence the same invoice-bound idempotency key) and builds a fresh
+ * attempt with new sequence/auth data via the reconcile-before-retry gate. A
+ * settled retry carries no signing package: the prior outcome stands and must
+ * be reconciled, not re-signed. Confirmation stays reconciliation-owned.
+ */
+export type RetriedPayment = Readonly<{
+  intentId: string;
+  attemptId: string;
+  /** Null when settled; otherwise the exact package the device must sign. */
+  signingPackage: ClientSigningPackage | null;
+  /** The beneficiary wallet the local signer must match exactly (null when settled). */
+  expectedSigner: string | null;
+  /** Null until the network accepts a submission; never implies settlement. */
+  transactionHash: string | null;
+  /** True when the prior outcome stands and no new attempt was built. */
+  settled: boolean;
+  /** True when the prior outcome stands; false when a fresh attempt was built. */
+  isReplay: boolean;
+}>;
+
+/**
  * The accepted-for-processing result of a submission. Acceptance is NOT
  * confirmation: the transfer is `submitted` and finality still comes only from
  * reconciliation observing ledger evidence (Requirements 11.8, 18.8).

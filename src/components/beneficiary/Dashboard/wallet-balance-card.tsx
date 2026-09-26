@@ -6,12 +6,13 @@ import { Skeleton } from '@/components/shared/Skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
-import type { PilotBalanceSummary, ProjectionState } from '@/types/projection';
+import type { LiveBalanceState, PilotBalanceSummary, ProjectionState } from '@/types/projection';
 import { formatStroops } from '@/utils/format-stroops';
 import { BalanceDisclosure } from './balance-disclosure';
 
 type Props = {
   balance: ProjectionState<PilotBalanceSummary>;
+  liveBalance: LiveBalanceState;
   onWithdraw: () => void;
   onSend: () => void;
 };
@@ -23,7 +24,14 @@ const reconciledLabel = (reconciledAt: string): string => {
     : `Reconciled ${parsed.toLocaleString()}`;
 };
 
-function BalanceBody({ balance }: { balance: ProjectionState<PilotBalanceSummary> }) {
+const liveLabel = (fetchedAt: string): string => {
+  const parsed = new Date(fetchedAt);
+  return Number.isNaN(parsed.getTime())
+    ? 'Live from chain'
+    : `Live from chain · ${parsed.toLocaleString()}`;
+};
+
+function BalanceBody({ balance, liveBalance }: { balance: ProjectionState<PilotBalanceSummary>; liveBalance: LiveBalanceState }) {
   switch (balance.status) {
     case 'loading':
       return (
@@ -58,6 +66,27 @@ function BalanceBody({ balance }: { balance: ProjectionState<PilotBalanceSummary
     case 'current':
     case 'stale': {
       const { data } = balance;
+      if (liveBalance.status === 'live') {
+        return (
+          <View>
+            <ThemedText style={styles.balance}>
+              {formatStroops(liveBalance.data.balanceStroops)} {PILOT_ASSET_CODE}
+            </ThemedText>
+            <ThemedText style={styles.stateText}>{liveLabel(liveBalance.data.fetchedAt)}</ThemedText>
+            <ThemedText style={styles.subBalance}>
+              Reconciled cash: {formatStroops(data.cashAvailableStroops)} {PILOT_ASSET_CODE}
+            </ThemedText>
+            <ThemedText style={styles.subBalance}>
+              Vouchers: {formatStroops(data.voucherAvailableStroops)} {PILOT_ASSET_CODE}
+            </ThemedText>
+            <ThemedText style={styles.stateText}>
+              {balance.status === 'stale'
+                ? `Stale · ${reconciledLabel(balance.metadata.reconciledAt)}`
+                : reconciledLabel(balance.metadata.reconciledAt)}
+            </ThemedText>
+          </View>
+        );
+      }
       return (
         <View>
           <ThemedText style={styles.balance}>
@@ -71,6 +100,9 @@ function BalanceBody({ balance }: { balance: ProjectionState<PilotBalanceSummary
               ? `Stale · ${reconciledLabel(balance.metadata.reconciledAt)}`
               : reconciledLabel(balance.metadata.reconciledAt)}
           </ThemedText>
+          {liveBalance.status === 'unavailable' ? (
+            <ThemedText style={styles.stateText}>Live balance unavailable — showing reconciled.</ThemedText>
+          ) : null}
         </View>
       );
     }
@@ -79,7 +111,7 @@ function BalanceBody({ balance }: { balance: ProjectionState<PilotBalanceSummary
   }
 }
 
-export function WalletBalanceCard({ balance, onWithdraw, onSend }: Props) {
+export function WalletBalanceCard({ balance, liveBalance, onWithdraw, onSend }: Props) {
   return (
     <LinearGradient
       colors={[BrandColors.green, '#4A90D9']}
@@ -88,7 +120,7 @@ export function WalletBalanceCard({ balance, onWithdraw, onSend }: Props) {
       end={{ x: 1, y: 1 }}
     >
       <ThemedText style={styles.title}>Unrestricted Cash Balance</ThemedText>
-      <BalanceBody balance={balance} />
+      <BalanceBody balance={balance} liveBalance={liveBalance} />
       <BalanceDisclosure />
 
       <View style={styles.actionsRow}>

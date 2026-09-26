@@ -20,6 +20,15 @@ export const pilotWalletPublicKey = (state: PilotWalletState | null): string | n
   return null;
 };
 
+/**
+ * True only when the local signer matches the verified active beneficiary
+ * wallet binding. `pilotWalletPublicKey` also returns the expected address
+ * while in `recovery_required` for display, so authorization gates must use
+ * this — otherwise signing fails late with a low-level missing-signer error.
+ */
+export const isVerifiedPilotWallet = (state: PilotWalletState | null): boolean =>
+  state?.status === 'ready';
+
 const toActiveWalletRow = (row: {
   id: string;
   network: string;

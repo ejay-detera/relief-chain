@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { FinancialError } from '@/types/errors';
+import { extractEdgeErrorEnvelope } from '@/utils/financial-error';
 import { useState } from 'react';
 
 type PrepareActivation = Readonly<{
@@ -49,8 +50,12 @@ export const useActivateCashProgram = () => {
         );
         console.log('activate-cash-program prepare ERROR message:', prepareError.message);
         const status = getInvokeStatus(prepareError);
+        // Prefer the server's structured envelope over the transport generic.
+        const envelope = await extractEdgeErrorEnvelope({
+          context: (prepareError as FunctionInvokeError).context,
+        });
         throw new Error(
-          `Prepare activation failed${status !== undefined ? ` (status ${status})` : ''}: ${prepareError.message || 'Edge Function returned a non-2xx status code'}`,
+          `Prepare activation failed${status !== undefined ? ` (status ${status})` : ''}: ${envelope?.message ?? prepareError.message ?? 'Edge Function returned a non-2xx status code'}`,
         );
       }
 
@@ -72,6 +77,14 @@ export const useActivateCashProgram = () => {
 
       if (!attemptId) {
         if (activation.isReplay) {
+          // A replay means the reservation was already submitted under a prior
+          // attempt. Still run reconciliation: a previously-unobserved funding
+          // transaction can only complete activation (markFunded) if someone
+          // asks the reconciler to look. Reconciliation is read-mostly and
+          // idempotent, so this is safe to repeat.
+          await supabase.functions.invoke('reconcile-stellar', {
+            body: { programId },
+          });
           return true;
         }
         throw new Error('No attempt generated');
@@ -89,8 +102,11 @@ export const useActivateCashProgram = () => {
           JSON.stringify((submitError as FunctionInvokeError).context ?? null, null, 2),
         );
         const status = getInvokeStatus(submitError);
+        const envelope = await extractEdgeErrorEnvelope({
+          context: (submitError as FunctionInvokeError).context,
+        });
         throw new Error(
-          `Submit activation failed${status !== undefined ? ` (status ${status})` : ''}: ${submitError.message || 'Submit activation failed'}`,
+          `Submit activation failed${status !== undefined ? ` (status ${status})` : ''}: ${envelope?.message ?? submitError.message ?? 'Submit activation failed'}`,
         );
       }
 
