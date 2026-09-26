@@ -84,6 +84,10 @@ export type BeneficiaryProgramEntitlement = Readonly<{
   latestTransactionHash: string | null;
   assetCode: PilotAssetCode;
   network: StellarNetwork;
+  isAbandoned: boolean;
+  abandonmentNote: string | null;
+  abandonmentEvidenceRef: string | null;
+  abandonedAt: string | null;
 }>;
 
 export type BalanceAidType = 'cash' | 'voucher';

@@ -118,7 +118,9 @@ export default function PayScanScreen() {
     const summary = projectionData<PilotBalanceSummary>(balance);
     const cash = summary?.cashAvailableStroops ?? ZERO_STROOPS;
     const allEntitlements = projectionData<BeneficiaryProgramEntitlement[]>(entitlements) ?? [];
-    const vouchers = allEntitlements.filter((item) => item.aidType === 'voucher');
+    // Spendable only: abandoned rows are excluded from review (the hook already
+    // returns spendable rows; this filter is defence in depth).
+    const vouchers = allEntitlements.filter((item) => item.aidType === 'voucher' && !item.isAbandoned);
     
     console.log('[pay-scan sources] Building funding sources - cash:', cash, 'vouchers:', vouchers.length);
     const result = buildFundingSources(invoice, cash, vouchers);

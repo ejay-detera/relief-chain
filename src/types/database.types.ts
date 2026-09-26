@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -135,6 +135,10 @@ export type Database = {
       }
       beneficiary_balance_projection: {
         Row: {
+          abandoned_at: string | null
+          abandoned_by: string | null
+          abandonment_evidence_ref: string | null
+          abandonment_note: string | null
           aid_type: Database["public"]["Enums"]["program_aid_type"]
           allocated_stroops: number
           as_of_ledger: number
@@ -145,6 +149,7 @@ export type Database = {
           confirmed_transaction_count: number
           distributed_stroops: number
           id: string
+          is_abandoned: boolean
           is_quarantined: boolean
           is_stale: boolean
           latest_contract_event_id: string | null
@@ -164,6 +169,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          abandoned_at?: string | null
+          abandoned_by?: string | null
+          abandonment_evidence_ref?: string | null
+          abandonment_note?: string | null
           aid_type: Database["public"]["Enums"]["program_aid_type"]
           allocated_stroops?: number
           as_of_ledger: number
@@ -174,6 +183,7 @@ export type Database = {
           confirmed_transaction_count?: number
           distributed_stroops?: number
           id?: string
+          is_abandoned?: boolean
           is_quarantined?: boolean
           is_stale?: boolean
           latest_contract_event_id?: string | null
@@ -193,6 +203,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          abandoned_at?: string | null
+          abandoned_by?: string | null
+          abandonment_evidence_ref?: string | null
+          abandonment_note?: string | null
           aid_type?: Database["public"]["Enums"]["program_aid_type"]
           allocated_stroops?: number
           as_of_ledger?: number
@@ -203,6 +217,7 @@ export type Database = {
           confirmed_transaction_count?: number
           distributed_stroops?: number
           id?: string
+          is_abandoned?: boolean
           is_quarantined?: boolean
           is_stale?: boolean
           latest_contract_event_id?: string | null

@@ -7,27 +7,66 @@ import type { LiveBalanceState, PilotBalanceSummary, ProjectionState } from '@/t
 import { addStroops, ZERO_STROOPS } from '@/utils/format-stroops';
 
 type ProjectionRow = Readonly<{
+  program_id: string;
   aid_type: 'cash' | 'voucher';
   available_balance_stroops: number;
+  distributed_stroops: number;
+  redeemed_stroops: number;
+  refunded_stroops: number;
   confirmed_transaction_count: number;
   reconciled_at: string;
   as_of_ledger: number;
   is_stale: boolean;
   is_quarantined: boolean;
   quarantine_issue_id: string | null;
+  is_abandoned: boolean | null;
+  abandonment_note: string | null;
+  abandonment_evidence_ref: string | null;
+  abandoned_at: string | null;
+}>;
+
+export type AbandonedBalanceRow = Readonly<{
+  programId: string;
+  aidType: 'cash' | 'voucher';
+  availableStroops: StroopAmount;
+  distributedStroops: StroopAmount;
+  redeemedStroops: StroopAmount;
+  refundedStroops: StroopAmount;
+  abandonmentNote: string;
+  abandonmentEvidenceRef: string | null;
+  abandonedAt: string | null;
 }>;
 
 export type BeneficiaryBalancesHook = Readonly<{
   balance: ProjectionState<PilotBalanceSummary>;
   liveBalance: LiveBalanceState;
+  abandoned: readonly AbandonedBalanceRow[];
   refresh: () => Promise<void>;
 }>;
+
+const isAbandoned = (row: ProjectionRow): boolean =>
+  row.is_abandoned === true &&
+  typeof row.abandonment_note === 'string' &&
+  row.abandonment_note.trim().length > 0;
+
+const toAbandonedRow = (row: ProjectionRow): AbandonedBalanceRow => ({
+  programId: row.program_id,
+  aidType: row.aid_type,
+  availableStroops: parseStroopAmount(row.available_balance_stroops),
+  distributedStroops: parseStroopAmount(row.distributed_stroops),
+  redeemedStroops: parseStroopAmount(row.redeemed_stroops),
+  refundedStroops: parseStroopAmount(row.refunded_stroops),
+  abandonmentNote: row.abandonment_note ?? '',
+  abandonmentEvidenceRef: row.abandonment_evidence_ref,
+  abandonedAt: row.abandoned_at,
+});
 
 const summarize = (rows: readonly ProjectionRow[]): PilotBalanceSummary => {
   let cash: StroopAmount = ZERO_STROOPS;
   let voucher: StroopAmount = ZERO_STROOPS;
   let confirmed = 0;
   for (const row of rows) {
+    if (isAbandoned(row)) continue;
     const available = parseStroopAmount(row.available_balance_stroops);
     if (row.aid_type === 'cash') cash = addStroops(cash, available);
     else voucher = addStroops(voucher, available);
@@ -51,11 +90,14 @@ const toProjectionState = (rows: readonly ProjectionRow[]): ProjectionState<Pilo
     return { status: 'empty', checkedAt: new Date().toISOString() };
   }
 
+  // Spendable rows drive sums and trust state; abandoned rows are dispositioned
+  // history and never quarantine or stale the spendable summary.
+  const spendable = rows.filter((row) => !isAbandoned(row));
   const summary = summarize(rows);
-  const reference = oldest(rows);
+  const reference = oldest(spendable.length > 0 ? spendable : rows);
   const metadata = { asOfLedger: reference.as_of_ledger, reconciledAt: reference.reconciled_at };
 
-  const quarantined = rows.find((row) => row.is_quarantined);
+  const quarantined = spendable.find((row) => row.is_quarantined);
   if (quarantined) {
     return {
       status: 'quarantined',
@@ -66,7 +108,7 @@ const toProjectionState = (rows: readonly ProjectionRow[]): ProjectionState<Pilo
     };
   }
 
-  if (rows.some((row) => row.is_stale)) {
+  if (spendable.some((row) => row.is_stale)) {
     return {
       status: 'stale',
       data: summary,
@@ -94,6 +136,7 @@ const toProjectionState = (rows: readonly ProjectionRow[]): ProjectionState<Pilo
 export function useBeneficiaryBalances(walletAddress?: string | null): BeneficiaryBalancesHook {
   const [balance, setBalance] = useState<ProjectionState<PilotBalanceSummary>>({ status: 'loading' });
   const [liveBalance, setLiveBalance] = useState<LiveBalanceState>({ status: 'idle' });
+  const [abandoned, setAbandoned] = useState<readonly AbandonedBalanceRow[]>([]);
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -107,14 +150,16 @@ export function useBeneficiaryBalances(walletAddress?: string | null): Beneficia
         const { data, error } = await supabase
           .from('beneficiary_balance_projection')
           .select(
-            'aid_type, available_balance_stroops, confirmed_transaction_count, reconciled_at, as_of_ledger, is_stale, is_quarantined, quarantine_issue_id',
+            'program_id, aid_type, available_balance_stroops, distributed_stroops, redeemed_stroops, refunded_stroops, confirmed_transaction_count, reconciled_at, as_of_ledger, is_stale, is_quarantined, quarantine_issue_id, is_abandoned, abandonment_note, abandonment_evidence_ref, abandoned_at',
           )
           .order('reconciled_at', { ascending: false });
 
         if (error) throw error;
         if (request !== requestRef.current) return;
 
-        setBalance(toProjectionState((data ?? []) as ProjectionRow[]));
+        const rows = (data ?? []) as ProjectionRow[];
+        setBalance(toProjectionState(rows));
+        setAbandoned(rows.filter(isAbandoned).map(toAbandonedRow));
       } catch (err: unknown) {
         if (request !== requestRef.current) return;
         setBalance({
@@ -154,9 +199,12 @@ export function useBeneficiaryBalances(walletAddress?: string | null): Beneficia
     await Promise.all([loadProjection(), loadLive()]);
   }, [walletAddress]);
 
+  // Mount fetch is intentional: initial state is already `loading`, and `load`
+  // revalidates on wallet change. Matches the existing hook pattern.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  return { balance, liveBalance, refresh: load };
+  return { balance, liveBalance, abandoned, refresh: load };
 }

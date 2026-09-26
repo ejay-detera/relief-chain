@@ -27,6 +27,7 @@ import {
     createCashDistributionReconciler,
     createCashTransactionObserver,
     createMerchantSettlementProjector,
+    selectOldestSpendAttributionProgramId,
     selectSpendAttributionProgramId,
     type MerchantPaymentStore,
 } from '../_shared/stellar/cash-reconciliation.ts';
@@ -545,14 +546,51 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
             load: async ({ organizationId: snapshotOrgId, beneficiaryIdentityId }) => {
               const { data: distributed } = await service
                 .from('distribution_recipients')
-                .select('program_id, amount_stroops')
+                .select('program_id, amount_stroops, confirmed_at, created_at')
                 .eq('organization_id', snapshotOrgId)
                 .eq('beneficiary_identity_id', beneficiaryIdentityId)
                 .eq('status', 'confirmed');
-              const programIds = [...new Set((distributed ?? []).map((row) => row.program_id))];
-              const programId = selectSpendAttributionProgramId(
-                programIds.map((id) => ({ programId: id })),
+              // Deterministic attribution: oldest distributed-cash program
+              // first. Abandoned programs are never attributed. When no
+              // orderable candidate exists we keep the fail-closed skip.
+              const { data: projections } = await service
+                .from('beneficiary_balance_projection')
+                .select('program_id, is_abandoned')
+                .eq('organization_id', snapshotOrgId)
+                .eq('beneficiary_identity_id', beneficiaryIdentityId);
+              const abandonedByProgram = new Map<string, boolean>(
+                (projections ?? []).map((row) => [
+                  row.program_id as string,
+                  (row as { is_abandoned?: boolean | null }).is_abandoned === true,
+                ]),
               );
+              const byProgram = new Map<string, string | null>();
+              for (const row of distributed ?? []) {
+                const programId = row.program_id as string;
+                const timestamp =
+                  (row.confirmed_at as string | null) ?? (row.created_at as string | null) ?? null;
+                const existing = byProgram.get(programId) ?? null;
+                if (existing === null || (timestamp !== null && timestamp < existing)) {
+                  byProgram.set(programId, timestamp);
+                } else if (!byProgram.has(programId)) {
+                  byProgram.set(programId, timestamp);
+                }
+              }
+              const candidates = [...byProgram.entries()].map(([programId, firstDistributedAt]) => ({
+                programId,
+                firstDistributedAt,
+                isAbandoned: abandonedByProgram.get(programId) ?? false,
+              }));
+              // Prefer the deterministic oldest-first resolution when orderable;
+              // fall back to the legacy exactly-one rule only when timestamps
+              // are absent but a single program exists (keeps the single-program
+              // fast path honest without inventing order).
+              const oldestProgramId = selectOldestSpendAttributionProgramId(candidates);
+              const programId =
+                oldestProgramId ??
+                selectSpendAttributionProgramId(
+                  [...byProgram.keys()].map((id) => ({ programId: id })),
+                );
               if (programId === null) return null;
 
               const { data: program } = await service

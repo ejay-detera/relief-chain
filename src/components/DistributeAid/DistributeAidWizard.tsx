@@ -29,6 +29,8 @@ type Props = {
   onClose: () => void;
   /** Invoked when the observation screen is dismissed after a job has been started. */
   onCompleted?: (jobId: string) => void;
+  /** Opens an existing job directly at the step-7 observation screen (history entry point). */
+  initialJobId?: string | null;
 };
 
 type AuthorizationState =
@@ -66,12 +68,12 @@ const STEP_TITLES: Record<number, string> = {
  * blockchain work; every confirmed state originates from reconciled evidence
  * (Requirements 8.1, 18.3, 21.1, 21.2).
  */
-export const DistributeAidWizard = ({ onClose, onCompleted }: Props) => {
-  const [step, setStep] = useState<number>(1);
+export const DistributeAidWizard = ({ onClose, onCompleted, initialJobId = null }: Props) => {
+  const [step, setStep] = useState<number>(initialJobId ? 7 : 1);
   const [selectedProgram, setSelectedProgram] = useState<DatabaseProgram | null>(null);
   const [selectedBeneficiaries, setSelectedBeneficiaries] = useState<UserProfile[]>([]);
   const [authorization, setAuthorization] = useState<AuthorizationState>({ status: 'idle' });
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(initialJobId);
 
   const { job, recipients, refreshing, refresh, retryState, retrySafe } = useDistributionJob(jobId);
   const outcomes = recipients.status === 'loaded' ? recipients.outcomes : [];

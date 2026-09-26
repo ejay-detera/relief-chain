@@ -108,16 +108,19 @@ const buildVoucherSource = (
  * first, then disabled sources with their explanations. `voucherEntitlements`
  * should already be scoped to reconciled voucher entitlements; the aggregated
  * cash balance is passed separately so cash is never double-counted with a
- * per-program cash projection row.
+ * per-program cash projection row. Abandoned entitlements are excluded here as
+ * defence in depth (the entitlements hook already returns spendable rows only),
+ * so stranded value can never pay an invoice.
  */
 export const buildFundingSources = (
   invoice: InvoiceV1,
   cashAvailableStroops: StroopAmount,
   voucherEntitlements: readonly BeneficiaryProgramEntitlement[],
 ): FundingSource[] => {
+  const spendableVouchers = voucherEntitlements.filter((entitlement) => !entitlement.isAbandoned);
   const sources: FundingSource[] = [
     buildCashSource(invoice, cashAvailableStroops),
-    ...voucherEntitlements.map((entitlement) => buildVoucherSource(invoice, entitlement)),
+    ...spendableVouchers.map((entitlement) => buildVoucherSource(invoice, entitlement)),
   ];
 
   // Eligible sources first; original relative order is otherwise preserved.

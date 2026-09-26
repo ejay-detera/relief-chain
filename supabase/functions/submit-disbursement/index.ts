@@ -126,6 +126,7 @@ const submitDisbursement = async (scope: EdgeRequestScope): Promise<Response> =>
     strategy: createCashDisbursementStrategy({ horizon: reconciler.horizon }),
     config: context.stellar,
     signers: createEdgeSignerRegistry(),
+    serviceClient: service,
   });
 
   const works: RecipientWork[] = recipients.map((recipient) => ({
@@ -141,6 +142,7 @@ const submitDisbursement = async (scope: EdgeRequestScope): Promise<Response> =>
     programId: job.program_id,
     distributionJobId: jobId,
     correlationId,
+    serviceClient: service,
     resolveDestinationAddress: async (work) => {
       const address = walletAddressById.get(work.destinationWalletId);
       if (!address) {

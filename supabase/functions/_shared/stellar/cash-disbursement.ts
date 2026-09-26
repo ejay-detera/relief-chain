@@ -61,6 +61,7 @@ import {
     type StellarTestnetConfig,
 } from '../../../../shared/stellar-config.ts';
 import { FinancialErrorException, newCorrelationId } from '../errors.ts';
+import type { TypedSupabaseClient } from '../auth.ts';
 
 import {
     amountToStroops,
@@ -71,6 +72,7 @@ import {
 } from './cash-activation.ts';
 import type { RecipientOutcome, RecipientProcessor, RecipientWork } from './distribution.ts';
 import type { GuardedHorizonClient } from './horizon.ts';
+import { isIdempotencyPayloadConflictError } from './idempotency.ts';
 import {
     type BuildResult,
     type FinancialIntentRecord,
@@ -100,10 +102,99 @@ const DEFAULT_VALIDITY_SECONDS = 180;
 /** A funded Stellar public account ID (`G...`). */
 const STELLAR_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 
+/** Upper bound for a recipient failure reason (mirrors distribution.ts). */
+const DUPLICATE_REASON_MAX_LENGTH = 1000;
+
 const toHex = (buffer: ArrayBuffer): string =>
   Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+
+/**
+ * Short distribution reference matching the app's `STL-XXXXXXXX` convention
+ * (`use-merchant-settlements.ts`): first 8 chars of the job id, dashes
+ * stripped, uppercased, prefixed with `STL-`.
+ */
+const toShortDistributionRef = (distributionJobId: string): string =>
+  `STL-${distributionJobId.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+
+/** A resolved prior transfer for a duplicate-recipient friendly message. */
+interface PriorDuplicateTransfer {
+  readonly distributionJobId: string;
+  readonly amountStroops: number;
+  readonly createdAt: string;
+}
+
+/**
+ * Looks up the already-paid transfer behind an idempotency-key payload
+ * conflict: `idempotency_keys` (scope + deterministic key) ->
+ * `financial_intents` (by `idempotency_key_id`). Fail-open by contract: any
+ * lookup failure, missing row, or malformed field returns `null` so the caller
+ * falls back to the original conflict error verbatim. Never throws.
+ */
+const resolvePriorDuplicateTransfer = async (
+  serviceClient: TypedSupabaseClient | null,
+  idempotencyKey: string,
+): Promise<PriorDuplicateTransfer | null> => {
+  try {
+    if (serviceClient === null || idempotencyKey.length === 0) return null;
+    const { data: keyRow, error: keyError } = await serviceClient
+      .from('idempotency_keys')
+      .select('id')
+      .eq('scope', CASH_DISBURSEMENT_SCOPE)
+      .eq('idempotency_key', idempotencyKey)
+      .maybeSingle();
+    if (keyError || keyRow === null || typeof keyRow.id !== 'string' || keyRow.id.length === 0) {
+      return null;
+    }
+    const { data: intentRow, error: intentError } = await serviceClient
+      .from('financial_intents')
+      .select('distribution_job_id, amount_stroops, created_at')
+      .eq('idempotency_key_id', keyRow.id)
+      .maybeSingle();
+    if (intentError || intentRow === null) return null;
+    if (typeof intentRow.distribution_job_id !== 'string' || intentRow.distribution_job_id.length === 0) {
+      return null;
+    }
+    if (
+      typeof intentRow.amount_stroops !== 'number' ||
+      !Number.isSafeInteger(intentRow.amount_stroops) ||
+      intentRow.amount_stroops <= 0
+    ) {
+      return null;
+    }
+    if (typeof intentRow.created_at !== 'string' || intentRow.created_at.length < 10) return null;
+    return {
+      distributionJobId: intentRow.distribution_job_id,
+      amountStroops: intentRow.amount_stroops,
+      createdAt: intentRow.created_at,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Builds the user-friendly duplicate reason. Returns `null` (fail-open) when
+ * the amount cannot be formatted exactly. Never throws; the result is clamped
+ * to the recipient failure-reason bound.
+ */
+const formatDuplicateRecipientReason = (prior: PriorDuplicateTransfer): string | null => {
+  try {
+    const exact = stroopsToAmount(prior.amountStroops);
+    const trimmed = exact.includes('.') ? exact.replace(/0+$/, '').replace(/\.$/, '') : exact;
+    const date = prior.createdAt.slice(0, 10);
+    const reason =
+      `Already paid ${trimmed} RCPHP under distribution ` +
+      `${toShortDistributionRef(prior.distributionJobId)} on ${date}. ` +
+      `Open that run instead of paying again.`;
+    return reason.length > DUPLICATE_REASON_MAX_LENGTH
+      ? reason.slice(0, DUPLICATE_REASON_MAX_LENGTH)
+      : reason;
+  } catch {
+    return null;
+  }
+};
 
 const assertPositiveAmount = (amountStroops: number, correlationId: string): void => {
   if (!Number.isInteger(amountStroops) || amountStroops <= 0) {
@@ -472,6 +563,13 @@ export interface CashDisbursementDependencies {
   readonly config: StellarTestnetConfig;
   readonly signers: InstitutionalSignerRegistry;
   /**
+   * Optional service-role client for the duplicate-recipient friendly lookup
+   * (read-only `idempotency_keys` -> `financial_intents`). Absent in unit tests
+   * and wherever the lookup is unavailable; the processor then fails open to
+   * the original conflict error.
+   */
+  readonly serviceClient?: TypedSupabaseClient;
+  /**
    * Optional override for producing the institutional signature. Defaults to the
    * isolated `cash_program_treasury` signer (the orchestrated remote signer).
    */
@@ -520,6 +618,12 @@ export interface RecipientProcessorContext {
    */
   readonly resolveDestinationAddress: (work: RecipientWork) => Promise<string>;
   readonly correlationId?: string;
+  /**
+   * Optional service-role client for the duplicate-recipient friendly lookup.
+   * Falls back to the orchestrator's `serviceClient` when omitted; when both
+   * are absent the processor fails open to the original conflict error.
+   */
+  readonly serviceClient?: TypedSupabaseClient;
 }
 
 /**
@@ -636,17 +740,49 @@ export const createCashDisbursement = (deps: CashDisbursementDependencies) => {
   const createRecipientProcessor = (context: RecipientProcessorContext): RecipientProcessor => {
     return async (work: RecipientWork): Promise<RecipientOutcome> => {
       const destinationWallet = await context.resolveDestinationAddress(work);
-      const prepared = await prepare({
-        organizationId: context.organizationId,
-        programId: context.programId,
-        distributionJobId: context.distributionJobId,
-        distributionRecipientId: work.recipientId,
-        beneficiaryIdentityId: work.beneficiaryIdentityId,
-        destinationWallet,
-        amountStroops: work.amountStroops,
-        idempotencyKey: work.idempotencyKey,
-        correlationId: context.correlationId,
-      });
+      let prepared: CashDisbursementPrepared;
+      try {
+        prepared = await prepare({
+          organizationId: context.organizationId,
+          programId: context.programId,
+          distributionJobId: context.distributionJobId,
+          distributionRecipientId: work.recipientId,
+          beneficiaryIdentityId: work.beneficiaryIdentityId,
+          destinationWallet,
+          amountStroops: work.amountStroops,
+          idempotencyKey: work.idempotencyKey,
+          correlationId: context.correlationId,
+        });
+      } catch (error) {
+        // Same program+beneficiary+policy can only ever be paid ONCE by design:
+        // a second distribution reuses the deterministic key with a different
+        // payload hash and `prepare` throws the raw technical payload-conflict
+        // error. Translate it into a user-friendly `duplicate_recipient`
+        // failure naming the already-paid amount, prior run, and date.
+        // Non-conflict errors pass through untouched. Every lookup step is
+        // fail-open: an unresolvable prior returns the original error verbatim
+        // (never throws, never fabricates a job reference).
+        if (!isIdempotencyPayloadConflictError(error)) throw error;
+        const serviceClient = context.serviceClient ?? deps.serviceClient ?? null;
+        const prior = await resolvePriorDuplicateTransfer(serviceClient, work.idempotencyKey);
+        const original = error as FinancialErrorException;
+        if (prior === null) {
+          return {
+            kind: 'failed',
+            failureCode: original.financialError.code,
+            failureReason: original.financialError.message,
+          };
+        }
+        const friendly = formatDuplicateRecipientReason(prior);
+        if (friendly === null) {
+          return {
+            kind: 'failed',
+            failureCode: original.financialError.code,
+            failureReason: original.financialError.message,
+          };
+        }
+        return { kind: 'failed', failureCode: 'duplicate_recipient', failureReason: friendly };
+      }
 
       if (prepared.isReplay || prepared.attempt === null) {
         // The transfer was already prepared/submitted under this key. Do NOT

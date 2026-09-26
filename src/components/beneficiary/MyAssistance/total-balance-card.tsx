@@ -15,10 +15,10 @@ type Props = {
   activeProgramCount: number;
 };
 
-/** Sums the reconciled available voucher balance across every entitlement row. */
+/** Sums the reconciled available voucher balance across spendable entitlement rows only. */
 const sumVoucherAvailable = (entitlements: readonly BeneficiaryProgramEntitlement[]): StroopAmount =>
   entitlements
-    .filter((entitlement) => entitlement.aidType === 'voucher')
+    .filter((entitlement) => entitlement.aidType === 'voucher' && !entitlement.isAbandoned)
     .reduce<StroopAmount>((acc, entitlement) => addStroops(acc, entitlement.availableStroops), ZERO_STROOPS);
 
 /**

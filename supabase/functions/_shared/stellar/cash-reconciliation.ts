@@ -1084,14 +1084,18 @@ export const createMerchantSettlementProjector = (deps: {
 //   refunded    = confirmed refunds with returns_to_entitlement for (org, program, beneficiary)
 //   available   = distributed - redeemed + refunded, clamped at zero (builder)
 //
-// Attribution is exactly-one: a spend is attributed only when the beneficiary
-// has confirmed distributions in exactly one program. Zero or ambiguous
-// programs skip fail-closed (program-tagging payments at prepare time is the
-// follow-up that would remove the ambiguity). Voucher programs, asset
-// mismatches, missing enrollments, amounts-check violations, and missing run
-// evidence all skip fail-closed, so one bad principal never fails the pass and
-// voucher-rail rows are never written. It never confirms anything; the
-// reconciler-owned confirmation path above is untouched.
+// Attribution is deterministic oldest-first: a program-less spend belongs to
+// the beneficiary's oldest distributed-cash program (earliest confirmed
+// distribution, `programId` tie-break; abandoned programs never attributed).
+// When no orderable candidate exists (empty, all abandoned, or all timestamps
+// missing) the refresher keeps the fail-closed skip. The legacy exactly-one
+// rule remains as a fallback for the single-program-no-timestamp case.
+// Voucher programs, asset mismatches, missing enrollments, amounts-check
+// violations, and missing run evidence all skip fail-closed, so one bad
+// principal never fails the pass and voucher-rail rows are never written. It
+// never confirms anything; the reconciler-owned confirmation path above is
+// untouched. Sequential split across ordered programs (`allocateSpendAcrossPrograms`)
+// conserves the spent amount (sum of row deltas == spent).
 
 /** Upsert key for beneficiary spend rows — identical to the distribution path. */
 export const BENEFICIARY_SPEND_PROJECTION_CONFLICT_KEY =
@@ -1109,6 +1113,108 @@ export interface SpendAttributionCandidate {
 export const selectSpendAttributionProgramId = (
   candidates: readonly SpendAttributionCandidate[],
 ): string | null => (candidates.length === 1 ? candidates[0].programId : null);
+
+/**
+ * Deterministic multi-program spend attribution rule: oldest
+ * distributed-cash program first. Deterministic beats clever.
+ *
+ * Each candidate carries its earliest confirmed distribution time
+ * (`firstDistributedAt`, ISO-8601 from `distribution_recipients.confirmed_at`
+ * falling back to `created_at`, or `programs.created_at` when no recipient
+ * timestamp exists) plus a stable `programId` tie-break. Abandoned programs
+ * are never attributed. A candidate without a parsable timestamp is not
+ * orderable: when no orderable candidate exists the caller keeps the
+ * fail-closed skip (`null`). This replaces the exactly-one skip ONLY for the
+ * orderable case; truly ambiguous (all timestamps missing, all abandoned, or
+ * empty) still skips.
+ */
+export interface OrderableSpendAttributionCandidate {
+  readonly programId: string;
+  readonly firstDistributedAt: string | null;
+  readonly isAbandoned?: boolean | null;
+}
+
+const orderableTimestamp = (value: string | null): number | null => {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  const parsed = Date.parse(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+};
+
+export const selectOldestSpendAttributionProgramId = (
+  candidates: readonly OrderableSpendAttributionCandidate[],
+): string | null => {
+  const orderable = candidates.filter(
+    (candidate) =>
+      candidate.isAbandoned !== true && orderableTimestamp(candidate.firstDistributedAt) !== null,
+  );
+  if (orderable.length === 0) return null;
+  let oldest = orderable[0];
+  let oldestTime = orderableTimestamp(oldest.firstDistributedAt) as number;
+  for (let index = 1; index < orderable.length; index += 1) {
+    const candidate = orderable[index];
+    const candidateTime = orderableTimestamp(candidate.firstDistributedAt) as number;
+    if (
+      candidateTime < oldestTime ||
+      (candidateTime === oldestTime && candidate.programId < oldest.programId)
+    ) {
+      oldest = candidate;
+      oldestTime = candidateTime;
+    }
+  }
+  return oldest.programId;
+};
+
+/** One orderable program with spendable capacity for sequential allocation. */
+export interface SpendAllocationProgram {
+  readonly programId: string;
+  readonly availableStroops: number;
+  readonly firstDistributedAt: string | null;
+  readonly isAbandoned?: boolean | null;
+}
+
+export interface SpendAllocation {
+  readonly programId: string;
+  readonly amountStroops: number;
+}
+
+/**
+ * Sequential oldest-first allocation of a confirmed spend across orderable
+ * programs. Abandoned programs and programs without capacity are skipped;
+ * non-orderable programs (missing timestamps) are skipped so the caller can
+ * keep the fail-closed skip for the truly ambiguous case. The sum of
+ * allocations always equals `Math.min(spend, total orderable capacity)` —
+ * callers clamp to capacity first so conservation (`sum == spent`) holds.
+ */
+export const allocateSpendAcrossPrograms = (
+  spendStroops: number,
+  programs: readonly SpendAllocationProgram[],
+): SpendAllocation[] => {
+  if (!Number.isSafeInteger(spendStroops) || spendStroops <= 0) return [];
+  const orderable = programs
+    .filter(
+      (program) =>
+        program.isAbandoned !== true &&
+        orderableTimestamp(program.firstDistributedAt) !== null &&
+        Number.isSafeInteger(program.availableStroops) &&
+        program.availableStroops > 0,
+    )
+    .sort((left, right) => {
+      const leftTime = orderableTimestamp(left.firstDistributedAt) as number;
+      const rightTime = orderableTimestamp(right.firstDistributedAt) as number;
+      if (leftTime !== rightTime) return leftTime - rightTime;
+      return left.programId < right.programId ? -1 : left.programId > right.programId ? 1 : 0;
+    });
+  const allocations: SpendAllocation[] = [];
+  let remaining = spendStroops;
+  for (const program of orderable) {
+    if (remaining <= 0) break;
+    const amount = Math.min(program.availableStroops, remaining);
+    if (amount <= 0) continue;
+    allocations.push({ programId: program.programId, amountStroops: amount });
+    remaining -= amount;
+  }
+  return allocations;
+};
 
 export interface BeneficiarySpendPrincipal {
   readonly beneficiaryIdentityId: string;

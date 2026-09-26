@@ -1,91 +1,83 @@
 import { FontAwesome } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DisbursementHistoryCard } from '@/components/DisbursementHistory/DisbursementHistoryCard';
 import { DistributeAidWizard } from '@/components/DistributeAid/DistributeAidWizard';
+import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
+import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { Disbursement, fetchDisbursements } from '@/services/disbursementService';
 
 export default function DistributeScreen() {
   const insets = useSafeAreaInsets();
   const [showWizard, setShowWizard] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pastDistributions, setPastDistributions] = useState<Disbursement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadDisbursements = async () => {
+  const loadDisbursements = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const data = await fetchDisbursements();
       setPastDistributions(data);
     } catch (err) {
-      console.error('Error fetching disbursements:', err);
+      setLoadError(err instanceof Error ? err.message : 'Disbursement history is unavailable.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     Promise.resolve().then(() => {
-      loadDisbursements();
+      void loadDisbursements();
     });
+  }, [loadDisbursements]);
+
+  const handleCopyHash = useCallback(async (hash: string) => {
+    await Clipboard.setStringAsync(hash);
   }, []);
 
-  const handleCopyHash = async (hash: string) => {
-    await Clipboard.setStringAsync(hash);
-  };
+  const handleOpenJob = useCallback((jobId: string) => {
+    setSelectedJobId(jobId);
+    setShowWizard(true);
+  }, []);
 
-  const handleJobCompleted = () => {
+  const handleCreate = useCallback(() => {
+    setSelectedJobId(null);
+    setShowWizard(true);
+  }, []);
+
+  const handleCloseWizard = useCallback(() => {
     setShowWizard(false);
-    // Refresh history from reconciled server state rather than a client-fabricated row.
+    setSelectedJobId(null);
+  }, []);
+
+  const handleJobCompleted = useCallback(() => {
+    setShowWizard(false);
+    setSelectedJobId(null);
     void loadDisbursements();
-  };
+  }, [loadDisbursements]);
 
-  const filteredDistributions = pastDistributions.filter((d) =>
-    d.programName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.disasterEvent.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.txHash.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const renderItem = ({ item }: { item: Disbursement }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderLeft}>
-          <FontAwesome name="check-circle" size={16} color={BrandColors.green} />
-          <ThemedText style={styles.programName}>{item.programName}</ThemedText>
-        </View>
-        <ThemedText style={styles.dateText}>{item.date}</ThemedText>
-      </View>
-
-      <ThemedText style={styles.eventText}>Disaster: {item.disasterEvent}</ThemedText>
-
-      <View style={styles.cardBody}>
-        <View style={styles.stat}>
-          <ThemedText style={styles.statLabel}>Total Payout</ThemedText>
-          <ThemedText style={styles.statValuePayout}>₱{item.amount.toLocaleString()}</ThemedText>
-        </View>
-        <View style={styles.stat}>
-          <ThemedText style={styles.statLabel}>Households Served</ThemedText>
-          <ThemedText style={styles.statValue}>{item.recipientsCount} Families</ThemedText>
-        </View>
-      </View>
-
-      <View style={styles.hashRow}>
-        <ThemedText numberOfLines={1} style={styles.hashText}>Hash: {item.txHash}</ThemedText>
-        <Pressable onPress={() => handleCopyHash(item.txHash)} style={styles.copyBtn}>
-          <FontAwesome name="copy" size={12} color={BrandColors.navy} />
-        </Pressable>
-      </View>
-    </View>
+  const query = searchQuery.toLowerCase();
+  const filteredDistributions = pastDistributions.filter(
+    (d) =>
+      d.programName.toLowerCase().includes(query) ||
+      d.disasterEvent.toLowerCase().includes(query) ||
+      (d.txHash || '').toLowerCase().includes(query) ||
+      d.status.toLowerCase().includes(query),
   );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       <ThemedView style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
           <View>
             <ThemedText style={styles.title}>Disbursement History</ThemedText>
@@ -93,7 +85,6 @@ export default function DistributeScreen() {
           </View>
         </View>
 
-        {/* Search */}
         <View style={styles.searchBar}>
           <FontAwesome name="search" size={14} color={BrandColors.grey} style={styles.searchIcon} />
           <TextInput
@@ -105,10 +96,11 @@ export default function DistributeScreen() {
           />
         </View>
 
-        {/* List */}
         <FlatList
           data={filteredDistributions}
-          renderItem={renderItem}
+          renderItem={({ item }) => (
+            <DisbursementHistoryCard item={item} onCopyHash={handleCopyHash} onOpen={handleOpenJob} />
+          )}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.list,
@@ -119,18 +111,23 @@ export default function DistributeScreen() {
               <View style={styles.center}>
                 <ActivityIndicator size="large" color={BrandColors.navy} />
               </View>
+            ) : loadError ? (
+              <ErrorState message={loadError} onRetry={loadDisbursements} />
             ) : (
-              <View style={styles.center}>
-                <FontAwesome name="history" size={48} color={BrandColors.lightGray} style={styles.emptyIcon} />
-                <ThemedText style={styles.emptyText}>No distribution records found</ThemedText>
-              </View>
+              <EmptyState
+                title="No disbursements yet"
+                description="Distributions you authorize will appear here with their reconciled status. Start your first distribution to see it."
+                actionLabel="Start a distribution"
+                onAction={handleCreate}
+              />
             )
           }
         />
 
-        {/* FAB - Distribute Aid */}
         <Pressable
-          onPress={() => setShowWizard(true)}
+          accessibilityLabel="Start a distribution"
+          accessibilityRole="button"
+          onPress={handleCreate}
           style={[
             styles.fab,
             { bottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.three },
@@ -139,17 +136,18 @@ export default function DistributeScreen() {
           <FontAwesome name="plus" size={20} color="white" />
         </Pressable>
 
-        {/* Wizard Modal (hides bottom navbar/tab bar because it is a fullScreen Modal) */}
         <Modal
           visible={showWizard}
           animationType="slide"
           presentationStyle="fullScreen"
-          onRequestClose={() => setShowWizard(false)}
+          onRequestClose={handleCloseWizard}
         >
           <SafeAreaView style={styles.wizardContainer}>
             <DistributeAidWizard
-              onClose={() => setShowWizard(false)}
+              key={selectedJobId ?? 'new'}
+              onClose={handleCloseWizard}
               onCompleted={handleJobCompleted}
+              initialJobId={selectedJobId}
             />
           </SafeAreaView>
         </Modal>
@@ -229,98 +227,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     gap: Spacing.three,
   },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.four,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  cardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    flex: 1,
-    marginRight: Spacing.two,
-  },
-  programName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: BrandColors.navy,
-  },
-  dateText: {
-    fontSize: 12,
-    color: BrandColors.grey,
-  },
-  eventText: {
-    fontSize: 12,
-    color: BrandColors.grey,
-    marginBottom: Spacing.three,
-    marginLeft: 22,
-  },
-  cardBody: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#FAFAFC',
-    borderRadius: BorderRadius.md,
-    padding: Spacing.three,
-    marginBottom: Spacing.three,
-  },
-  stat: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: BrandColors.grey,
-    marginBottom: 2,
-  },
-  statValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: BrandColors.navy,
-  },
-  statValuePayout: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: BrandColors.green,
-  },
-  hashRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E2E8F0',
-    paddingTop: Spacing.two,
-  },
-  hashText: {
-    fontSize: 10,
-    color: BrandColors.grey,
-    fontFamily: 'monospace',
-    flex: 1,
-    marginRight: Spacing.two,
-  },
-  copyBtn: {
-    padding: 2,
-  },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 80,
-  },
-  emptyIcon: {
-    marginBottom: Spacing.three,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: BrandColors.grey,
-    fontWeight: '600',
   },
 });

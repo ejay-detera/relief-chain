@@ -23,6 +23,10 @@ type EntitlementRow = ProjectionRowMeta &
     confirmed_transaction_count: number;
     latest_transaction_hash: string | null;
     asset_code: string;
+    is_abandoned: boolean | null;
+    abandonment_note: string | null;
+    abandonment_evidence_ref: string | null;
+    abandoned_at: string | null;
     program: ProgramRef | ProgramRef[] | null;
   }>;
 
@@ -30,7 +34,13 @@ const SELECT =
   'program_id, aid_type, available_balance_stroops, allocated_stroops, distributed_stroops, ' +
   'redeemed_stroops, refunded_stroops, confirmed_transaction_count, latest_transaction_hash, ' +
   'asset_code, reconciled_at, as_of_ledger, is_stale, is_quarantined, quarantine_issue_id, ' +
+  'is_abandoned, abandonment_note, abandonment_evidence_ref, abandoned_at, ' +
   'program:programs ( name, purpose )';
+
+const isAbandonedRow = (row: EntitlementRow): boolean =>
+  row.is_abandoned === true &&
+  typeof row.abandonment_note === 'string' &&
+  row.abandonment_note.trim().length > 0;
 
 const programName = (program: EntitlementRow['program']): ProgramRef => {
   if (Array.isArray(program)) return program[0] ?? { name: null, purpose: null };
@@ -39,6 +49,7 @@ const programName = (program: EntitlementRow['program']): ProgramRef => {
 
 const toEntitlement = (row: EntitlementRow): BeneficiaryProgramEntitlement => {
   const ref = programName(row.program);
+  const abandonmentNote = typeof row.abandonment_note === 'string' ? row.abandonment_note : null;
   return {
     programId: row.program_id,
     programName: ref.name ?? 'Program',
@@ -53,11 +64,17 @@ const toEntitlement = (row: EntitlementRow): BeneficiaryProgramEntitlement => {
     latestTransactionHash: row.latest_transaction_hash,
     assetCode: 'RCPHP',
     network: 'testnet',
+    isAbandoned: row.is_abandoned === true && abandonmentNote !== null && abandonmentNote.trim().length > 0,
+    abandonmentNote,
+    abandonmentEvidenceRef:
+      typeof row.abandonment_evidence_ref === 'string' ? row.abandonment_evidence_ref : null,
+    abandonedAt: typeof row.abandoned_at === 'string' ? row.abandoned_at : null,
   };
 };
 
 export type BeneficiaryEntitlementsHook = Readonly<{
   entitlements: ProjectionState<BeneficiaryProgramEntitlement[]>;
+  abandoned: readonly BeneficiaryProgramEntitlement[];
   refresh: () => Promise<void>;
 }>;
 
@@ -71,6 +88,7 @@ export function useBeneficiaryEntitlements(): BeneficiaryEntitlementsHook {
   const [entitlements, setEntitlements] = useState<
     ProjectionState<BeneficiaryProgramEntitlement[]>
   >({ status: 'loading' });
+  const [abandoned, setAbandoned] = useState<readonly BeneficiaryProgramEntitlement[]>([]);
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -86,7 +104,12 @@ export function useBeneficiaryEntitlements(): BeneficiaryEntitlementsHook {
       if (request !== requestRef.current) return;
 
       const rows = (data ?? []) as unknown as EntitlementRow[];
-      setEntitlements(buildProjectionState(rows, (r) => r.map(toEntitlement)));
+      // Spendable rows drive the summary and trust state; abandoned rows are
+      // preserved separately for the greyed history section and never summed.
+      const spendableRows = rows.filter((row) => !isAbandonedRow(row));
+      const abandonedRows = rows.filter(isAbandonedRow);
+      setEntitlements(buildProjectionState(spendableRows, (r) => r.map(toEntitlement)));
+      setAbandoned(abandonedRows.map(toEntitlement));
     } catch (err: unknown) {
       if (request !== requestRef.current) return;
       setEntitlements({
@@ -97,11 +120,14 @@ export function useBeneficiaryEntitlements(): BeneficiaryEntitlementsHook {
     }
   }, []);
 
+  // Mount fetch is intentional: initial state is already `loading`.
+  // Matches the existing hook pattern.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  return { entitlements, refresh: load };
+  return { entitlements, abandoned, refresh: load };
 }
 
 /** Finds the reconciled entitlement for a program, if one has been reconciled. */

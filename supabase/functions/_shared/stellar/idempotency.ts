@@ -60,6 +60,33 @@ const isPayloadConflict = (error: { code?: string; message?: string } | null): b
     error.message.toLowerCase().includes('idempotency key payload hash conflict'));
 
 /**
+ * True when `error` is the typed payload-conflict failure `claimIdempotencyKey`
+ * throws for a reused key with different content (`validation_failed` +
+ * idempotency-key wording). Centralized here next to {@link isPayloadConflict}
+ * so every caller shares one definition; it deliberately does NOT match
+ * unrelated `validation_failed` errors (wrong amount, bad wallet, ...).
+ * Duck-types `financialError` rather than `instanceof` so it holds across
+ * transpiled module realms.
+ */
+export const isIdempotencyPayloadConflictError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) return false;
+  const financialError = (error as { financialError?: { code?: unknown; message?: unknown } })
+    .financialError;
+  if (typeof financialError?.code !== 'string' || typeof financialError?.message !== 'string') {
+    return false;
+  }
+  if (financialError.code !== 'validation_failed') return false;
+  const message = financialError.message.toLowerCase();
+  return (
+    message.includes('idempotency key') &&
+    (message.includes('different details') ||
+      message.includes('different operation') ||
+      message.includes('payload hash conflict') ||
+      message.includes('already used'))
+  );
+};
+
+/**
  * Atomically claims a business idempotency key. Returns the claimed or existing
  * record along with whether this was a safe replay. Throws a typed,
  * non-retryable conflict error when the key is reused for different content.

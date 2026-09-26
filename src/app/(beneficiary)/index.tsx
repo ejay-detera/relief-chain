@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RequestCashOutModal, type CashOutSubmitOutcome } from '@/components/CashOut/RequestCashOutModal';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { AbandonedBalanceSection } from '@/components/shared/abandoned-balance-section';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -40,7 +41,7 @@ export default function BeneficiaryDashboard() {
   const { balance, liveBalance, refresh: refreshBalance } = useBeneficiaryBalances(
     isVerifiedPilotWallet(walletState) ? pilotWalletPublicKey(walletState) : null,
   );
-  const { entitlements, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
+  const { entitlements, abandoned, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
   const { redemptions } = useBeneficiaryRedemptions();
   const { programs, isLoading, error, refetch } = useBeneficiaryPrograms();
   const [isQrVisible, setIsQrVisible] = useState(false);
@@ -148,6 +149,10 @@ export default function BeneficiaryDashboard() {
                   />
                 </FadeInView>
               )}
+
+              <FadeInView delay={140}>
+                <AbandonedBalanceSection abandoned={abandoned} />
+              </FadeInView>
 
               <FadeInView delay={160}>
                 <RecentTransactionsList redemptions={redemptions} />
