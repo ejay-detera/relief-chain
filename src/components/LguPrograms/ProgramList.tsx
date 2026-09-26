@@ -21,11 +21,18 @@ export const ProgramList = ({
   refreshing,
   onRefresh,
 }: ProgramListProps) => {
-  // Filter programs based on selectedTab
+  // Filter programs based on selectedTab. Closing/closed wind down toward
+  // done, so they bucket with Completed; funding_failed stays with Funding.
+  const bucketFor = (status: string): string => {
+    if (status === 'funding' || status === 'funding_failed') return 'funding';
+    if (status === 'closing' || status === 'closed' || status === 'completed') return 'completed';
+    return status;
+  };
+
   const filteredPrograms = programs.filter((program) => {
     const status = resolveProgramStatus(program.status, program.startDate);
     if (selectedTab === 'All') return true;
-    return status.toLowerCase() === selectedTab.toLowerCase();
+    return bucketFor(status) === selectedTab.toLowerCase();
   });
 
   const getEmptyStateText = () => {
@@ -34,6 +41,11 @@ export const ProgramList = ({
         return {
           title: 'No Active Programs',
           subtitle: 'There are no programs currently active.',
+        };
+      case 'Funding':
+        return {
+          title: 'No Programs Funding',
+          subtitle: 'No programs are currently in treasury funding.',
         };
       case 'Scheduled':
         return {

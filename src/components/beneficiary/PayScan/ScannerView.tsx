@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,15 @@ import { ScanHeader } from '@/components/beneficiary/PayScan/scan-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
+import { INVOICE_QR_PREFIX } from '../../../../shared/invoice-codec';
+
+/**
+ * Minimum plausible QR payload length: the versioned scheme prefix plus enough
+ * body to be a real invoice rather than a truncated first frame. Anything
+ * shorter is a partial decode that fails closed downstream, so it is held back
+ * here instead of latching the error state.
+ */
+export const MIN_PLAUSIBLE_QR_LENGTH = INVOICE_QR_PREFIX.length + 32;
 
 type Props = {
   /** When false, scanned frames are ignored (e.g. while a scan is being processed). */
@@ -28,10 +37,36 @@ type Props = {
 export const ScannerView = ({ enabled, onScan, onBack, errorMessage, onDismissError }: Props) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'back' | 'front'>('back');
+  // The last payload seen exactly once. A payload is forwarded only when the
+  // same string arrives on consecutive frames (or is long enough to be a full
+  // invoice on its own): the first camera frame can be a partial decode that
+  // fails closed downstream and latches `enabled=false` until manual rescan.
+  const lastPayloadRef = useRef<string | null>(null);
+  // Payloads already handed to `onScan` are ignored until scanning restarts,
+  // so repeats arriving while the screen processes a scan emit nothing.
+  const emittedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (enabled) {
+      emittedRef.current = null;
+      lastPayloadRef.current = null;
+    }
+  }, [enabled]);
 
   const handleBarcodeScanned = (result: BarcodeScanningResult) => {
     if (!enabled) return;
-    onScan(result.data);
+    const data = result.data;
+    if (emittedRef.current !== null && data === emittedRef.current) return;
+    // Consecutive-frame agreement, or a payload long enough to be a complete
+    // invoice on its own: forward it once and suppress its repeats while the
+    // screen decodes and reviews it.
+    if (data === lastPayloadRef.current || data.length >= MIN_PLAUSIBLE_QR_LENGTH) {
+      emittedRef.current = data;
+      lastPayloadRef.current = null;
+      onScan(data);
+      return;
+    }
+    lastPayloadRef.current = data;
   };
 
   if (!permission) {

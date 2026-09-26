@@ -7,6 +7,7 @@ import { MyAssistanceSkeleton } from '@/components/beneficiary/MyAssistance/my-a
 import { ProgramVoucherCard } from '@/components/beneficiary/MyAssistance/program-voucher-card';
 import { TotalBalanceCard } from '@/components/beneficiary/MyAssistance/total-balance-card';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { AbandonedBalanceSection } from '@/components/shared/abandoned-balance-section';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -19,7 +20,7 @@ import { useBeneficiaryPrograms } from '@/hooks/use-beneficiary-programs';
 export default function MyAssistanceScreen() {
   const router = useRouter();
   const { programs, isLoading, error, refetch } = useBeneficiaryPrograms();
-  const { entitlements, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
+  const { entitlements, abandoned, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -83,6 +84,10 @@ export default function MyAssistanceScreen() {
             <>
               <FadeInView delay={40}>
                 <TotalBalanceCard activeProgramCount={programs.length} state={entitlements} />
+              </FadeInView>
+
+              <FadeInView delay={60}>
+                <AbandonedBalanceSection abandoned={abandoned} />
               </FadeInView>
 
               {programs.map((program, index) => (

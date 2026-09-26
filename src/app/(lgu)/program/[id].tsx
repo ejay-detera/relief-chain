@@ -2,7 +2,9 @@ import { ProgramApplicantsSection } from '@/components/LguPrograms/ProgramApplic
 import { resolveProgramStatus } from '@/components/LguPrograms/ProgramCard';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
-import { deleteLguProgram, updateProgramStatus } from '@/services/programService';
+import { useActivateCashProgram } from '@/hooks/use-activate-cash-program';
+import { deleteLguProgram, transitionProgramStatus } from '@/services/programService';
+import { activationBlockers, programStatusActions } from '@/utils/program-status';
 import { FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -13,8 +15,10 @@ export default function ProgramDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { programsList, fetchProgramsList, startEditingProgram } = useCreateProgram();
+  const { activateProgram, isActivating } = useActivateCashProgram();
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const busy = actionLoading || isActivating;
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -101,23 +105,75 @@ export default function ProgramDetailsScreen() {
     );
   };
 
-  const handleMarkCompleted = () => {
+  /**
+   * Manager-initiated direct writes: active → closing and closing → closed
+   * only (see @/utils/program-status). Everything else belongs to the funding
+   * flow or the reconciler. A denial surfaces the explanatory message; an RLS
+   * step-up denial directs to Security & MFA first.
+   */
+  const handleDirectWrite = (to: 'closing' | 'closed', title: string, message: string, confirmLabel: string) => {
     Alert.alert(
-      'Complete Program',
-      `Are you sure you want to mark "${program.name}" as completed? This will freeze further allocations.`,
+      title,
+      message,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Mark Completed',
+          text: confirmLabel,
           onPress: async () => {
             setActionLoading(true);
             try {
-              await updateProgramStatus(program.id, 'completed');
+              await transitionProgramStatus(program.id, program.status, to);
               await fetchProgramsList();
-              Alert.alert('Success', 'Program marked as completed.');
+              Alert.alert('Success', `"${program.name}" is now ${to}.`);
             } catch (err) {
-              console.error('Error completing program:', err);
-              Alert.alert('Error', 'Failed to mark program as completed.');
+              console.error('Error transitioning program:', err);
+              Alert.alert('Blocked', err instanceof Error ? err.message : 'This status change is not allowed.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * ORG-04 funding path: draft/funding/funding_failed programs advance only
+   * through the treasury funding and activation flow (prepare + submit +
+   * reconcile), which verifies full-budget on-chain evidence before the
+   * reconciler marks the program active. Never a direct status write.
+   */
+  const handleActivationFlow = (title: string, message: string, confirmLabel: string) => {
+    const blockers = activationBlockers({
+      name: program.name,
+      totalBudget: program.totalBudget,
+      aidType: program.redemptionType,
+      maxBeneficiaries: program.maxBeneficiaries,
+    });
+    if (blockers.length > 0) {
+      Alert.alert('Blocked', `The program cannot go live until it has ${blockers.join(', ')}.`);
+      return;
+    }
+    if (!program.organizationId) {
+      Alert.alert('Blocked', 'This program has no owning organization, so funding cannot start.');
+      return;
+    }
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: confirmLabel,
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await activateProgram(program.organizationId as string, program.id);
+              await fetchProgramsList();
+              Alert.alert('Success', 'Funding submitted. Reconciliation confirms activation on-chain.');
+            } catch (err) {
+              console.error('Error running program activation:', err);
+              Alert.alert('Error', err instanceof Error ? err.message : 'Program activation failed.');
             } finally {
               setActionLoading(false);
             }
@@ -133,12 +189,24 @@ export default function ProgramDetailsScreen() {
         return { bg: '#6FCA4B', text: 'Active' };
       case 'scheduled':
         return { bg: '#E4CF10', text: 'Scheduled' };
+      case 'funding':
+        return { bg: BrandColors.navy, text: 'Funding' };
+      case 'funding_failed':
+        return { bg: '#C0392B', text: 'Funding Failed' };
+      case 'closing':
+        return { bg: '#8E9AA8', text: 'Closing' };
+      case 'closed':
+        return { bg: BrandColors.navy, text: 'Closed' };
       case 'completed':
         return { bg: '#0E8B2C', text: 'Completed' };
       default:
         return { bg: '#8E9AA8', text: 'Draft' };
     }
   };
+
+  // ORG-04 actions for the database status (never the derived badge): funding
+  // stages launch the activation flow, live stages offer direct writes.
+  const statusActions = programStatusActions(program.status);
 
   const badgeInfo = getStatusBadgeStyle();
 
@@ -371,13 +439,14 @@ export default function ProgramDetailsScreen() {
         )}
       </ScrollView>
 
-      {/* Row of Action Buttons (Delete Icon, Edit, and Complete) */}
+      {/* Row of Action Buttons (Delete Icon, Edit, and ORG-04 status actions).
+          Only the valid next actions for the database status are offered. */}
       <View style={styles.actionsRow}>
         {/* Delete button: Icon only (trash icon) */}
         <TouchableOpacity
           style={styles.deleteIconButton}
           onPress={handleDelete}
-          disabled={actionLoading}
+          disabled={busy}
           activeOpacity={0.7}
         >
           <FontAwesome name="trash" size={20} color="#D32F2F" />
@@ -387,23 +456,40 @@ export default function ProgramDetailsScreen() {
         <TouchableOpacity
           style={[styles.actionButton, styles.editButton, isCompleted && styles.fullFlex]}
           onPress={handleEdit}
-          disabled={actionLoading}
+          disabled={busy}
           activeOpacity={0.8}
         >
           <Text style={styles.actionButtonText}>Edit</Text>
         </TouchableOpacity>
 
-        {/* Mark Completed button */}
-        {!isCompleted && (
+        {statusActions.map((action) => (
           <TouchableOpacity
+            key={action.kind === 'flow' ? `flow-${action.flow}` : `write-${action.to}`}
             style={[styles.actionButton, styles.completeButton]}
-            onPress={handleMarkCompleted}
-            disabled={actionLoading}
+            onPress={() => {
+              if (action.kind === 'flow') {
+                handleActivationFlow(
+                  action.headline,
+                  `Run treasury funding for "${program.name}"? Reconciliation activates it on-chain evidence.`,
+                  action.label,
+                );
+              } else {
+                handleDirectWrite(
+                  action.to,
+                  action.headline,
+                  action.to === 'closed'
+                    ? `Close "${program.name}"? This is terminal.`
+                    : `Begin closing "${program.name}"? New enrollments stop.`,
+                  action.label,
+                );
+              }
+            }}
+            disabled={busy}
             activeOpacity={0.8}
           >
-            <Text style={styles.actionButtonText}>Completed</Text>
+            <Text style={styles.actionButtonText}>{action.label}</Text>
           </TouchableOpacity>
-        )}
+        ))}
       </View>
     </View>
   );

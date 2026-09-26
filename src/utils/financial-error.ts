@@ -1,4 +1,4 @@
-import type { FinancialError } from '@/types/errors';
+import type { FinancialError, FinancialErrorCode } from '@/types/errors';
 
 /**
  * Shared helpers for the client → Edge Function service boundary. Every financial
@@ -36,4 +36,69 @@ export const toFinancialError = (value: unknown, fallback: string): FinancialErr
     }
   }
   return unknownFinancialError(fallback);
+};
+
+/** Server error codes this client knows how to surface (mirrors FinancialErrorCode). */
+const KNOWN_CODES: ReadonlySet<string> = new Set<string>([
+  'validation_failed',
+  'authorization_failed',
+  'authentication_required',
+  'invoice_expired',
+  'invoice_used',
+  'insufficient_balance',
+  'insufficient_budget',
+  'signing_failed',
+  'submission_rejected',
+  'submission_unknown',
+  'reconciliation_failed',
+  'reconciliation_mismatch',
+  'dependency_unavailable',
+  'sponsor_unavailable',
+  'contract_paused',
+  'contract_archived',
+]);
+
+/**
+ * Extracts the server's structured error envelope from a failed Edge Function
+ * invocation. supabase-js surfaces non-2xx responses as a generic transport
+ * error ('Edge Function returned a non-2xx status code') while the actionable
+ * `{ error: { code, message, ... } }` envelope sits unread in the response
+ * body — which is why screens show a mystery failure instead of the server's
+ * reason. This reads that body when present so the UI can show the real
+ * message. Never throws and never fabricates: returns null when no valid
+ * envelope exists and the caller falls back exactly as before.
+ */
+export const extractEdgeErrorEnvelope = async (error: unknown): Promise<FinancialError | null> => {
+  try {
+    if (!error || typeof error !== 'object') return null;
+    const context = (error as { context?: unknown }).context;
+    if (!context || typeof context !== 'object') return null;
+    const readJson = (context as { json?: unknown }).json;
+    if (typeof readJson !== 'function') return null;
+    const body: unknown = await (readJson as () => Promise<unknown>).call(context);
+    if (!body || typeof body !== 'object') return null;
+    const candidate = body as { error?: unknown };
+    const source: unknown = candidate.error ?? body;
+    if (!source || typeof source !== 'object') return null;
+    const { code, message, retryable, correlationId, fieldErrors } = source as {
+      code?: unknown;
+      message?: unknown;
+      retryable?: unknown;
+      correlationId?: unknown;
+      fieldErrors?: unknown;
+    };
+    if (typeof code !== 'string' || typeof message !== 'string') return null;
+    if (!KNOWN_CODES.has(code)) return null;
+    return {
+      code: code as FinancialErrorCode,
+      message,
+      retryable: typeof retryable === 'boolean' ? retryable : false,
+      correlationId: typeof correlationId === 'string' ? correlationId : 'client-unresolved',
+      ...(fieldErrors && typeof fieldErrors === 'object'
+        ? { fieldErrors: fieldErrors as FinancialError['fieldErrors'] }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
 };

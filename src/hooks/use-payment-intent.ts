@@ -7,6 +7,7 @@ import { completeDemoPayment } from '@/services/demo-payment-service';
 import {
     observePayment,
     preparePayment,
+    retryPayment,
     submitPayment,
 } from '@/services/payment-service';
 import {
@@ -55,8 +56,47 @@ export type PaymentIntentHook = Readonly<{
   reset: () => void;
 }>;
 
+/**
+ * How many hash-less pending observations are tolerated before the UI stops
+ * showing "awaiting confirmation" forever. An `accepted` attempt that never
+ * submits (biometric cancel, app kill, network drop) leaves no hash behind, so
+ * beyond this cap the flow transitions to `unavailable` with guidance instead
+ * of pending indefinitely.
+ */
+export const MAX_PENDING_OBSERVATIONS = 10;
+/** Wall-clock twin of the polling cap: five minutes without ledger evidence. */
+export const PENDING_OBSERVATION_TIMEOUT_MS = 5 * 60 * 1000;
+
+const UNAVAILABLE_AFTER_CAP_REASON =
+  'This payment could not be confirmed in time — ask the merchant for a new invoice and try again. No funds were moved.';
+
 const isExpired = (invoice: InvoiceV1, nowMs: number): boolean =>
   Number.isNaN(Date.parse(invoice.expiresAt)) || Date.parse(invoice.expiresAt) <= nowMs;
+
+/**
+ * Detects rotation-window prepare rejections: the invoice was valid at decode
+ * time but lapsed (expiry, nonce reuse, signer rotation window) before the
+ * server could prepare it. These need a fresh merchant invoice, not a retry of
+ * the same payload, so they route to the expired state. Decode strictness
+ * itself is untouched — this only classifies server rejections.
+ */
+const isRotationWindowError = (error: FinancialError): boolean => {
+  if (error.code === 'invoice_expired' || error.code === 'invoice_used') {
+    return true;
+  }
+  if (error.code !== 'validation_failed') {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('expir') ||
+    message.includes('nonce') ||
+    message.includes('rotation') ||
+    message.includes('window') ||
+    message.includes('no longer valid') ||
+    message.includes('stale')
+  );
+};
 
 /**
  * Signs the exact prepared package with the beneficiary's namespaced wallet. The
@@ -85,13 +125,55 @@ export function usePaymentIntent(): PaymentIntentHook {
   // leaving the UI frozen on a stale status while signing/submission continues
   // invisibly in the background.
   const authorizingRef = useRef(false);
+  // Polling-cap bookkeeping for hash-less pending observations. Reset whenever
+  // a new intent takes over or the flow resets.
+  const pendingObservationsRef = useRef(0);
+  const pendingSinceRef = useRef<number | null>(null);
+  // True once the orphan retry has been attempted for the current intent, so a
+  // hash-less replay triggers at most one retry-payment call per intent.
+  const retriedRef = useRef(false);
 
   const reset = useCallback(() => {
     intentRef.current = null;
     requestRef.current += 1;
     authorizingRef.current = false;
+    pendingObservationsRef.current = 0;
+    pendingSinceRef.current = null;
+    retriedRef.current = false;
     setState({ status: 'idle' });
   }, []);
+
+  /**
+   * Maps a reconciled observation onto the flow state with a polling cap: past
+   * MAX_PENDING_OBSERVATIONS hash-less observations (or past the wall-clock
+   * timeout), pending becomes `unavailable` with new-invoice guidance instead
+   * of "awaiting confirmation" forever.
+   */
+  const commitObservation = useCallback(
+    (
+      observed: Awaited<ReturnType<typeof observePayment>>,
+      commit: (next: PaymentFlowState) => void,
+    ): void => {
+      if (observed.status === 'pending' || observed.status === 'submitted') {
+        if (observed.transactionHash === null) {
+          pendingObservationsRef.current += 1;
+          if (pendingSinceRef.current === null) {
+            pendingSinceRef.current = Date.now();
+          }
+          const elapsed = Date.now() - (pendingSinceRef.current ?? Date.now());
+          if (
+            pendingObservationsRef.current > MAX_PENDING_OBSERVATIONS ||
+            elapsed > PENDING_OBSERVATION_TIMEOUT_MS
+          ) {
+            commit({ status: 'unavailable', reason: UNAVAILABLE_AFTER_CAP_REASON, retryable: false });
+            return;
+          }
+        }
+      }
+      applyObservation(observed, commit);
+    },
+    [],
+  );
 
   const authorizeAndPay = useCallback(
     async (invoice: InvoiceV1, source: FundingSource) => {
@@ -162,8 +244,10 @@ export function usePaymentIntent(): PaymentIntentHook {
         });
         if (request !== requestRef.current) return;
         if (!prepared.ok) {
-          if (prepared.error.code === 'invoice_expired') {
-            commit({ status: 'expired', reason: 'This invoice expired before it could be submitted. Ask for a new one.' });
+          // Rotation-window lapses (expired nonce, stale window) need a fresh
+          // merchant invoice — never a retry of the same payload.
+          if (isRotationWindowError(prepared.error)) {
+            commit({ status: 'expired', reason: 'This invoice expired before it could be submitted. Ask the merchant for a new one.' });
             return;
           }
           commit({ status: 'failed', error: prepared.error });
@@ -172,13 +256,53 @@ export function usePaymentIntent(): PaymentIntentHook {
 
         const payment = prepared.data;
         intentRef.current = payment.intentId;
+        pendingObservationsRef.current = 0;
+        pendingSinceRef.current = null;
+        retriedRef.current = false;
 
-        // A replayed invoice-bound key already prepared this payment; reconcile
-        // the prior attempt instead of signing a second time (design Property 2).
-        if (payment.isReplay || payment.signingPackage === null || payment.attemptId === null) {
+        // A fresh attempt carries its own signing package; a replayed
+        // invoice-bound key returns none, so reconcile — or repair — the prior
+        // attempt instead of signing a second time (design Property 2).
+        let attemptId = payment.attemptId;
+        let signingPackage = payment.signingPackage;
+        let expectedSigner = payment.expectedSigner;
+
+        if (payment.isReplay || signingPackage === null || attemptId === null) {
           const observed = await observePayment(payment.intentId);
           if (request !== requestRef.current) return;
-          applyObservation(observed, commit);
+          // Orphan-accepted: the prior attempt sits `accepted` with no hash
+          // because signing/submission never completed. Retry once for a fresh
+          // attempt under the same intent, then sign/submit it below like a
+          // fresh prepare. Settled or hash-bearing outcomes reconcile normally.
+          const isOrphan = !retriedRef.current &&
+            (observed.status === 'pending' || observed.status === 'submitted') &&
+            observed.transactionHash === null;
+          if (isOrphan) {
+            retriedRef.current = true;
+            const retried = await retryPayment(payment.intentId);
+            if (request !== requestRef.current) return;
+            if (retried.ok && !retried.data.settled && retried.data.signingPackage !== null && retried.data.attemptId && retried.data.expectedSigner) {
+              attemptId = retried.data.attemptId;
+              signingPackage = retried.data.signingPackage;
+              expectedSigner = retried.data.expectedSigner;
+            } else {
+              if (retried.ok && retried.data.settled) {
+                const reobserved = await observePayment(payment.intentId);
+                if (request !== requestRef.current) return;
+                commitObservation(reobserved, commit);
+                return;
+              }
+              commitObservation(observed, commit);
+              return;
+            }
+          } else {
+            commitObservation(observed, commit);
+            return;
+          }
+        }
+
+        if (signingPackage === null || attemptId === null) {
+          commitObservation(await observePayment(payment.intentId), commit);
           return;
         }
 
@@ -214,7 +338,7 @@ export function usePaymentIntent(): PaymentIntentHook {
         commit({ status: 'signing' });
         let signed: ClientSignedSubmission;
         try {
-          signed = await signPackage(userId, payment.expectedSigner, payment.signingPackage);
+          signed = await signPackage(userId, expectedSigner, signingPackage);
         } catch (err) {
           if (request !== requestRef.current) return;
           commit({ status: 'failed', error: {
@@ -231,7 +355,7 @@ export function usePaymentIntent(): PaymentIntentHook {
         commit({ status: 'submitting' });
         const submitted = await submitPayment({
           intentId: payment.intentId,
-          attemptId: payment.attemptId,
+          attemptId,
           signed,
         });
         if (request !== requestRef.current) return;
@@ -240,12 +364,13 @@ export function usePaymentIntent(): PaymentIntentHook {
           return;
         }
 
+        pendingSinceRef.current = Date.now();
         commit({ status: 'pending', intentId: payment.intentId, transactionHash: submitted.data.transactionHash });
       } finally {
         finishAuthorizing();
       }
     },
-    [userId],
+    [commitObservation, userId],
   );
 
   const refresh = useCallback(async () => {
@@ -258,13 +383,18 @@ export function usePaymentIntent(): PaymentIntentHook {
     const request = ++requestRef.current;
     const observed = await observePayment(intentId);
     if (request !== requestRef.current) return;
-    applyObservation(observed, setState);
-  }, []);
+    commitObservation(observed, setState);
+  }, [commitObservation]);
 
   return { state, authorizeAndPay, refresh, reset };
 }
 
-/** Maps a reconciled observation onto the flow state without inventing success. */
+/**
+ * Maps a reconciled observation onto the flow state without inventing success.
+ * A `failed` observation carries the reconciler's `error_detail` as its message
+ * (see payment-service observePayment), so on-chain rejection reasons reach the
+ * UI verbatim instead of being replaced with a generic failure.
+ */
 function applyObservation(
   observed: Awaited<ReturnType<typeof observePayment>>,
   commit: (next: PaymentFlowState) => void,
@@ -274,6 +404,7 @@ function applyObservation(
       commit({ status: 'confirmed', intentId: observed.intentId, transactionHash: observed.transactionHash });
       return;
     case 'failed':
+      // observed.error.message surfaces the stored error_detail when present.
       commit({ status: 'failed', error: observed.error });
       return;
     case 'submitted':

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { ProgramDraft } from '@/types/program';
+import { validateDirectWrite } from '@/utils/program-status';
 
 // No hardcoded fallback: a stale default here previously created programs
 // tagged with an orphaned issuer that has zero funded RCPHP supply, which
@@ -73,6 +74,7 @@ export const fetchLguPrograms = async (): Promise<any[]> => {
 
   return (data || []).map((item: any) => ({
     id: item.id,
+    organizationId: item.organization_id,
     name: item.name,
     description: item.purpose || '',
     disasterType: item.disaster_types?.name || 'General',
@@ -265,6 +267,25 @@ export const updateProgramStatus = async (id: string, status: string): Promise<b
 
   if (error) throw error;
   return true;
+};
+
+/**
+ * ORG-04 status workflow, manager-initiated direct writes only (see
+ * `@/utils/program-status`). Only active→closing and closing→closed may be
+ * written directly; draft/funding/funding_failed/active-as-target belong to
+ * the treasury funding and activation flow (prepare/submit-cash-activation +
+ * reconcile-stellar markFunded) or the reconciler, which verify full-budget
+ * on-chain evidence no client write can assert. Anything else fails closed
+ * here with an explanatory message instead of drifting workflow state.
+ */
+export const transitionProgramStatus = async (
+  id: string,
+  from: string,
+  to: string,
+): Promise<boolean> => {
+  const blocked = validateDirectWrite(from, to);
+  if (blocked) throw new Error(blocked);
+  return updateProgramStatus(id, to);
 };
 
 export const fetchActiveProgramsWithLocations = async (): Promise<any[]> => {

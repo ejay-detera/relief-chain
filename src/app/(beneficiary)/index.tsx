@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RequestCashOutModal, type CashOutSubmitOutcome } from '@/components/CashOut/RequestCashOutModal';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
+import { AbandonedBalanceSection } from '@/components/shared/abandoned-balance-section';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -26,7 +27,7 @@ import { useBeneficiaryBalances } from '@/hooks/use-beneficiary-balances';
 import { entitlementForProgram, useBeneficiaryEntitlements } from '@/hooks/use-beneficiary-entitlements';
 import { useBeneficiaryPrograms } from '@/hooks/use-beneficiary-programs';
 import { useBeneficiaryRedemptions } from '@/hooks/use-beneficiary-redemptions';
-import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
+import { isVerifiedPilotWallet, pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { requestCashOut } from '@/services/cashout-service';
 import type { StroopAmount } from '@/types/blockchain';
 import { selectActiveProgram } from '@/utils/active-program';
@@ -37,8 +38,10 @@ export default function BeneficiaryDashboard() {
   const { profile, session } = useAuth();
   const { state: walletState } = usePilotWallet();
   const userId = session?.user.id ?? null;
-  const { balance, refresh: refreshBalance } = useBeneficiaryBalances();
-  const { entitlements, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
+  const { balance, liveBalance, refresh: refreshBalance } = useBeneficiaryBalances(
+    isVerifiedPilotWallet(walletState) ? pilotWalletPublicKey(walletState) : null,
+  );
+  const { entitlements, abandoned, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
   const { redemptions } = useBeneficiaryRedemptions();
   const { programs, isLoading, error, refetch } = useBeneficiaryPrograms();
   const [isQrVisible, setIsQrVisible] = useState(false);
@@ -96,6 +99,7 @@ export default function BeneficiaryDashboard() {
               <FadeInView delay={40}>
                 <WalletBalanceCard
                   balance={balance}
+                  liveBalance={liveBalance}
                   onWithdraw={() => setIsCashOutVisible(true)}
                   onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
                 />
@@ -145,6 +149,10 @@ export default function BeneficiaryDashboard() {
                   />
                 </FadeInView>
               )}
+
+              <FadeInView delay={140}>
+                <AbandonedBalanceSection abandoned={abandoned} />
+              </FadeInView>
 
               <FadeInView delay={160}>
                 <RecentTransactionsList redemptions={redemptions} />

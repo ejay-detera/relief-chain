@@ -9,10 +9,12 @@ import { InvoiceExpiryCountdown } from '@/components/MerchantInvoice/InvoiceExpi
 import { InvoiceQrCard } from '@/components/MerchantInvoice/InvoiceQrCard';
 import { InvoiceSettlementState } from '@/components/MerchantInvoice/InvoiceSettlementState';
 import { InvoiceSigningStatus } from '@/components/MerchantInvoice/InvoiceSigningStatus';
+import { SettlementCheckButton } from '@/components/MerchantInvoice/SettlementCheckButton';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { useMerchantSettlementCheck } from '@/hooks/use-merchant-settlement-check';
 import { isVerifiedMerchantWallet, merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
 import { createSignedInvoice } from '@/services/invoice-service';
 import type {
@@ -35,6 +37,38 @@ const MerchantReceiveScreen = () => {
   const [presented, setPresented] = useState<PresentedInvoice | null>(null);
   const [settlement, setSettlement] = useState<SettlementState>({ status: 'awaiting_scan' });
   const [formError, setFormError] = useState<string | null>(null);
+
+  const resolvedMerchantIdForCheck = merchantEntityId ?? null;
+  const {
+    organizationId: settlementOrganizationId,
+    isResolvingOrg: isResolvingSettlementOrg,
+    isChecking: isCheckingSettlement,
+    error: settlementCheckError,
+    lastCheck: settlementLastCheck,
+    settledEvidence,
+    checkSettlement,
+    resetCheck,
+  } = useMerchantSettlementCheck(resolvedMerchantIdForCheck);
+
+  // `settled` renders only from reconciler-owned DB evidence re-read after the
+  // authorized check — never from the invoke response alone. Derived during
+  // render (no effect) so no cascading setState is introduced.
+  const displayedSettlement: SettlementState = settledEvidence
+    ? { status: 'settled', evidence: settledEvidence }
+    : settlement;
+
+  const handleCheckSettlement = useCallback(() => {
+    void checkSettlement();
+  }, [checkSettlement]);
+
+  const settlementCheckSummary = useMemo(() => {
+    if (!settlementLastCheck) return null;
+    return (
+      `Checked ${settlementLastCheck.checkedAt} — ` +
+      `${settlementLastCheck.confirmedCount} confirmed, ` +
+      `${settlementLastCheck.failedCount} failed.`
+    );
+  }, [settlementLastCheck]);
 
   const userId = session?.user.id ?? null;
   // Use the merchantEntityId from the wallet hook, which resolves the entity ID, instead of the auth user ID.
@@ -82,6 +116,7 @@ const MerchantReceiveScreen = () => {
       });
       setPresented(result);
       setSettlement({ status: 'awaiting_scan' });
+      resetCheck();
       setStep('present');
     } catch (caught: unknown) {
       const message = caught instanceof Error ? caught.message : 'Could not create the invoice.';
@@ -94,14 +129,15 @@ const MerchantReceiveScreen = () => {
       );
       setStep('collect');
     }
-  }, [userId, resolvedMerchantId, merchantWallet, isReady, needsRecovery]);
+  }, [userId, resolvedMerchantId, merchantWallet, isReady, needsRecovery, resetCheck]);
 
   const startNewInvoice = useCallback(() => {
     setPresented(null);
     setSettlement({ status: 'awaiting_scan' });
     setFormError(null);
+    resetCheck();
     setStep('collect');
-  }, []);
+  }, [resetCheck]);
 
   const handleExpired = useCallback(() => setSettlement({ status: 'expired' }), []);
 
@@ -130,7 +166,14 @@ const MerchantReceiveScreen = () => {
             <View style={styles.presentBlock}>
               <InvoiceExpiryCountdown expiresAt={presented.invoice.expiresAt} onExpired={handleExpired} />
               <InvoiceQrCard invoice={presented.invoice} transport={presented.transport} />
-              <InvoiceSettlementState state={settlement} />
+              <InvoiceSettlementState state={displayedSettlement} />
+              <SettlementCheckButton
+                disabled={!resolvedMerchantIdForCheck || !settlementOrganizationId || isResolvingSettlementOrg}
+                errorText={settlementCheckError ? settlementCheckError.message : null}
+                isChecking={isCheckingSettlement}
+                lastCheckText={settlementCheckSummary}
+                onCheck={handleCheckSettlement}
+              />
               <Pressable accessibilityRole="button" onPress={startNewInvoice} style={styles.newInvoice}>
                 <ThemedText style={styles.newInvoiceText}>New invoice</ThemedText>
               </Pressable>

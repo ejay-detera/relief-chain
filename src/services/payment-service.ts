@@ -5,6 +5,7 @@ import type {
     PaymentPrepareRequest,
     PaymentSubmitRequest,
     PreparedPayment,
+    RetriedPayment,
     SubmittedPayment,
 } from '@/types/payment';
 
@@ -29,6 +30,7 @@ import type {
 
 const PREPARE_FUNCTION = 'prepare-payment';
 const SUBMIT_FUNCTION = 'submit-payment';
+const RETRY_FUNCTION = 'retry-payment';
 
 const unknownError = (message: string): FinancialError => ({
   code: 'dependency_unavailable',
@@ -155,6 +157,37 @@ export const submitPayment = async (
     }
     if (!data?.payment) {
       return { ok: false, error: toFinancialError(data?.error, 'The payment could not be submitted.') };
+    }
+    return { ok: true, data: data.payment };
+  } catch (err) {
+    return {
+      ok: false,
+      error: unknownError(err instanceof Error ? err.message : 'Payment service is unavailable.'),
+    };
+  }
+};
+
+/**
+ * Retries an orphan-accepted payment intent. The server reuses the same intent
+ * (same invoice-bound idempotency key) and builds a fresh attempt with new
+ * sequence/auth data via the reconcile-before-retry gate, returning the fresh
+ * attemptId + signing package. A settled retry carries no package: the prior
+ * outcome stands. The device still signs; the server never does.
+ */
+export const retryPayment = async (
+  intentId: string,
+): Promise<FinancialResult<RetriedPayment>> => {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      payment?: RetriedPayment;
+      error?: FinancialError;
+    }>(RETRY_FUNCTION, { body: { intentId } });
+
+    if (error) {
+      return { ok: false, error: toFinancialError(error.context ?? error, error.message) };
+    }
+    if (!data?.payment) {
+      return { ok: false, error: toFinancialError(data?.error, 'The payment could not be retried.') };
     }
     return { ok: true, data: data.payment };
   } catch (err) {

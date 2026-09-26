@@ -88,6 +88,7 @@ import {
     type ObservedLedgerTransaction,
     type ProjectionInput,
     type ProjectionResult,
+    type ProjectionWrite,
     type ProjectionWriterPort,
     type ReconciliationObserver,
     type ReconciliationProjector,
@@ -1064,6 +1065,344 @@ export const createMerchantSettlementProjector = (deps: {
     return { kind: 'unchanged' };
   }
 });
+
+// ---------------------------------------------------------------------------
+// Beneficiary cash spend projection refresher.
+// ---------------------------------------------------------------------------
+//
+// Merchant cash payments carry no program scope (`prepare-payment` records
+// `program_id: null` on both the financial intent and the payment intent), yet
+// `beneficiary_balance_projection` is keyed by program and its trigger
+// REQUIRES a matching completed reconciliation run, a program enrollment, and
+// program/asset policy agreement. This refresher therefore recomputes the
+// beneficiary's CASH row from confirmed source totals AFTER the settlement run
+// completes — never mid-run, when no completed evidence can exist — reusing the
+// same pure builder and the same upsert key the distribution reconciler uses:
+//
+//   distributed = confirmed distribution_recipients for (org, program, beneficiary)
+//   redeemed    = confirmed cash payment_intents for the beneficiary (incl. just-confirmed)
+//   refunded    = confirmed refunds with returns_to_entitlement for (org, program, beneficiary)
+//   available   = distributed - redeemed + refunded, clamped at zero (builder)
+//
+// Attribution is deterministic oldest-first: a program-less spend belongs to
+// the beneficiary's oldest distributed-cash program (earliest confirmed
+// distribution, `programId` tie-break; abandoned programs never attributed).
+// When no orderable candidate exists (empty, all abandoned, or all timestamps
+// missing) the refresher keeps the fail-closed skip. The legacy exactly-one
+// rule remains as a fallback for the single-program-no-timestamp case.
+// Voucher programs, asset mismatches, missing enrollments, amounts-check
+// violations, and missing run evidence all skip fail-closed, so one bad
+// principal never fails the pass and voucher-rail rows are never written. It
+// never confirms anything; the reconciler-owned confirmation path above is
+// untouched. Sequential split across ordered programs (`allocateSpendAcrossPrograms`)
+// conserves the spent amount (sum of row deltas == spent).
+
+/** Upsert key for beneficiary spend rows — identical to the distribution path. */
+export const BENEFICIARY_SPEND_PROJECTION_CONFLICT_KEY =
+  'organization_id,program_id,beneficiary_identity_id,asset_code' as const;
+
+export interface SpendAttributionCandidate {
+  readonly programId: string;
+}
+
+/**
+ * Exactly-one attribution: a program-less spend belongs to a beneficiary's
+ * projection only when exactly one program holds their confirmed
+ * distributions. Zero or several candidates yield null (fail closed).
+ */
+export const selectSpendAttributionProgramId = (
+  candidates: readonly SpendAttributionCandidate[],
+): string | null => (candidates.length === 1 ? candidates[0].programId : null);
+
+/**
+ * Deterministic multi-program spend attribution rule: oldest
+ * distributed-cash program first. Deterministic beats clever.
+ *
+ * Each candidate carries its earliest confirmed distribution time
+ * (`firstDistributedAt`, ISO-8601 from `distribution_recipients.confirmed_at`
+ * falling back to `created_at`, or `programs.created_at` when no recipient
+ * timestamp exists) plus a stable `programId` tie-break. Abandoned programs
+ * are never attributed. A candidate without a parsable timestamp is not
+ * orderable: when no orderable candidate exists the caller keeps the
+ * fail-closed skip (`null`). This replaces the exactly-one skip ONLY for the
+ * orderable case; truly ambiguous (all timestamps missing, all abandoned, or
+ * empty) still skips.
+ */
+export interface OrderableSpendAttributionCandidate {
+  readonly programId: string;
+  readonly firstDistributedAt: string | null;
+  readonly isAbandoned?: boolean | null;
+}
+
+const orderableTimestamp = (value: string | null): number | null => {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  const parsed = Date.parse(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+};
+
+export const selectOldestSpendAttributionProgramId = (
+  candidates: readonly OrderableSpendAttributionCandidate[],
+): string | null => {
+  const orderable = candidates.filter(
+    (candidate) =>
+      candidate.isAbandoned !== true && orderableTimestamp(candidate.firstDistributedAt) !== null,
+  );
+  if (orderable.length === 0) return null;
+  let oldest = orderable[0];
+  let oldestTime = orderableTimestamp(oldest.firstDistributedAt) as number;
+  for (let index = 1; index < orderable.length; index += 1) {
+    const candidate = orderable[index];
+    const candidateTime = orderableTimestamp(candidate.firstDistributedAt) as number;
+    if (
+      candidateTime < oldestTime ||
+      (candidateTime === oldestTime && candidate.programId < oldest.programId)
+    ) {
+      oldest = candidate;
+      oldestTime = candidateTime;
+    }
+  }
+  return oldest.programId;
+};
+
+/** One orderable program with spendable capacity for sequential allocation. */
+export interface SpendAllocationProgram {
+  readonly programId: string;
+  readonly availableStroops: number;
+  readonly firstDistributedAt: string | null;
+  readonly isAbandoned?: boolean | null;
+}
+
+export interface SpendAllocation {
+  readonly programId: string;
+  readonly amountStroops: number;
+}
+
+/**
+ * Sequential oldest-first allocation of a confirmed spend across orderable
+ * programs. Abandoned programs and programs without capacity are skipped;
+ * non-orderable programs (missing timestamps) are skipped so the caller can
+ * keep the fail-closed skip for the truly ambiguous case. The sum of
+ * allocations always equals `Math.min(spend, total orderable capacity)` —
+ * callers clamp to capacity first so conservation (`sum == spent`) holds.
+ */
+export const allocateSpendAcrossPrograms = (
+  spendStroops: number,
+  programs: readonly SpendAllocationProgram[],
+): SpendAllocation[] => {
+  if (!Number.isSafeInteger(spendStroops) || spendStroops <= 0) return [];
+  const orderable = programs
+    .filter(
+      (program) =>
+        program.isAbandoned !== true &&
+        orderableTimestamp(program.firstDistributedAt) !== null &&
+        Number.isSafeInteger(program.availableStroops) &&
+        program.availableStroops > 0,
+    )
+    .sort((left, right) => {
+      const leftTime = orderableTimestamp(left.firstDistributedAt) as number;
+      const rightTime = orderableTimestamp(right.firstDistributedAt) as number;
+      if (leftTime !== rightTime) return leftTime - rightTime;
+      return left.programId < right.programId ? -1 : left.programId > right.programId ? 1 : 0;
+    });
+  const allocations: SpendAllocation[] = [];
+  let remaining = spendStroops;
+  for (const program of orderable) {
+    if (remaining <= 0) break;
+    const amount = Math.min(program.availableStroops, remaining);
+    if (amount <= 0) continue;
+    allocations.push({ programId: program.programId, amountStroops: amount });
+    remaining -= amount;
+  }
+  return allocations;
+};
+
+export interface BeneficiarySpendPrincipal {
+  readonly beneficiaryIdentityId: string;
+  /** Total CONFIRMED cash spend for this beneficiary, including just-confirmed payments. */
+  readonly redeemedStroops: number;
+}
+
+export interface BeneficiarySpendSnapshot {
+  readonly organizationId: string;
+  readonly programId: string;
+  readonly beneficiaryIdentityId: string;
+  /** Program aid policy; only `cash` is ever refreshed (voucher rail untouched). */
+  readonly programAidType: 'cash' | 'voucher';
+  readonly programAssetCode: string;
+  readonly programAssetIssuer: string | null;
+  readonly hasEnrollment: boolean;
+  readonly allocatedStroops: number;
+  readonly distributedStroops: number;
+  readonly distributedCount: number;
+  /** Confirmed refunds with returns_to_entitlement for this principal. */
+  readonly refundedStroops: number;
+  readonly existingProjectionVersion: number;
+}
+
+export interface SpendProjectionEvidence {
+  readonly runId: string;
+  readonly completedAt: string;
+  readonly endLedgerSequence: number;
+  readonly status: 'completed' | 'partial';
+}
+
+export type BeneficiarySpendSkipReason =
+  | 'unresolvable_program'
+  | 'non_cash_program'
+  | 'asset_mismatch'
+  | 'missing_enrollment'
+  | 'amounts_check_violation'
+  | 'missing_run_evidence';
+
+export interface BeneficiarySpendRefresherDependencies {
+  /** Resolves confirmed totals; null when the spend has no single program. */
+  readonly snapshots: {
+    load(principal: BeneficiarySpendPrincipal & { readonly organizationId: string }): Promise<BeneficiarySpendSnapshot | null>;
+  };
+  /** Mints fresh program-scoped completed-run evidence (never fabricated). */
+  readonly evidence: {
+    runScopedStream(params: {
+      readonly organizationId: string;
+      readonly programId: string;
+      readonly correlationId: string;
+    }): Promise<SpendProjectionEvidence | null>;
+  };
+  /** The narrow projection writer; the same port the distribution reconciler uses. */
+  readonly projections: ProjectionWriterPort;
+  /** Expected RCPHP identifiers; rows are only written on exact policy match. */
+  readonly asset: { readonly code: string; readonly issuer: string };
+}
+
+export interface BeneficiarySpendRefreshRequest {
+  readonly organizationId: string;
+  readonly correlationId: string;
+  readonly principals: readonly BeneficiarySpendPrincipal[];
+}
+
+export interface BeneficiarySpendRefreshResult {
+  readonly updated: readonly {
+    readonly beneficiaryIdentityId: string;
+    readonly programId: string;
+    readonly availableBalanceStroops: number;
+  }[];
+  readonly skipped: readonly {
+    readonly beneficiaryIdentityId: string;
+    readonly reason: BeneficiarySpendSkipReason;
+  }[];
+}
+
+export interface BeneficiaryCashSpendRefresher {
+  refresh(request: BeneficiarySpendRefreshRequest): Promise<BeneficiarySpendRefreshResult>;
+}
+
+export const createBeneficiaryCashSpendRefresher = (
+  deps: BeneficiarySpendRefresherDependencies,
+): BeneficiaryCashSpendRefresher => {
+  const refresh = async (
+    request: BeneficiarySpendRefreshRequest,
+  ): Promise<BeneficiarySpendRefreshResult> => {
+    const entries: ProjectionWrite[] = [];
+    const updated: {
+      beneficiaryIdentityId: string;
+      programId: string;
+      availableBalanceStroops: number;
+    }[] = [];
+    const skipped: {
+      beneficiaryIdentityId: string;
+      reason: BeneficiarySpendSkipReason;
+    }[] = [];
+
+    const skip = (beneficiaryIdentityId: string, reason: BeneficiarySpendSkipReason): void => {
+      skipped.push({ beneficiaryIdentityId, reason });
+      safeLog('beneficiary spend projection skipped', {
+        correlationId: request.correlationId,
+        beneficiaryIdentityId,
+        reason,
+      });
+    };
+
+    for (const principal of request.principals) {
+      const snapshot = await deps.snapshots.load({
+        organizationId: request.organizationId,
+        beneficiaryIdentityId: principal.beneficiaryIdentityId,
+        redeemedStroops: principal.redeemedStroops,
+      });
+      if (snapshot === null) {
+        skip(principal.beneficiaryIdentityId, 'unresolvable_program');
+        continue;
+      }
+      if (snapshot.programAidType !== 'cash') {
+        skip(principal.beneficiaryIdentityId, 'non_cash_program');
+        continue;
+      }
+      if (
+        snapshot.programAssetCode !== deps.asset.code ||
+        snapshot.programAssetIssuer !== deps.asset.issuer
+      ) {
+        skip(principal.beneficiaryIdentityId, 'asset_mismatch');
+        continue;
+      }
+      if (!snapshot.hasEnrollment) {
+        skip(principal.beneficiaryIdentityId, 'missing_enrollment');
+        continue;
+      }
+      if (principal.redeemedStroops > snapshot.allocatedStroops + snapshot.refundedStroops) {
+        skip(principal.beneficiaryIdentityId, 'amounts_check_violation');
+        continue;
+      }
+
+      const runEvidence = await deps.evidence.runScopedStream({
+        organizationId: snapshot.organizationId,
+        programId: snapshot.programId,
+        correlationId: request.correlationId,
+      });
+      if (
+        runEvidence === null ||
+        !runEvidence.completedAt ||
+        !(runEvidence.endLedgerSequence > 0)
+      ) {
+        skip(principal.beneficiaryIdentityId, 'missing_run_evidence');
+        continue;
+      }
+
+      const row = buildBeneficiaryCashBalanceRow({
+        organizationId: snapshot.organizationId,
+        programId: snapshot.programId,
+        beneficiaryIdentityId: snapshot.beneficiaryIdentityId,
+        assetCode: deps.asset.code,
+        assetIssuer: deps.asset.issuer,
+        allocatedStroops: snapshot.allocatedStroops,
+        distributedStroops: snapshot.distributedStroops,
+        redeemedStroops: principal.redeemedStroops,
+        refundedStroops: snapshot.refundedStroops,
+        confirmedTransactionCount: snapshot.distributedCount,
+        reconciliationRunId: runEvidence.runId,
+        asOfLedger: runEvidence.endLedgerSequence,
+        reconciledAt: runEvidence.completedAt,
+        network: PILOT_WALLET_NETWORK,
+        runStatus: runEvidence.status,
+        projectionVersion: snapshot.existingProjectionVersion + 1,
+      });
+      entries.push({
+        table: 'beneficiary_balance_projection',
+        rows: row,
+        onConflict: BENEFICIARY_SPEND_PROJECTION_CONFLICT_KEY,
+      });
+      updated.push({
+        beneficiaryIdentityId: snapshot.beneficiaryIdentityId,
+        programId: snapshot.programId,
+        availableBalanceStroops: row.available_balance_stroops ?? 0,
+      });
+    }
+
+    if (entries.length > 0) {
+      await deps.projections.write(entries);
+    }
+    return { updated, skipped };
+  };
+
+  return Object.freeze({ refresh });
+};
 
 export interface ProgramActivationStore {
   markFunded(params: { programId: string; correlationId: string }): Promise<void>;

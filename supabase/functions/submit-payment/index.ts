@@ -79,15 +79,24 @@ const submitPayment = async (scope: EdgeRequestScope): Promise<Response> => {
     throw FinancialErrorException.of('validation_failed', 'The attempt does not match the intent.', { correlationId });
   }
 
-  // Update payment_intents status from 'prepared' to 'signed'
-  const { error: updateSignedError } = await service
+  // Update payment_intents status from 'prepared' to 'signed'. A PostgREST
+  // update whose filters match no row succeeds with zero affected rows, so the
+  // returned rows are checked: a mismatch means the intent already moved on
+  // (replay, concurrent submit, or reconciler transition) and must fail loudly
+  // rather than proceed as a silent success.
+  const { data: signedRows, error: updateSignedError } = await service
     .from('payment_intents')
     .update({ status: 'signed' })
     .eq('financial_intent_id', intent.id)
-    .eq('status', 'prepared');
+    .eq('status', 'prepared')
+    .select('id');
 
   if (updateSignedError) {
     throw FinancialErrorException.of('dependency_unavailable', `Unable to update payment intent to signed: ${updateSignedError.message}`, { correlationId });
+  }
+
+  if (!signedRows || signedRows.length === 0) {
+    throw FinancialErrorException.of('dependency_unavailable', 'This payment is no longer awaiting signature. Ask the merchant for a new invoice if needed.', { correlationId });
   }
 
   // 3. Assemble and submit payment
@@ -127,8 +136,9 @@ const submitPayment = async (scope: EdgeRequestScope): Promise<Response> => {
     throw error;
   }
 
-  // 4. Transition payment_intents to 'submitted'
-  const { error: updateSubmittedError } = await service
+  // 4. Transition payment_intents to 'submitted'. Same affected-row guard as
+  // above: zero matched rows must fail loudly, never read as success.
+  const { data: submittedRows, error: updateSubmittedError } = await service
     .from('payment_intents')
     .update({
       status: 'submitted',
@@ -136,28 +146,22 @@ const submitPayment = async (scope: EdgeRequestScope): Promise<Response> => {
       submitted_at: new Date().toISOString(),
     })
     .eq('financial_intent_id', intent.id)
-    .eq('status', 'signed');
+    .eq('status', 'signed')
+    .select('id');
 
   if (updateSubmittedError) {
     throw FinancialErrorException.of('dependency_unavailable', `Unable to update payment intent to submitted: ${updateSubmittedError.message}`, { correlationId });
   }
 
-  // 5. Trigger background reconciliation for seamless UI updates
-  void (async () => {
-    try {
-      const { data: piData } = await service.from('payment_intents')
-        .select('merchant_id, organization_id')
-        .eq('financial_intent_id', intent.id)
-        .maybeSingle();
-      if (piData) {
-        await service.functions.invoke('reconcile-stellar', {
-          body: { merchantId: piData.merchant_id, organizationId: piData.organization_id }
-        });
-      }
-    } catch (err: any) {
-      console.error('Failed to trigger background reconciliation:', err);
-    }
-  })();
+  if (!submittedRows || submittedRows.length === 0) {
+    throw FinancialErrorException.of('dependency_unavailable', 'This payment is no longer awaiting submission. Check its status before trying again.', { correlationId });
+  }
+
+  // Background reconciliation was removed: the prior fire-and-forget used the
+  // service-role client against a JWT-only Edge entrypoint, so it always died
+  // with authentication_required while submit returned 200 (stranding
+  // `submitted` payments). Merchants trigger authorized reconciliation from
+  // the Receive screen with their own session instead.
 
   return jsonResponse({
     payment: {
