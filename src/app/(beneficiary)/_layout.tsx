@@ -20,6 +20,7 @@ export default function BeneficiaryLayout() {
 
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarStyle: [styles.tabBar, { bottom: insets.bottom + FloatingTabBarGap }],

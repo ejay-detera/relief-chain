@@ -88,7 +88,8 @@
     "test:application-review-render-failure": "node --experimental-strip-types --test src/components/ApplicationReview/applicationReviewRenderFailure.test.mjs",
     "test:lgu-navigation-guard": "node --experimental-strip-types --test src/utils/lgu-navigation-guard.test.mjs",
     "test:layout-navigation-guard-wiring": "node --experimental-strip-types --test src/app/_layout.integration.test.mjs",
-    "test:resubmission-wiring": "node --experimental-strip-types --test src/utils/resubmission.test.mjs"
+    "test:resubmission-wiring": "node --experimental-strip-types --test src/utils/resubmission.test.mjs",
+    "test:navigation-back-behavior": "node --experimental-strip-types --test src/app/navigation-back-behavior.test.mjs"
   },
   "private": true
 }

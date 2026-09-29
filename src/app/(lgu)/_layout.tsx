@@ -11,6 +11,7 @@ export default function LguLayout() {
   return (
     <CreateProgramProvider>
       <Tabs
+        backBehavior="history"
         screenOptions={{
           headerShown: false,
           tabBarStyle: [styles.tabBar, { bottom: insets.bottom + FloatingTabBarGap }],

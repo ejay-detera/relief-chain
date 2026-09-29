@@ -17,11 +17,19 @@ export default function TransactionsScreen() {
   const router = useRouter();
   const { redemptions, isLoading, error, refresh } = useBeneficiaryRedemptions();
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(beneficiary)' as any);
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable accessibilityLabel="Go back" onPress={() => router.back()} style={styles.backButton}>
+          <Pressable accessibilityLabel="Go back" onPress={handleBack} style={styles.backButton}>
             <FontAwesome color={BrandColors.navy} name="arrow-left" size={18} />
           </Pressable>
           <ThemedText style={styles.title}>Transaction History</ThemedText>

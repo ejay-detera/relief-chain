@@ -15,10 +15,18 @@ import { BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
 const OrganizationSecurityScreen = () => {
   const router = useRouter();
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(lgu)/settings' as any);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Go back" accessibilityRole="button" hitSlop={10} onPress={() => router.back()}>
+        <Pressable accessibilityLabel="Go back" accessibilityRole="button" hitSlop={10} onPress={handleBack}>
           <FontAwesome color={BrandColors.navy} name="chevron-left" size={18} />
         </Pressable>
         <ThemedText style={styles.title}>Security</ThemedText>
