@@ -4,14 +4,11 @@ import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-nativ
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RequestCashOutModal, type CashOutSubmitOutcome } from '@/components/CashOut/RequestCashOutModal';
-import { ActiveProgramsCard } from '@/components/MerchantDashboard/ActiveProgramsCard';
 import { CashOutAndRefunds } from '@/components/MerchantDashboard/CashOutAndRefunds';
 import { MerchantBottomNavigation } from '@/components/MerchantDashboard/MerchantBottomNavigation';
 import { MerchantDashboardHeader } from '@/components/MerchantDashboard/MerchantDashboardHeader';
-import { ReceivePaymentCard } from '@/components/MerchantDashboard/ReceivePaymentCard';
 import { RecentPayments } from '@/components/MerchantDashboard/RecentPayments';
 import { SalesSummaryCard } from '@/components/MerchantDashboard/SalesSummaryCard';
-import { SettlementSyncCard } from '@/components/MerchantDashboard/SettlementSyncCard';
 import { WalletBalanceCard } from '@/components/MerchantDashboard/WalletBalanceCard';
 import { RequestRefundModal, type RefundSubmitOutcome } from '@/components/Refund/RequestRefundModal';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -19,12 +16,11 @@ import { QrModal } from '@/components/shared/qr-modal';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { useCashOutRequests } from '@/hooks/use-cashout-requests';
 import { useMerchantBalances } from '@/hooks/use-merchant-balances';
 import { useMerchantInvoiceHistory } from '@/hooks/use-merchant-invoice-history';
 import { useMerchantMetrics } from '@/hooks/use-merchant-metrics';
-import { useMerchantPrograms } from '@/hooks/use-merchant-programs';
 import { useMerchantRefunds } from '@/hooks/use-merchant-refunds';
+import { useMerchantSettlementCheck } from '@/hooks/use-merchant-settlement-check';
 import { useMerchantSettlements } from '@/hooks/use-merchant-settlements';
 import { useMerchantTransactions } from '@/hooks/use-merchant-transactions';
 import { merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
@@ -32,27 +28,49 @@ import { requestCashOut } from '@/services/cashout-service';
 import { authorizeRefund, prepareRefund } from '@/services/refund-service';
 import type { StroopAmount } from '@/types/blockchain';
 import type { MerchantPayment } from '@/types/merchant-dashboard';
+import type { MerchantMetrics } from '@/types/merchant-metrics';
 import type { RefundableSettlement } from '@/types/refund';
 import { ZERO_STROOPS } from '@/utils/format-stroops';
 
 const MerchantDashboardScreen = () => {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isLoading: isMetricsLoading, metrics, reload: refreshMetrics } = useMerchantMetrics();
-  const { error: programsError, isLoading: areProgramsLoading, programs, refresh } = useMerchantPrograms();
-  const { balance, refresh: refreshBalance } = useMerchantBalances();
-  const { state: cashOutState, refresh: refreshCashOut } = useCashOutRequests();
-  const { state: refundsState, refresh: refreshRefunds } = useMerchantRefunds();
-  const { state: settlementsState, refresh: refreshSettlements } = useMerchantSettlements();
   const { state: walletState, merchantEntityId } = useMerchantWallet();
+
+  const emailPrefix = session?.user?.email?.split('@')[0]?.trim();
+  const displayName = profile?.full_name?.trim() || profile?.first_name?.trim() || emailPrefix || 'Merchant';
+  const { isLoading: isMetricsLoading, metrics, reload: refreshMetrics } = useMerchantMetrics(merchantEntityId);
+  const { balance, refresh: refreshBalance } = useMerchantBalances();
+  const { state: refundsState, refresh: refreshRefunds } = useMerchantRefunds(merchantEntityId);
+  const { state: settlementsState, refresh: refreshSettlements } = useMerchantSettlements(merchantEntityId);
   const { refresh: refreshInvoices } = useMerchantInvoiceHistory(merchantEntityId);
-  const { transactions: recentTransactions, refresh: refreshTransactions } = useMerchantTransactions(merchantEntityId);
+  const {
+    transactions: recentTransactions,
+    summary: transactionSummary,
+    isLoading: isTransactionsLoading,
+    refresh: refreshTransactions,
+  } = useMerchantTransactions(merchantEntityId);
+  const { checkSettlement } = useMerchantSettlementCheck(merchantEntityId);
   const [cashOutVisible, setCashOutVisible] = useState(false);
   const [refundSettlement, setRefundSettlement] = useState<RefundableSettlement | null>(null);
   const [isQrVisible, setIsQrVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const publicKey = merchantWalletPublicKey(walletState);
+
+  const effectiveMetrics = useMemo<MerchantMetrics | null>(() => {
+    if (metrics) return metrics;
+    if (merchantEntityId && !isTransactionsLoading) {
+      return {
+        merchantId: merchantEntityId,
+        vouchersProcessed: transactionSummary.voucherCount,
+        totalSales: transactionSummary.totalSettledPhp,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return null;
+  }, [metrics, merchantEntityId, isTransactionsLoading, transactionSummary]);
 
   const displayedPayments = useMemo<MerchantPayment[]>(() => {
     return recentTransactions.slice(0, 5).map((tx) => ({
@@ -63,37 +81,39 @@ const MerchantDashboardScreen = () => {
     }));
   }, [recentTransactions]);
 
-  const activePrograms = programs.filter((program) => program.status === 'active');
   const showComingSoon = (feature: string) => Alert.alert(feature, 'This feature will be available soon.');
 
+  // Fast database-only refresh for pull-to-refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       refreshMetrics(),
-      refresh(),
       refreshBalance(),
-      refreshCashOut(),
       refreshRefunds(),
       refreshSettlements(),
       refreshInvoices(),
       refreshTransactions(),
     ]);
     setRefreshing(false);
-  }, [refreshMetrics, refresh, refreshBalance, refreshCashOut, refreshRefunds, refreshSettlements, refreshInvoices, refreshTransactions]);
+  }, [refreshMetrics, refreshBalance, refreshRefunds, refreshSettlements, refreshInvoices, refreshTransactions]);
 
-  // After a successful merchant-scoped reconcile from the sync card, re-read
-  // dashboard state so balances/settlements/metrics/refunds reflect
-  // reconciler-owned DB truth.
-  const handleSettlementSynced = useCallback(() => {
-    void Promise.all([
-      refreshSettlements(),
+  // Dedicated on-demand blockchain ledger sync from the wallet balance card
+  const handleSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      await checkSettlement();
+    } catch {
+      // Degrades gracefully when offline
+    }
+    await Promise.all([
       refreshBalance(),
       refreshMetrics(),
-      refreshRefunds(),
-      refreshInvoices(),
       refreshTransactions(),
+      refreshSettlements(),
+      refreshInvoices(),
     ]);
-  }, [refreshBalance, refreshMetrics, refreshRefunds, refreshSettlements, refreshInvoices, refreshTransactions]);
+    setIsSyncing(false);
+  }, [checkSettlement, refreshBalance, refreshMetrics, refreshTransactions, refreshSettlements, refreshInvoices]);
 
   const settledBalance: StroopAmount =
     balance.status === 'current' || balance.status === 'stale'
@@ -103,7 +123,7 @@ const MerchantDashboardScreen = () => {
   const submitCashOut = async (amountStroops: StroopAmount): Promise<CashOutSubmitOutcome> => {
     const result = await requestCashOut({ actor: 'merchant', amountStroops });
     if (!result.ok) return { ok: false, message: result.error.message };
-    await Promise.all([refreshCashOut(), refreshBalance()]);
+    await Promise.all([refreshBalance()]);
     return { ok: true };
   };
 
@@ -126,37 +146,33 @@ const MerchantDashboardScreen = () => {
     <MerchantDashboardHeader onShowQr={() => setIsQrVisible(true)} />
     <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }]} refreshControl={<RefreshControl onRefresh={handleRefresh} refreshing={refreshing} />} showsVerticalScrollIndicator={false}>
       <FadeInView delay={0}>
-        <ThemedText style={styles.storeName}>{profile?.full_name ?? 'Merchant Account'}</ThemedText>
+        <ThemedText style={styles.greetingText}>
+          Welcome back, <ThemedText style={styles.storeName}>{displayName}</ThemedText>
+        </ThemedText>
       </FadeInView>
       <FadeInView delay={40}>
-        <WalletBalanceCard balance={settledBalance} onSettlementsPress={() => showComingSoon('Settlements')} onWithdrawPress={() => setCashOutVisible(true)} />
+        <WalletBalanceCard
+          balance={settledBalance}
+          isSyncing={isSyncing}
+          onSettlementsPress={() => showComingSoon('Settlements')}
+          onSyncPress={handleSync}
+          onWithdrawPress={() => setCashOutVisible(true)}
+        />
       </FadeInView>
       <FadeInView delay={80}>
-        <ReceivePaymentCard onPress={() => router.push('/(merchant)/receive')} />
-      </FadeInView>
-      <FadeInView delay={100}>
-        <SettlementSyncCard merchantEntityId={merchantEntityId} onSynced={handleSettlementSynced} />
+        <SalesSummaryCard isLoading={isMetricsLoading && !effectiveMetrics} metrics={effectiveMetrics} />
       </FadeInView>
       <FadeInView delay={120}>
-        <SalesSummaryCard isLoading={isMetricsLoading} metrics={metrics} />
-      </FadeInView>
-      <FadeInView delay={160}>
         <CashOutAndRefunds
-          cashOut={cashOutState}
-          onRequestCashOut={() => setCashOutVisible(true)}
           onRequestRefund={setRefundSettlement}
-          onRetryCashOut={() => void refreshCashOut()}
           onRetryRefunds={() => void refreshRefunds()}
           onRetrySettlements={() => void refreshSettlements()}
           refunds={refundsState}
           settlements={settlementsState}
         />
       </FadeInView>
-      <FadeInView delay={200}>
+      <FadeInView delay={160}>
         <RecentPayments onViewAll={() => router.push('/(merchant)/transactions')} payments={displayedPayments} />
-      </FadeInView>
-      <FadeInView delay={240}>
-        <ActiveProgramsCard error={programsError} isLoading={areProgramsLoading} onBrowsePress={() => router.push('/(merchant)/programs')} onRetry={() => void refresh()} programs={activePrograms} />
       </FadeInView>
     </ScrollView>
     <MerchantBottomNavigation active="dashboard" />
@@ -166,4 +182,20 @@ const MerchantDashboardScreen = () => {
   </View></SafeAreaView>;
 };
 export default MerchantDashboardScreen;
-const styles = StyleSheet.create({ safeArea: { flex: 1, backgroundColor: '#FFFFFF' }, screen: { flex: 1 }, content: { gap: Spacing.three, padding: Spacing.three }, storeName: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 18 } });
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  screen: { flex: 1 },
+  content: { gap: Spacing.three, padding: Spacing.three },
+  greetingText: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  storeName: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 18,
+    lineHeight: 24,
+  },
+});

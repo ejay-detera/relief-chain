@@ -71,7 +71,7 @@ export const RefundableSettlementList = ({ state, onRetry, onRefund }: Props) =>
   if (state.settlements.length === 0) {
     return (
       <View style={styles.messageBox}>
-        <ThemedText style={styles.message}>No confirmed settlements to refund.</ThemedText>
+        <ThemedText style={styles.message}>No refundable settlements yet.</ThemedText>
       </View>
     );
   }

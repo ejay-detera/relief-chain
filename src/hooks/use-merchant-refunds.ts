@@ -19,21 +19,21 @@ export type MerchantRefundsHook = Readonly<{
  * record linked to an immutable original settlement (Requirements 15.1, 15.2). A
  * failed read surfaces `unavailable` and is never fabricated.
  */
-export function useMerchantRefunds(): MerchantRefundsHook {
+export function useMerchantRefunds(merchantEntityId?: string | null): MerchantRefundsHook {
   const [state, setState] = useState<RefundListState>({ status: 'loading' });
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
     const request = ++requestRef.current;
     setState({ status: 'loading' });
-    const result = await fetchRefunds();
+    const result = await fetchRefunds(merchantEntityId);
     if (request !== requestRef.current) return;
     setState(
       result.ok
         ? { status: 'ready', refunds: result.data }
         : { status: 'unavailable', reason: result.error.message },
     );
-  }, []);
+  }, [merchantEntityId]);
 
   useFocusEffect(
     useCallback(() => {

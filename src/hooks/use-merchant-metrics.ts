@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { getOrCreateMerchantMetrics } from '@/services/merchantMetricsService';
 import type { MerchantMetrics } from '@/types/merchant-metrics';
@@ -14,22 +14,31 @@ type MerchantMetricsState = {
 const toError = (error: unknown) =>
   error instanceof Error ? error : new Error('Unable to load merchant metrics.');
 
-export const useMerchantMetrics = (): MerchantMetricsState => {
+export const useMerchantMetrics = (merchantEntityId?: string | null): MerchantMetricsState => {
   const [metrics, setMetrics] = useState<MerchantMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const requestRef = useRef(0);
 
   const reload = useCallback(async () => {
+    const request = ++requestRef.current;
     setIsLoading(true);
     setError(null);
     try {
-      setMetrics(await getOrCreateMerchantMetrics());
+      const data = await getOrCreateMerchantMetrics(merchantEntityId);
+      if (request === requestRef.current) {
+        setMetrics(data);
+      }
     } catch (caught: unknown) {
-      setError(toError(caught));
+      if (request === requestRef.current) {
+        setError(toError(caught));
+      }
     } finally {
-      setIsLoading(false);
+      if (request === requestRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, []);
+  }, [merchantEntityId]);
 
   useFocusEffect(useCallback(() => { void reload(); }, [reload]));
 

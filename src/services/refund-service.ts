@@ -172,21 +172,28 @@ const mapRow = (row: RefundRow): Refund => {
  * organization. Confirmed refunds surface verifiable ledger references; the
  * original settlements they reference remain unchanged (Requirement 15.1).
  */
-export const fetchRefunds = async (): Promise<FinancialResult<readonly Refund[]>> => {
+export const fetchRefunds = async (
+  merchantEntityId?: string | null,
+): Promise<FinancialResult<readonly Refund[]>> => {
   try {
-    const { data, error } = await supabase
-      .from('refunds')
-      .select(REFUND_SELECT)
-      .order('requested_at', { ascending: false });
+    let query = supabase.from('refunds').select(REFUND_SELECT);
+    if (merchantEntityId) {
+      query = query.eq('merchant_id', merchantEntityId);
+    }
+    const { data, error } = await query.order('requested_at', { ascending: false });
 
     if (error) throw error;
     return { ok: true, data: ((data ?? []) as unknown as RefundRow[]).map(mapRow) };
   } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Refund history is unavailable.';
     return {
       ok: false,
-      error: unknownFinancialError(
-        err instanceof Error ? err.message : 'Refund history is unavailable.',
-      ),
+      error: unknownFinancialError(message),
     };
   }
 };

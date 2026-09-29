@@ -71,7 +71,7 @@ const subtractFloor = (original: StroopAmount, refunded: StroopAmount): StroopAm
  * (Requirement 15.4). Authoritative bound enforcement remains in the
  * contract/Edge Function; this only supplies the client guard and UI labels.
  */
-export function useMerchantSettlements(): MerchantSettlementsHook {
+export function useMerchantSettlements(merchantEntityId?: string | null): MerchantSettlementsHook {
   const [state, setState] = useState<SettlementsState>({ status: 'loading' });
   const requestRef = useRef(0);
 
@@ -79,19 +79,30 @@ export function useMerchantSettlements(): MerchantSettlementsHook {
     const request = ++requestRef.current;
     setState({ status: 'loading' });
     try {
-      const settlements = await supabase
+      let settlementQuery = supabase
         .from('settlements')
         .select(
           'id, voucher_redemption_id, merchant_id, program_id, amount_stroops, correlation_id, program:programs ( expiry_policy, expires_at )',
         )
-        .eq('status', 'confirmed')
-        .order('created_at', { ascending: false });
+        .eq('status', 'confirmed');
+
+      if (merchantEntityId) {
+        settlementQuery = settlementQuery.eq('merchant_id', merchantEntityId);
+      }
+
+      const settlements = await settlementQuery.order('created_at', { ascending: false });
 
       if (settlements.error) throw settlements.error;
 
-      const refunds = await supabase
+      let refundQuery = supabase
         .from('refunds')
         .select('original_settlement_id, amount_stroops, status');
+
+      if (merchantEntityId) {
+        refundQuery = refundQuery.eq('merchant_id', merchantEntityId);
+      }
+
+      const refunds = await refundQuery;
 
       if (refunds.error) throw refunds.error;
       if (request !== requestRef.current) return;
@@ -127,12 +138,18 @@ export function useMerchantSettlements(): MerchantSettlementsHook {
       setState({ status: 'ready', settlements: mapped });
     } catch (err: unknown) {
       if (request !== requestRef.current) return;
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : 'Settlements are unavailable.';
       setState({
         status: 'unavailable',
-        reason: err instanceof Error ? err.message : 'Settlements are unavailable.',
+        reason: message,
       });
     }
-  }, []);
+  }, [merchantEntityId]);
 
   useFocusEffect(
     useCallback(() => {
