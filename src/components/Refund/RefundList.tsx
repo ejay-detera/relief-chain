@@ -72,7 +72,7 @@ export const RefundList = ({ state, onRetry }: Props) => {
   if (state.refunds.length === 0) {
     return (
       <View style={styles.messageBox}>
-        <ThemedText style={styles.message}>No refunds yet.</ThemedText>
+        <ThemedText style={styles.message}>No refund history yet.</ThemedText>
       </View>
     );
   }
