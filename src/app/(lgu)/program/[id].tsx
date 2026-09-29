@@ -20,6 +20,14 @@ export default function ProgramDetailsScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const busy = actionLoading || isActivating;
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(lgu)/programs' as any);
+    }
+  };
+
   useEffect(() => {
     Promise.resolve().then(() => {
       setLoading(true);
@@ -44,7 +52,7 @@ export default function ProgramDetailsScreen() {
         <Text style={styles.errorIcon}>⚠️</Text>
         <Text style={styles.errorTitle}>Program Not Found</Text>
         <Text style={styles.errorSubtitle}>The requested program details could not be loaded.</Text>
-        <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backLink} onPress={handleBack}>
           <Text style={styles.backLinkText}>Return to Programs</Text>
         </TouchableOpacity>
       </View>
@@ -214,7 +222,7 @@ export default function ProgramDetailsScreen() {
     <View style={styles.container}>
       {/* Header with Back Button */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
           <FontAwesome name="chevron-left" size={18} color={BrandColors.navy} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Program Details</Text>

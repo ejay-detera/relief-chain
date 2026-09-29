@@ -13,16 +13,16 @@ export const MerchantBottomNavigation = ({ active }: Props) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return <View style={[styles.bar, { bottom: insets.bottom + FloatingTabBarGap }]}>
-    <Pressable accessibilityLabel="Dashboard" accessibilityRole="button" onPress={() => router.replace('/(merchant)' as Href)} style={[styles.item, active === 'dashboard' && styles.active]}>
+    <Pressable accessibilityLabel="Dashboard" accessibilityRole="button" onPress={() => router.navigate('/(merchant)' as Href)} style={[styles.item, active === 'dashboard' && styles.active]}>
       <MaterialCommunityIcons color="#FFFFFF" name="view-dashboard-outline" size={21} /><ThemedText style={styles.label}>Dashboard</ThemedText>
     </Pressable>
-    <Pressable accessibilityLabel="Programs" accessibilityRole="button" onPress={() => router.replace('/(merchant)/programs')} style={[styles.item, active === 'programs' && styles.active]}>
+    <Pressable accessibilityLabel="Programs" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/programs')} style={[styles.item, active === 'programs' && styles.active]}>
       <MaterialCommunityIcons color="#FFFFFF" name="hand-heart-outline" size={22} /><ThemedText style={styles.label}>Programs</ThemedText>
     </Pressable>
-    <Pressable accessibilityLabel="QR Scan" accessibilityRole="button" onPress={() => router.push('/(merchant)/receive')} style={styles.item}>
+    <Pressable accessibilityLabel="QR Scan" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/receive')} style={styles.item}>
       <MaterialCommunityIcons color="#FFFFFF" name="qrcode-scan" size={22} /><ThemedText style={styles.label}>QR Scan</ThemedText>
     </Pressable>
-    <Pressable accessibilityLabel="Profile" accessibilityRole="button" onPress={() => router.replace('/(merchant)/profile')} style={[styles.item, active === 'profile' && styles.active]}>
+    <Pressable accessibilityLabel="Profile" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/profile')} style={[styles.item, active === 'profile' && styles.active]}>
       <MaterialCommunityIcons color="#FFFFFF" name="account-outline" size={22} /><ThemedText style={styles.label}>Profile</ThemedText>
     </Pressable>
   </View>;

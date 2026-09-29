@@ -141,10 +141,18 @@ const MerchantReceiveScreen = () => {
 
   const handleExpired = useCallback(() => setSettlement({ status: 'expired' }), []);
 
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(merchant)' as any);
+    }
+  }, [router]);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Go back" accessibilityRole="button" hitSlop={10} onPress={() => router.back()} style={styles.back}>
+        <Pressable accessibilityLabel="Go back" accessibilityRole="button" hitSlop={10} onPress={handleBack} style={styles.back}>
           <MaterialCommunityIcons color={BrandColors.navy} name="arrow-left" size={22} />
         </Pressable>
         <ThemedText style={styles.title}>Receive payment</ThemedText>

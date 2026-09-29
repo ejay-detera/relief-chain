@@ -175,12 +175,20 @@ export default function PayScanScreen() {
     if (invoice && selected) void authorizeAndPay(invoice, selected);
   }, [invoice, selected, authorizeAndPay]);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(beneficiary)' as any);
+    }
+  };
+
   if (!invoice) {
     return (
       <ScannerView
         enabled={scanError === null}
         errorMessage={scanError}
-        onBack={() => router.back()}
+        onBack={handleBack}
         onDismissError={rescan}
         onScan={handleScan}
       />

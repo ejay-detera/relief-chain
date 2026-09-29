@@ -58,12 +58,20 @@ export default function EditProfileScreen() {
       });
       await refreshProfile();
       Alert.alert('Profile Updated', 'Your organization profile has been updated.');
-      router.back();
+      handleBack();
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('Update Failed', 'We could not save your changes. Please try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(lgu)/settings' as any);
     }
   };
 
@@ -73,7 +81,7 @@ export default function EditProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={styles.backButton}
           >
             <FontAwesome color={BrandColors.navy} name="chevron-left" size={18} />
