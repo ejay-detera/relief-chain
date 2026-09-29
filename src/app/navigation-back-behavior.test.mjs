@@ -72,4 +72,7 @@ test('Sub-screens use safe canGoBack fallback navigation', () => {
 
   const merchantWalletRecovery = readFileSync(fileURLToPath(new URL('./(merchant)/wallet-recovery.tsx', import.meta.url)), 'utf8');
   assert.match(merchantWalletRecovery, /router\.canGoBack\(\)/, 'Merchant wallet recovery must verify canGoBack');
+
+  const merchantTransactions = readFileSync(fileURLToPath(new URL('./(merchant)/transactions.tsx', import.meta.url)), 'utf8');
+  assert.match(merchantTransactions, /router\.canGoBack\(\)/, 'Merchant transactions must verify canGoBack');
 });
