@@ -19,12 +19,11 @@ import { isVerifiedMerchantWallet, merchantWalletPublicKey, useMerchantWallet } 
 import { createSignedInvoice } from '@/services/invoice-service';
 import { getStoredInvoiceByNonce, saveInvoice, updateInvoiceStatus } from '@/services/merchant-invoice-storage';
 import type {
+    InvoiceSettlementState as SettlementState,
     InvoiceTransport,
     InvoiceV1,
     MerchantInvoiceDraft,
     MerchantInvoiceStep,
-    InvoiceSettlementState as SettlementState,
-    VoucherInvoiceProgramOption,
 } from '@/types/invoice';
 
 type PresentedInvoice = { invoice: InvoiceV1; transport: InvoiceTransport };
@@ -82,10 +81,6 @@ const MerchantReceiveScreen = () => {
   // explicitly — otherwise `signMerchantInvoice` fails late with the low-level
   // "disposable testnet signer is unavailable" error.
   const isReady = isVerifiedMerchantWallet(walletState);
-  // The pilot only surfaces voucher programs that already have a deployed,
-  // activated contract. None are wired to the client yet, so voucher invoices
-  // are honestly shown as unavailable rather than fabricated.
-  const voucherPrograms = useMemo<readonly VoucherInvoiceProgramOption[]>(() => [], []);
 
   const { nonce } = useLocalSearchParams<{ nonce?: string }>();
 
@@ -238,7 +233,7 @@ const MerchantReceiveScreen = () => {
           <FadeInView delay={40}>
             {formError && <ThemedText style={styles.error}>{formError}</ThemedText>}
             {canCreate ? (
-              <InvoiceAmountForm isSubmitting={step === 'signing'} onSubmit={(draft) => void handleSubmit(draft)} voucherPrograms={voucherPrograms} />
+              <InvoiceAmountForm isSubmitting={step === 'signing'} onSubmit={(draft) => void handleSubmit(draft)} />
             ) : needsRecovery ? (
               <View style={styles.recoveryBlock}>
                 <ThemedText style={styles.helper}>
