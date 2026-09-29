@@ -26,6 +26,7 @@ import { useMerchantMetrics } from '@/hooks/use-merchant-metrics';
 import { useMerchantPrograms } from '@/hooks/use-merchant-programs';
 import { useMerchantRefunds } from '@/hooks/use-merchant-refunds';
 import { useMerchantSettlements } from '@/hooks/use-merchant-settlements';
+import { useMerchantTransactions } from '@/hooks/use-merchant-transactions';
 import { merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
 import { requestCashOut } from '@/services/cashout-service';
 import { authorizeRefund, prepareRefund } from '@/services/refund-service';
@@ -45,8 +46,8 @@ const MerchantDashboardScreen = () => {
   const { state: refundsState, refresh: refreshRefunds } = useMerchantRefunds();
   const { state: settlementsState, refresh: refreshSettlements } = useMerchantSettlements();
   const { state: walletState, merchantEntityId } = useMerchantWallet();
-  const { invoices: recentInvoices, refresh: refreshInvoices } = useMerchantInvoiceHistory(merchantEntityId);
-  const [fallbackPayments] = useState<MerchantPayment[]>([{ id: 'payment-1', payerName: 'Puregold Supermarket', occurredAt: 'Today, 10:45 AM', amount: 1500 }, { id: 'payment-2', payerName: 'Elena Rodriguez', occurredAt: 'Oct 24, 09:12 AM', amount: 10000 }]);
+  const { refresh: refreshInvoices } = useMerchantInvoiceHistory(merchantEntityId);
+  const { transactions: recentTransactions, refresh: refreshTransactions } = useMerchantTransactions(merchantEntityId);
   const [cashOutVisible, setCashOutVisible] = useState(false);
   const [refundSettlement, setRefundSettlement] = useState<RefundableSettlement | null>(null);
   const [isQrVisible, setIsQrVisible] = useState(false);
@@ -54,16 +55,13 @@ const MerchantDashboardScreen = () => {
   const publicKey = merchantWalletPublicKey(walletState);
 
   const displayedPayments = useMemo<MerchantPayment[]>(() => {
-    if (recentInvoices.length > 0) {
-      return recentInvoices.slice(0, 5).map((rec) => ({
-        id: rec.id,
-        payerName: rec.status === 'settled' ? 'Settled Payment' : rec.status === 'active' ? 'Active QR Request' : 'Expired QR Request',
-        occurredAt: new Date(rec.createdAt || rec.invoice.issuedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        amount: Number(rec.invoice.amountStroops) / 10_000_000,
-      }));
-    }
-    return fallbackPayments;
-  }, [recentInvoices, fallbackPayments]);
+    return recentTransactions.slice(0, 5).map((tx) => ({
+      id: tx.id,
+      payerName: tx.payerName,
+      occurredAt: tx.occurredAt,
+      amount: tx.amount,
+    }));
+  }, [recentTransactions]);
 
   const activePrograms = programs.filter((program) => program.status === 'active');
   const showComingSoon = (feature: string) => Alert.alert(feature, 'This feature will be available soon.');
@@ -78,16 +76,24 @@ const MerchantDashboardScreen = () => {
       refreshRefunds(),
       refreshSettlements(),
       refreshInvoices(),
+      refreshTransactions(),
     ]);
     setRefreshing(false);
-  }, [refreshMetrics, refresh, refreshBalance, refreshCashOut, refreshRefunds, refreshSettlements, refreshInvoices]);
+  }, [refreshMetrics, refresh, refreshBalance, refreshCashOut, refreshRefunds, refreshSettlements, refreshInvoices, refreshTransactions]);
 
   // After a successful merchant-scoped reconcile from the sync card, re-read
   // dashboard state so balances/settlements/metrics/refunds reflect
   // reconciler-owned DB truth.
   const handleSettlementSynced = useCallback(() => {
-    void Promise.all([refreshSettlements(), refreshBalance(), refreshMetrics(), refreshRefunds(), refreshInvoices()]);
-  }, [refreshBalance, refreshMetrics, refreshRefunds, refreshSettlements, refreshInvoices]);
+    void Promise.all([
+      refreshSettlements(),
+      refreshBalance(),
+      refreshMetrics(),
+      refreshRefunds(),
+      refreshInvoices(),
+      refreshTransactions(),
+    ]);
+  }, [refreshBalance, refreshMetrics, refreshRefunds, refreshSettlements, refreshInvoices, refreshTransactions]);
 
   const settledBalance: StroopAmount =
     balance.status === 'current' || balance.status === 'stale'
@@ -147,7 +153,7 @@ const MerchantDashboardScreen = () => {
         />
       </FadeInView>
       <FadeInView delay={200}>
-        <RecentPayments onViewAll={() => router.push('/(merchant)/payment-history')} payments={displayedPayments} />
+        <RecentPayments onViewAll={() => router.push('/(merchant)/transactions')} payments={displayedPayments} />
       </FadeInView>
       <FadeInView delay={240}>
         <ActiveProgramsCard error={programsError} isLoading={areProgramsLoading} onBrowsePress={() => router.push('/(merchant)/programs')} onRetry={() => void refresh()} programs={activePrograms} />

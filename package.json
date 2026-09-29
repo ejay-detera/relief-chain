@@ -89,7 +89,8 @@
     "test:lgu-navigation-guard": "node --experimental-strip-types --test src/utils/lgu-navigation-guard.test.mjs",
     "test:layout-navigation-guard-wiring": "node --experimental-strip-types --test src/app/_layout.integration.test.mjs",
     "test:resubmission-wiring": "node --experimental-strip-types --test src/utils/resubmission.test.mjs",
-    "test:navigation-back-behavior": "node --experimental-strip-types --test src/app/navigation-back-behavior.test.mjs"
+    "test:navigation-back-behavior": "node --experimental-strip-types --test src/app/navigation-back-behavior.test.mjs",
+    "test:merchant-transactions": "node --test src/hooks/use-merchant-transactions.test.mjs"
   },
   "private": true
 }
