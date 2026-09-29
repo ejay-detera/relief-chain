@@ -13,7 +13,16 @@ export const RecentPayments = ({ onViewAll, payments }: RecentPaymentsProps) => 
     <FlatList
       data={payments}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <View style={styles.row}><View style={styles.avatar} /><View style={styles.detail}><ThemedText numberOfLines={1} style={styles.name}>{item.payerName}</ThemedText><ThemedText style={styles.date}>{item.occurredAt}</ThemedText></View><ThemedText style={styles.amount}>{formatAmount(item.amount)}</ThemedText></View>}
+      renderItem={({ item }) => (
+        <Pressable accessibilityRole="button" onPress={onViewAll} style={styles.row}>
+          <View style={styles.avatar} />
+          <View style={styles.detail}>
+            <ThemedText numberOfLines={1} style={styles.name}>{item.payerName}</ThemedText>
+            <ThemedText style={styles.date}>{item.occurredAt}</ThemedText>
+          </View>
+          <ThemedText style={styles.amount}>{formatAmount(item.amount)}</ThemedText>
+        </Pressable>
+      )}
       scrollEnabled={false}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
     />

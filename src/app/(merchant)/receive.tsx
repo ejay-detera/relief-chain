@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,6 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useMerchantSettlementCheck } from '@/hooks/use-merchant-settlement-check';
 import { isVerifiedMerchantWallet, merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
 import { createSignedInvoice } from '@/services/invoice-service';
+import { getStoredInvoiceByNonce, saveInvoice, updateInvoiceStatus } from '@/services/merchant-invoice-storage';
 import type {
     InvoiceTransport,
     InvoiceV1,
@@ -86,6 +87,30 @@ const MerchantReceiveScreen = () => {
   // are honestly shown as unavailable rather than fabricated.
   const voucherPrograms = useMemo<readonly VoucherInvoiceProgramOption[]>(() => [], []);
 
+  const { nonce } = useLocalSearchParams<{ nonce?: string }>();
+
+  // If a nonce parameter is supplied, resume that invoice from storage
+  useEffect(() => {
+    if (!nonce || !resolvedMerchantId) return;
+    let cancelled = false;
+    void getStoredInvoiceByNonce(resolvedMerchantId, nonce).then((record) => {
+      if (cancelled || !record) return;
+      setPresented({ invoice: record.invoice, transport: record.transport });
+      const isExpired = Date.parse(record.invoice.expiresAt) <= Date.now();
+      setSettlement(
+        record.settlementEvidence
+          ? { status: 'settled', evidence: record.settlementEvidence }
+          : isExpired
+          ? { status: 'expired' }
+          : { status: 'awaiting_scan' },
+      );
+      setStep('present');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [nonce, resolvedMerchantId]);
+
   const canCreate = Boolean(userId && resolvedMerchantId && merchantWallet && isReady);
   const needsRecovery = walletState?.status === 'recovery_required';
 
@@ -114,6 +139,14 @@ const MerchantReceiveScreen = () => {
         contractId: draft.contractId,
         receiptDigest: draft.receiptDigest,
       });
+      // Persist the generated invoice immediately so it survives back-navigation
+      void saveInvoice(resolvedMerchantId, {
+        id: result.invoice.nonce,
+        invoice: result.invoice,
+        transport: result.transport,
+        createdAt: new Date().toISOString(),
+        status: 'active',
+      });
       setPresented(result);
       setSettlement({ status: 'awaiting_scan' });
       resetCheck();
@@ -139,7 +172,12 @@ const MerchantReceiveScreen = () => {
     setStep('collect');
   }, [resetCheck]);
 
-  const handleExpired = useCallback(() => setSettlement({ status: 'expired' }), []);
+  const handleExpired = useCallback(() => {
+    setSettlement({ status: 'expired' });
+    if (resolvedMerchantId && presented?.invoice.nonce) {
+      void updateInvoiceStatus(resolvedMerchantId, presented.invoice.nonce, 'expired');
+    }
+  }, [resolvedMerchantId, presented]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -156,6 +194,15 @@ const MerchantReceiveScreen = () => {
           <MaterialCommunityIcons color={BrandColors.navy} name="arrow-left" size={22} />
         </Pressable>
         <ThemedText style={styles.title}>Receive payment</ThemedText>
+        <Pressable
+          accessibilityLabel="Payment history"
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={() => router.push('/(merchant)/payment-history')}
+          style={styles.historyBtn}
+        >
+          <MaterialCommunityIcons color={BrandColors.navy} name="history" size={22} />
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -220,6 +267,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
   back: { padding: Spacing.one },
   title: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 18 },
+  historyBtn: { marginLeft: 'auto', padding: Spacing.one },
   content: { gap: Spacing.three, padding: Spacing.three },
   presentBlock: { gap: Spacing.three },
   newInvoice: { alignItems: 'center', borderColor: BrandColors.navy, borderRadius: 24, borderWidth: 1, padding: Spacing.three },

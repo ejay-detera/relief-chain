@@ -64,6 +64,7 @@ flowchart TB
   MR --> MR3["✅ Programs — accreditation"]
   MR --> MR4["✅ Profile · security"]
   MR --> MR5["🟡 Cash-out — externally simulated"]
+  MR --> MR6["✅ Payment History — invoices · receipts · QR resume"]
 
   style LG7 fill:#3d3520
   style MR5 fill:#3d3520
