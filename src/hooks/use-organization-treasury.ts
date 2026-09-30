@@ -1,7 +1,9 @@
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+
 import { DEMO_MODE } from '@/config/demo-mode';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface TreasuryBalances {
   availableStroops: bigint;
@@ -19,6 +21,7 @@ const RCPHP_ISSUER = process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER;
 export function useOrganizationTreasury() {
   const { profile } = useAuth();
   const [balances, setBalances] = useState<TreasuryBalances | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Guards against a stale, slower fetch overwriting a newer one's result if
@@ -65,6 +68,7 @@ export function useOrganizationTreasury() {
 
       if (memError || !membershipData) throw new Error('No active organization membership found');
       const orgId = membershipData.organization_id;
+      setOrganizationId(orgId);
 
       // 2. Get the treasury wallet address
       const { data: walletData, error: walletError } = await supabase
@@ -97,7 +101,7 @@ export function useOrganizationTreasury() {
         .from('programs')
         .select('total_budget')
         .eq('organization_id', orgId)
-        .eq('status', 'Published'); // Published programs hold reserved funds
+        .in('status', ['active', 'funding']); // Active and funding programs hold reserved funds
 
       let reservedTotal = 0;
       if (!progError && programsData) {
@@ -122,9 +126,11 @@ export function useOrganizationTreasury() {
     }
   }, [profile]);
 
-  useEffect(() => {
-    void fetchBalances();
-  }, [fetchBalances]);
+  useFocusEffect(
+    useCallback(() => {
+      void fetchBalances();
+    }, [fetchBalances]),
+  );
 
-  return { balances, isLoading, error, refresh: fetchBalances };
+  return { balances, isLoading, error, refresh: fetchBalances, organizationId };
 }
