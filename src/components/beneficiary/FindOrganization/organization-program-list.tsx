@@ -16,6 +16,10 @@ type OrganizationProgramListProps = {
   applyDisabled: boolean;
   onApply: (program: OrganizationProgram) => void;
   onRetry: () => void;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  emptyActionLabel?: string;
+  onEmptyAction?: () => void;
 };
 
 export function OrganizationProgramList({
@@ -25,22 +29,29 @@ export function OrganizationProgramList({
   applyDisabled,
   onApply,
   onRetry,
+  emptyTitle,
+  emptyDescription,
+  emptyActionLabel,
+  onEmptyAction,
 }: OrganizationProgramListProps) {
   if (isLoading) {
     return <FindOrganizationSkeleton />;
   }
 
   if (error) {
-    return <ErrorState message="We couldn't load organizations right now." onRetry={onRetry} />;
+    return <ErrorState message="We couldn't load programs right now." onRetry={onRetry} />;
   }
 
   if (organizations.length === 0) {
     return (
       <EmptyState
-        actionLabel="Refresh"
-        description="No organizations are currently offering assistance. Check back later."
-        onAction={onRetry}
-        title="No Organizations Available"
+        actionLabel={emptyActionLabel ?? 'Refresh'}
+        description={
+          emptyDescription ??
+          'No relief programs are currently available for your area. Check back later.'
+        }
+        onAction={onEmptyAction ?? onRetry}
+        title={emptyTitle ?? 'No Programs Available'}
       />
     );
   }

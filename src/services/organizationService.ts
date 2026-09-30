@@ -15,16 +15,25 @@ const toEnrollmentCategory = (voucherType: string | null): EnrollmentCategory =>
   return match ?? 'Cash';
 };
 
+export {
+  isLocationEligible,
+  isProgramApplicable,
+  type LocationEligibilityInput,
+  type ProgramApplicabilityInput,
+} from '@/utils/program-applicability';
+import { isLocationEligible, isProgramApplicable } from '@/utils/program-applicability';
+
 /**
  * Fetches Organizations with at least one Ongoing_Program, joined with the
  * Beneficiary's own existing Enrollment status per Program (Requirement 1, 3.3),
  * and evaluates location-based eligibility against the Program's assigned
- * barangays (Programs with no assigned barangays are open to everyone).
+ * barangays and areas (Programs with no assigned locations are open to everyone).
  * Retries the query up to 2 additional times (3 total attempts) before throwing.
  */
 export const fetchOrganizationPrograms = async (
   beneficiaryId: string,
-  beneficiaryBarangayId: UserProfile['barangay_id']
+  beneficiaryBarangayId: UserProfile['barangay_id'],
+  beneficiaryAreaId?: UserProfile['area_id']
 ): Promise<OrganizationProgram[]> =>
   fetchWithRetry(async () => {
     const [programsResult, enrollmentsResult] = await Promise.all([
@@ -37,6 +46,7 @@ export const fetchOrganizationPrograms = async (
           registration_open,
           registration_close,
           voucher_type,
+          voucher_types,
           created_by,
           organization:profiles!programs_created_by_fkey (
             id,
@@ -45,6 +55,10 @@ export const fetchOrganizationPrograms = async (
           program_barangays (
             barangay_id,
             barangays ( name )
+          ),
+          program_areas (
+            area_id,
+            areas ( name )
           )
         `)
         .eq('status', 'active'),
@@ -69,10 +83,27 @@ export const fetchOrganizationPrograms = async (
       const assignedBarangays: { id: number; name: string }[] = (row.program_barangays ?? [])
         .map((pb: any) => ({ id: pb.barangay_id, name: pb.barangays?.name }))
         .filter((b: { id: number; name: string | undefined }) => Boolean(b.name));
-      // No assigned barangays means the Program is open to any location.
-      const isEligibleByLocation =
-        assignedBarangays.length === 0 ||
-        (beneficiaryBarangayId != null && assignedBarangays.some((b) => b.id === beneficiaryBarangayId));
+
+      const assignedAreas: { id: number; name: string }[] = (row.program_areas ?? [])
+        .map((pa: any) => ({ id: pa.area_id, name: pa.areas?.name }))
+        .filter((a: { id: number; name: string | undefined }) => Boolean(a.name));
+
+      const isEligibleByLocation = isLocationEligible({
+        assignedBarangayIds: assignedBarangays.map((b) => b.id),
+        assignedAreaIds: assignedAreas.map((a) => a.id),
+        beneficiaryBarangayId,
+        beneficiaryAreaId,
+      });
+
+      const resolvedVoucherType =
+        row.voucher_type ??
+        (Array.isArray(row.voucher_types) && row.voucher_types.length > 0 ? row.voucher_types[0] : null);
+
+      const isApplicable = isProgramApplicable({
+        isEligibleByLocation,
+        existingEnrollmentStatus,
+        registrationStatus: status,
+      });
 
       return {
         id: row.id,
@@ -83,14 +114,13 @@ export const fetchOrganizationPrograms = async (
         registrationOpen: row.registration_open,
         registrationClose: row.registration_close,
         registrationStatus: status,
-        // Disabled if the window isn't open, the Beneficiary already has an Enrollment
-        // for this Program (Requirement 3.3, 3.6), or the Beneficiary's barangay isn't
-        // one of the Program's assigned areas.
         canApply: canApply && existingEnrollmentStatus === null && isEligibleByLocation,
-        voucherType: row.voucher_type,
+        voucherType: resolvedVoucherType,
         existingEnrollmentStatus,
         isEligibleByLocation,
         eligibleBarangayNames: assignedBarangays.map((b) => b.name),
+        eligibleAreaNames: assignedAreas.map((a) => a.name),
+        isApplicable,
       } satisfies OrganizationProgram;
     });
   });

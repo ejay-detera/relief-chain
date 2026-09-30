@@ -1,7 +1,7 @@
 import { RegistrationStatus } from '@/utils/registration-window';
 
 export type OrganizationProgram = {
-  id: string;                 // program id
+  id: string; // program id
   organizationId: string;
   organizationName: string;
   programName: string;
@@ -16,4 +16,8 @@ export type OrganizationProgram = {
   isEligibleByLocation: boolean;
   /** Names of the barangays the Program is restricted to, for display when the Beneficiary is not eligible. Empty means no restriction. */
   eligibleBarangayNames: string[];
+  /** True when this program is fit and applicable for the beneficiary (location eligible, registration not closed, and not already approved). */
+  isApplicable: boolean;
+  /** Names of the areas the Program is restricted to. Empty means no area restriction. */
+  eligibleAreaNames?: string[];
 };
