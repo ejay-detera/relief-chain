@@ -727,6 +727,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
   },
   editButton: {
     backgroundColor: BrandColors.navy,
@@ -742,6 +743,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'PlusJakartaSans_700Bold',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   btnIcon: {
     fontSize: 14,

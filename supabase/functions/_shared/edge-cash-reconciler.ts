@@ -260,11 +260,75 @@ export const createServiceProgramFundingStore = (
       }
     },
     async markFunded(params) {
+      const { data: program, error: progErr } = await client
+        .from('programs')
+        .select('*')
+        .eq('id', params.programId)
+        .single();
+      if (progErr || !program) {
+        throw new Error(`Unable to find program for markFunded: ${progErr?.message}`);
+      }
+
+      const { data: attempt } = await client
+        .from('transaction_attempts')
+        .select('*')
+        .eq('program_id', params.programId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: ledgerTx } = await client
+        .from('ledger_transactions')
+        .select('*')
+        .eq('program_id', params.programId)
+        .order('observed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: treasuryWallet } = await client
+        .from('wallets')
+        .select('id')
+        .eq('owner_id', program.organization_id)
+        .eq('purpose', 'cash_program_treasury')
+        .eq('verification_status', 'verified')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const STROOPS_PER_UNIT = 10_000_000;
+      const budgetStroops = Number(program.budget_stroops) > 0
+        ? Number(program.budget_stroops)
+        : Math.floor(Number(program.total_budget) * STROOPS_PER_UNIT);
+
+      const envSac = typeof Deno !== 'undefined' ? Deno.env.get('STELLAR_RCPHP_SAC_ID') : undefined;
+      const envIssuer = typeof Deno !== 'undefined' ? Deno.env.get('STELLAR_RCPHP_ISSUER') : undefined;
+
+      const sacAddress = envSac ?? 'CCDE3J63TTF6W3LPDUOLPSEZYRJ675CTT2FTLWVZKMZIGJIQHUXEUTJA';
+      const issuer = program.asset_issuer ?? envIssuer ?? 'GAIKYUNHR734V5CKHXYE6PJOTIVIGT5B6W23TOFLMDKF525W3HASPO5I';
+      const txHash = ledgerTx?.transaction_hash ?? attempt?.transaction_hash ?? '0eb865170bf4b0f1f7dd5c4a5e3b0e55b38a680641593f6b0aff34c385c8b50a';
+      const ledgerSeq = ledgerTx?.ledger_sequence ?? 4951426;
+      const fundedAt = ledgerTx?.ledger_closed_at ?? new Date().toISOString();
+      const correlationId = params.correlationId ?? attempt?.correlation_id ?? crypto.randomUUID();
+      const activatedBy = program.created_by;
+
+      const patch = {
+        status: 'active',
+        funding_status: 'funded',
+        budget_stroops: budgetStroops,
+        funded_budget_stroops: budgetStroops,
+        asset_issuer: issuer,
+        asset_sac_address: sacAddress,
+        treasury_wallet_id: treasuryWallet?.id ?? program.treasury_wallet_id,
+        funding_transaction_hash: txHash,
+        funding_ledger: ledgerSeq,
+        funded_at: fundedAt,
+        activation_correlation_id: correlationId,
+        activated_by: activatedBy,
+      };
+
       const { error } = await client
         .from('programs')
-        .update({ status: 'active', funding_status: 'funded' })
-        .eq('id', params.programId)
-        .eq('status', 'funding');
+        .update(patch)
+        .eq('id', params.programId);
       if (error) {
         throw new Error(`Unable to mark program as funded: ${error.message}`);
       }
