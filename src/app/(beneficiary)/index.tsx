@@ -132,7 +132,7 @@ export default function BeneficiaryDashboard() {
               {hasNoAssistance && (
                 <FadeInView delay={120}>
                   <EmptyState
-                    actionLabel="Find Organizations"
+                    actionLabel="Find Organization Programs"
                     description="You don't have any assistance yet. Apply to a program to get started."
                     onAction={() => router.push('/(beneficiary)/find-organization')}
                     title="No Assistance Yet"

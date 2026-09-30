@@ -10,13 +10,14 @@ export function useOrganizationPrograms() {
   const [error, setError] = useState<Error | null>(null);
 
   const barangayId = profile?.barangay_id ?? null;
+  const areaId = profile?.area_id ?? null;
 
   const load = useCallback(async () => {
     if (!session) return;
 
     setIsLoading(true);
     try {
-      const data = await fetchOrganizationPrograms(session.user.id, barangayId);
+      const data = await fetchOrganizationPrograms(session.user.id, barangayId, areaId);
       setOrganizations(data);
       setError(null);
     } catch (e) {
@@ -26,7 +27,7 @@ export function useOrganizationPrograms() {
     } finally {
       setIsLoading(false);
     }
-  }, [session, barangayId]);
+  }, [session, barangayId, areaId]);
 
   useEffect(() => {
     void load();

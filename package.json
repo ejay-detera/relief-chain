@@ -91,7 +91,8 @@
     "test:resubmission-wiring": "node --experimental-strip-types --test src/utils/resubmission.test.mjs",
     "test:navigation-back-behavior": "node --experimental-strip-types --test src/app/navigation-back-behavior.test.mjs",
     "test:merchant-transactions": "node --test src/hooks/use-merchant-transactions.test.mjs",
-    "test:merchant-metrics": "node --test src/services/merchantMetricsService.test.mjs"
+    "test:merchant-metrics": "node --test src/services/merchantMetricsService.test.mjs",
+    "test:program-applicability": "node --experimental-strip-types --test src/services/organizationProgramApplicability.test.mjs"
   },
   "private": true
 }

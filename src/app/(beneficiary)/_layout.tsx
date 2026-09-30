@@ -58,7 +58,7 @@ export default function BeneficiaryLayout() {
       <Tabs.Screen
         name="find-organization"
         options={{
-          title: 'Find Organization',
+          title: 'Find Organization Programs',
           tabBarIcon: ({ focused }) => (
             <TabIcon focused={focused} source={require('@/assets/public/findorganization-icon.png')} />
           ),
