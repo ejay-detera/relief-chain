@@ -82,9 +82,25 @@ export const useActivateCashProgram = () => {
           // transaction can only complete activation (markFunded) if someone
           // asks the reconciler to look. Reconciliation is read-mostly and
           // idempotent, so this is safe to repeat.
-          await supabase.functions.invoke('reconcile-stellar', {
+          const { data: recData, error: recError } = await supabase.functions.invoke('reconcile-stellar', {
             body: { programId },
           });
+          if (recError) {
+            throw new Error(`Reconciliation failed: ${recError.message || 'Unable to invoke reconciler'}`);
+          }
+          const { data: verifiedProg } = await supabase
+            .from('programs')
+            .select('status')
+            .eq('id', programId)
+            .maybeSingle();
+
+          if (verifiedProg && verifiedProg.status !== 'active') {
+            const counts = (recData as any)?.summary?.counts;
+            if (counts?.failedObservations > 0) {
+              throw new Error('On-chain funding was submitted, but reconciliation could not record complete treasury evidence. Please verify treasury wallets and retry.');
+            }
+            throw new Error(`Program is still in status "${verifiedProg.status}". On-chain evidence may take a few moments to confirm.`);
+          }
           return true;
         }
         throw new Error('No attempt generated');
@@ -120,9 +136,27 @@ export const useActivateCashProgram = () => {
       // 3. Reconcile — the reconciler owns the funding → active transition
       // (markFunded) after verifying full-budget on-chain evidence. The client
       // must never write status='active' directly (trigger 23514 by design).
-      await supabase.functions.invoke('reconcile-stellar', {
+      const { data: recData, error: recError } = await supabase.functions.invoke('reconcile-stellar', {
         body: { programId },
       });
+
+      if (recError) {
+        throw new Error(`Reconciliation failed: ${recError.message || 'Unable to invoke reconciler'}`);
+      }
+
+      const { data: verifiedProg } = await supabase
+        .from('programs')
+        .select('status')
+        .eq('id', programId)
+        .maybeSingle();
+
+      if (verifiedProg && verifiedProg.status !== 'active') {
+        const counts = (recData as any)?.summary?.counts;
+        if (counts?.failedObservations > 0) {
+          throw new Error('On-chain funding was submitted, but reconciliation could not record complete treasury evidence. Please verify treasury wallets and retry.');
+        }
+        throw new Error(`Program is still in status "${verifiedProg.status}". On-chain evidence may take a few moments to confirm.`);
+      }
 
       return true;
     } catch (e: unknown) {

@@ -235,12 +235,40 @@ async function main() {
            verification_status, is_active, proof_challenge_digest, proof_signature_digest,
            proof_challenge_issued_at, verified_at, verified_by)
          values ('organization',$1,'organization_treasury','stellar_testnet',$2,'verified',true,
-           $3,$4,now(),now(),$5)`,
+           $3,$4,now(),now(),$5)
+         on conflict (network, address) do update set
+           owner_id = excluded.owner_id,
+           verification_status = 'verified',
+           is_active = true`,
         [
           org.id,
           orgTreasuryKp.publicKey(),
           hex64(`challenge:${orgTreasuryKp.publicKey()}`),
           hex64(`signature:${orgTreasuryKp.publicKey()}`),
+          adminUserId,
+        ],
+      );
+    }
+
+    // Cash program treasury wallet
+    const cashTreasurySecret = process.env.STELLAR_CASH_PROGRAM_TREASURY_SECRET?.trim();
+    if (cashTreasurySecret) {
+      const cashTreasuryKp = Keypair.fromSecret(cashTreasurySecret);
+      await db.query(
+        `insert into public.wallets (owner_type, owner_id, purpose, network, address,
+           verification_status, is_active, proof_challenge_digest, proof_signature_digest,
+           proof_challenge_issued_at, verified_at, verified_by)
+         values ('organization',$1,'cash_program_treasury','stellar_testnet',$2,'verified',true,
+           $3,$4,now(),now(),$5)
+         on conflict (network, address) do update set
+           owner_id = excluded.owner_id,
+           verification_status = 'verified',
+           is_active = true`,
+        [
+          org.id,
+          cashTreasuryKp.publicKey(),
+          hex64(`challenge:${cashTreasuryKp.publicKey()}`),
+          hex64(`signature:${cashTreasuryKp.publicKey()}`),
           adminUserId,
         ],
       );
