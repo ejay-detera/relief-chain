@@ -65,8 +65,8 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
   const programId = typeof body.programId === 'string' ? body.programId : '';
   const bodyOrgId = typeof body.organizationId === 'string' ? body.organizationId : '';
 
-  if (!jobId && !merchantId && !programId) {
-    throw FinancialErrorException.of('validation_failed', 'Either a jobId, merchantId, or programId is required.', { correlationId });
+  if (!jobId && !merchantId && !programId && !bodyOrgId) {
+    throw FinancialErrorException.of('validation_failed', 'Either a jobId, merchantId, programId, or organizationId is required.', { correlationId });
   }
 
   const binding = createEdgeServiceBinding(context, correlationId);
@@ -768,6 +768,107 @@ const reconcileStellar = async (scope: EdgeRequestScope): Promise<Response> => {
     return jsonResponse(
       {
         summary,
+      },
+      200,
+      correlationId,
+    );
+  } else if (bodyOrgId) {
+    // -------------------------------------------------------------------------
+    // 4. Reconcile Organization In-Flight Workflows
+    // -------------------------------------------------------------------------
+    await requireOrganizationRole(service, session, bodyOrgId, ALLOWED_ROLES);
+
+    // 4a. Find any in-flight distribution jobs
+    const { data: jobs, error: jobsError } = await service
+      .from('distribution_jobs')
+      .select('id, program_id, total_amount_stroops')
+      .eq('organization_id', bodyOrgId)
+      .in('status', ['submitted', 'reconciling']);
+
+    if (jobsError) {
+      throw FinancialErrorException.of('dependency_unavailable', 'Unable to load organization distribution jobs.', { correlationId });
+    }
+
+    let jobsReconciled = 0;
+    if (jobs && jobs.length > 0) {
+      const bundle = createCashReconcilerBundle(context, binding, correlationId);
+      const jobReconciler = createCashDistributionReconciler({
+        worker: bundle.worker,
+        recipients: bundle.recipients,
+        intents: {
+          loadIntent: async (intentId) => {
+            const { data } = await service.from('financial_intents').select('*').eq('id', intentId).maybeSingle();
+            return data ?? null;
+          },
+        },
+        projections: createServiceProjectionWriter(binding.serviceWriter),
+        runReader: {
+          load: async (runId) => {
+            const { data } = await service.from('reconciliation_runs').select('*').eq('id', runId).maybeSingle();
+            return data ?? null;
+          },
+        },
+      });
+
+      for (const job of jobs) {
+        const { data: attempts } = await service
+          .from('transaction_attempts')
+          .select('*')
+          .eq('distribution_job_id', job.id)
+          .in('status', ['submitted', 'unknown']);
+
+        await jobReconciler.reconcileJob({
+          jobId: job.id,
+          organizationId: bodyOrgId,
+          programId: job.program_id,
+          totalAmountStroops: Number(job.total_amount_stroops),
+          attempts: attempts ?? [],
+          correlationId,
+        });
+        jobsReconciled += 1;
+      }
+    }
+
+    // 4b. Find any in-flight programs
+    const { data: programs, error: progsError } = await service
+      .from('programs')
+      .select('id')
+      .eq('organization_id', bodyOrgId)
+      .in('status', ['funding']);
+
+    if (progsError) {
+      throw FinancialErrorException.of('dependency_unavailable', 'Unable to load organization programs.', { correlationId });
+    }
+
+    let programsReconciled = 0;
+    if (programs && programs.length > 0) {
+      const programBundle = createCashProgramReconcilerBundle(context, binding, correlationId);
+
+      for (const prog of programs) {
+        const { data: attempts } = await service
+          .from('transaction_attempts')
+          .select('*')
+          .eq('program_id', prog.id)
+          .in('status', ['submitted', 'unknown']);
+
+        await programBundle.worker.runStream({
+          attempts: attempts ?? [],
+          streamName: `program_activation:${prog.id}`,
+          network: 'stellar_testnet',
+          organizationId: bodyOrgId,
+          programId: prog.id,
+          cursorValue: null,
+          correlationId,
+        });
+        programsReconciled += 1;
+      }
+    }
+
+    return jsonResponse(
+      {
+        reconciled: true,
+        jobsReconciled,
+        programsReconciled,
       },
       200,
       correlationId,

@@ -54,39 +54,9 @@ const SettingsScreen = () => {
                 <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
               </Pressable>
             </FadeInView>
-
-            <FadeInView delay={160}>
-              <Pressable onPress={async () => {
-                try {
-                  const { supabase } = await import('@/lib/supabase');
-                  const { Alert } = await import('react-native');
-                  const { data: job } = await supabase.from('distribution_jobs').select('id').eq('status', 'reconciling').order('created_at', { ascending: false }).limit(1).maybeSingle();
-                  if (job) {
-                    const { data, error } = await supabase.functions.invoke('reconcile-stellar', { body: { jobId: job.id } });
-                    if (error) throw error;
-                    if (data?.error) throw new Error(data.error.message);
-                  }
-                  Alert.alert('Reconciliation Complete', 'Stellar testnet balances and transactions have been reconciled.');
-                } catch (e: any) {
-                  const { Alert } = await import('react-native');
-                  Alert.alert('Reconciliation Failed', e.message || 'An error occurred.');
-                }
-              }} style={[styles.menuRow, styles.menuRowSpacing]}>
-                <View style={styles.menuRowLeft}>
-                  <View style={styles.menuIconCircle}>
-                    <FontAwesome color={BrandColors.navy} name="refresh" size={16} />
-                  </View>
-                  <View>
-                    <ThemedText style={styles.menuRowTitle}>Trigger Reconciliation</ThemedText>
-                    <ThemedText style={styles.menuRowSubtitle}>Sync on-chain records with Relief Chain</ThemedText>
-                  </View>
-                </View>
-                <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
-              </Pressable>
-            </FadeInView>
           </View>
 
-          <FadeInView delay={200}>
+          <FadeInView delay={160}>
             <LogoutButton />
           </FadeInView>
         </View>

@@ -1,11 +1,12 @@
 import { supabase } from '@/lib/supabase';
-import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useOrganizationTreasury } from '@/hooks/use-organization-treasury';
 
 import { ActivityRow } from '@/components/Dashboard/ActivityRow';
 import { BudgetCard } from '@/components/Dashboard/BudgetCard';
@@ -15,7 +16,7 @@ import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { FadeInView } from '@/components/shared/FadeInView';
 
 import { ActivityItem, Program, QuickAction } from '@/types/dashboard';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 export default function HomeDashboard() {
   const router = useRouter();
@@ -34,6 +35,14 @@ export default function HomeDashboard() {
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const {
+    balances: treasuryBalances,
+    isLoading: isTreasuryLoading,
+    refresh: refreshTreasury,
+    organizationId,
+  } = useOrganizationTreasury();
 
   const fetchRecentVerifications = useCallback(async () => {
     try {
@@ -88,15 +97,48 @@ export default function HomeDashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchRecentVerifications();
-  }, [fetchRecentVerifications]);
+  useFocusEffect(
+    useCallback(() => {
+      void fetchRecentVerifications();
+    }, [fetchRecentVerifications]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchRecentVerifications();
+    await Promise.all([
+      refreshTreasury(),
+      fetchRecentVerifications(),
+    ]);
     setRefreshing(false);
-  }, [fetchRecentVerifications]);
+  }, [refreshTreasury, fetchRecentVerifications]);
+
+  const handleSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      if (organizationId) {
+        const { error: invokeError } = await supabase.functions.invoke('reconcile-stellar', {
+          body: { organizationId },
+        });
+        if (invokeError) {
+          console.warn('Reconcile stellar warning:', invokeError);
+        }
+      }
+    } catch (err) {
+      console.warn('Reconciliation invoke failed:', err);
+    }
+
+    try {
+      await Promise.all([
+        refreshTreasury(),
+        fetchRecentVerifications(),
+      ]);
+    } catch (err: any) {
+      console.error('Refresh after reconciliation failed:', err);
+      Alert.alert('Reconciliation Notice', err?.message || 'Could not refresh latest ledger data.');
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [organizationId, refreshTreasury, fetchRecentVerifications]);
 
   const actions: QuickAction[] = [
     {
@@ -150,7 +192,12 @@ export default function HomeDashboard() {
           </FadeInView>
 
           <FadeInView delay={40}>
-            <BudgetCard />
+            <BudgetCard
+              balances={treasuryBalances}
+              isLoading={isTreasuryLoading}
+              isSyncing={isSyncing}
+              onSyncPress={handleSync}
+            />
           </FadeInView>
 
           <FadeInView delay={80}>

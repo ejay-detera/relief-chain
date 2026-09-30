@@ -1,12 +1,27 @@
+import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing } from '@/constants/theme';
-import { useOrganizationTreasury } from '@/hooks/use-organization-treasury';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { useOrganizationTreasury, type TreasuryBalances } from '@/hooks/use-organization-treasury';
 
-export const BudgetCard = () => {
-  const { balances, isLoading } = useOrganizationTreasury();
+export type BudgetCardProps = {
+  balances?: TreasuryBalances | null;
+  isLoading?: boolean;
+  onSyncPress?: () => void;
+  isSyncing?: boolean;
+};
+
+export const BudgetCard = ({
+  balances: propBalances,
+  isLoading: propIsLoading,
+  onSyncPress,
+  isSyncing = false,
+}: BudgetCardProps = {}) => {
+  const treasuryHook = useOrganizationTreasury();
+  const balances = propBalances !== undefined ? propBalances : treasuryHook.balances;
+  const isLoading = propIsLoading !== undefined ? propIsLoading : treasuryHook.isLoading;
 
   const formatRCPHP = (stroops: bigint) => {
     const value = Number(stroops) / 10000000;
@@ -21,7 +36,25 @@ export const BudgetCard = () => {
     <LinearGradient
       colors={[BrandColors.green, BrandColors.budgetGradientEnd]}
       style={styles.container}>
-      <ThemedText style={styles.title}>Total Program Budget</ThemedText>
+      <View style={styles.topRow}>
+        <ThemedText style={styles.title}>Total Program Budget</ThemedText>
+        {onSyncPress && (
+          <Pressable
+            accessibilityLabel="Reconcile Stellar ledger"
+            accessibilityRole="button"
+            disabled={isSyncing}
+            onPress={onSyncPress}
+            style={[styles.syncButton, isSyncing && styles.syncButtonDisabled]}
+          >
+            {isSyncing ? (
+              <ActivityIndicator color="#FFFFFF" size={9} />
+            ) : (
+              <FontAwesome color="#FFFFFF" name="refresh" size={10} />
+            )}
+            <ThemedText style={styles.syncText}>{isSyncing ? 'Syncing…' : 'Reconcile'}</ThemedText>
+          </Pressable>
+        )}
+      </View>
       <ThemedText style={styles.amount}>{isLoading ? 'Loading...' : total}</ThemedText>
 
       <View style={styles.badgesContainer}>
@@ -46,11 +79,33 @@ const styles = StyleSheet.create({
     marginTop: Spacing.three,
     marginBottom: Spacing.four,
   },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.half,
+  },
   title: {
     color: 'white',
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: Spacing.half,
+  },
+  syncButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: BorderRadius.full,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 3,
+  },
+  syncButtonDisabled: {
+    opacity: 0.7,
+  },
+  syncText: {
+    color: '#FFFFFF',
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 9,
   },
   amount: {
     color: 'white',
