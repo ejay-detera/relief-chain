@@ -19,25 +19,23 @@ import { useCreateProgram } from './_layout';
 
 export default function BasicInfoScreen() {
   const router = useRouter();
-  const { draft, updateDraft, lookups, isLoadingLookups } = useCreateProgram();
+  const { draft, updateDraft, lookups, isLoadingLookups, clearEditingState } = useCreateProgram();
 
-  // Local state for city selection
-  const [selectedCityId, setSelectedCityId] = useState<number | null>(() => {
+  // City selection: derived from draft.districtId or manually selected
+  const [manualCityId, setManualCityId] = useState<number | null>(null);
+
+  const selectedCityId = React.useMemo(() => {
+    if (manualCityId) return manualCityId;
     if (draft.districtId) {
-      const area = lookups.areas.find(a => a.id === draft.districtId);
+      const area = lookups.areas.find((a) => a.id === draft.districtId);
       return area ? area.city_id : null;
     }
     return null;
-  });
+  }, [manualCityId, draft.districtId, lookups.areas]);
 
-  React.useEffect(() => {
-    if (draft.districtId && !selectedCityId) {
-      const area = lookups.areas.find(a => a.id === draft.districtId);
-      if (area) {
-        setSelectedCityId(area.city_id);
-      }
-    }
-  }, [draft.districtId, lookups.areas]);
+  const setSelectedCityId = (cityId: number | null) => {
+    setManualCityId(cityId);
+  };
 
   // Modal open states
   const [disasterModalVisible, setDisasterModalVisible] = useState(false);
@@ -126,6 +124,7 @@ export default function BasicInfoScreen() {
             onChangeText={(text) => updateDraft({ description: text })}
           />
         </View>
+
 
         {/* Disaster Type (Dropdown) */}
         <View style={styles.formGroup}>
@@ -217,7 +216,14 @@ export default function BasicInfoScreen() {
         </FadeInView>
       </ScrollView>
 
-      <WizardNavigation onNext={handleNext} disableNext={isNextDisabled} />
+      <WizardNavigation
+        onBack={() => {
+          clearEditingState();
+          router.replace('/(lgu)/programs' as any);
+        }}
+        onNext={handleNext}
+        disableNext={isNextDisabled}
+      />
 
       {/* DISASTER TYPE SELECT MODAL */}
       <Modal visible={disasterModalVisible} transparent animationType="slide">
@@ -539,4 +545,5 @@ const styles = StyleSheet.create({
     color: BrandColors.green,
     fontFamily: 'PlusJakartaSans_700Bold',
   },
+
 });

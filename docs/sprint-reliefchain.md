@@ -172,7 +172,7 @@
 - Report generation for a given filter combination completes within a reasonable time or shows a progress indicator for large exports.
 
 ### ORG-08 — Review and resolve beneficiary appeals
-**Priority:** High · **Role:** Verification Officer (role cell blank in source) · **Developer:** — · **Status:** —
+**Priority:** High · **Role:** Verification Officer (role cell blank in source) · **Developer:** — · **Status:** Done
 
 > As a Verification Officer, I want to review and resolve beneficiary appeals so that rejected applicants have a fair recourse process.
 
@@ -238,7 +238,7 @@
 ## 4. Beneficiary
 
 ### BEN-01 — Register and submit information
-**Priority:** High · **Role:** Beneficiary · **Developer:** — · **Status:** —
+**Priority:** High · **Role:** Beneficiary · **Developer:** — · **Status:** Done
 
 > As a Beneficiary, I want to register and submit my personal, address, household, and ID information so that I can be considered for financial assistance.
 
@@ -247,7 +247,7 @@
 - I receive confirmation once my registration is submitted, and its status is set to Registered.
 
 ### BEN-02 — View application status
-**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** Done
 
 > As a Beneficiary, I want to view my application status so that I know where I stand in the process.
 
@@ -256,7 +256,7 @@
 - If my application is rejected, the status and rejection reason are both shown clearly.
 
 ### BEN-03 — View approved aid details
-**Priority:** High · **Role:** Beneficiary · **Developer:** — · **Status:** —
+**Priority:** High · **Role:** Beneficiary · **Developer:** — · **Status:** Done
 
 > As a Beneficiary, I want to view details of aid I've been approved for so that I understand what I'm entitled to.
 
@@ -264,7 +264,7 @@
 - Details indicate where and how the voucher can be redeemed (e.g., which merchant categories accept it).
 
 ### BEN-04 — View wallet balance
-**Priority:** High · **Role:** Beneficiary · **Developer:** — · **Status:** —
+**Priority:** High · **Role:** Beneficiary · **Developer:** — · **Status:** Done
 
 > As a Beneficiary, I want to view my Stellar-compatible wallet balance so that I know how much assistance I have available.
 
@@ -272,7 +272,7 @@
 - If the balance cannot be fetched (e.g., no connectivity), the last-synced balance is shown with a clear 'last updated' timestamp rather than a blank or misleading value.
 
 ### BEN-05 — View transaction history
-**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** Done
 
 > As a Beneficiary, I want to view my transaction history so that I can track how my aid has been used.
 
@@ -280,7 +280,7 @@
 - Transactions synced via offline Bluetooth exchange are clearly marked as 'Pending Sync' until confirmed on-chain.
 
 ### BEN-06 — Submit an appeal
-**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** Done
 
 > As a Beneficiary, I want to submit an appeal if my application is rejected so that I have a chance to correct or clarify my eligibility.
 
@@ -289,7 +289,7 @@
 - I'm notified of the final decision.
 
 ### BEN-07 — Receive notifications
-**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Beneficiary · **Developer:** — · **Status:** Done
 
 > As a Beneficiary, I want to receive notifications for application approval, aid release, and successful redemption so that I stay informed without checking manually.
 
@@ -445,6 +445,7 @@ Record every scope change here: added or removed stories, priority changes, renu
 | 2026-09-25 | ORG-04 partially implemented on the database vocabulary (`draft → funding → active → closing → closed`, plus `funding_failed` retry) instead of the backlog's (`Draft → Pending Approval → Active → Distribution Ongoing → Completed → Archived`). Funding stages route through the existing treasury activation flow + reconciler (the client never writes them); direct writes cover `active → closing` and `closing → closed` only, audit-logged via trigger. The legacy Completed button is removed (`completed` violates the lifecycle check on hosted); status badges now show database truth instead of date-derived Active. ORG-04 stays open until the team reconciles the vocabulary. | Unblock enrollment/disbursement testing without inventing statuses or weakening the reconciler-owned activation invariant; record the drift honestly rather than editing criteria to match code. |
 | 2026-09-26 | Added LGU "Check distribution status" authorized reconcile action on the distribution observation screen (ORG-06): LGU-session `reconcile-stellar` job-branch call plus reconciled-state refresh, mirroring the merchant settlement check; no acceptance criteria changed. | Stranded `submitted` distribution recipients with valid on-chain hashes had no working authorized reconcile trigger while submit returned 200; the LGU-self path unblocks them without widening auth. |
 | 2026-09-26 | Scoped abandonment disposition for stranded program cash (maps to BEN-04 wallet balance honesty, BEN-03 aid-details clarity, MER-01 balance-check correctness; no story added/removed/reprioritised): new explicit `is_abandoned` disposition on `beneficiary_balance_projection` via service-owned operator action (never beneficiary self-service), spendable sums exclude abandoned rows with a separate greyed history section, and deterministic oldest-distributed-cash-first spend attribution (abandoned never attributed; truly ambiguous still skips fail-closed). Testnet only; ~1% fee framing unchanged; no monetary value. | Dashboard summed all rows (2,820) vs chain truth (1,795) because the 1,000 stranded to lost wallet GBDR plus its mis-booked 180 real spend had no honest mechanism (quarantine needs fabricated mismatch and still sums; zeroing falsifies the invariant; DELETE destroys history). Defines the honest additive-metadata mechanism without weakening triggers/RLS. |
+| 2026-10-01 | Implemented BEN-01 through BEN-07, ORG-08, and US8 (Beneficiary CSV Import, Dynamic Requirements, Private Programs): Added `rejection_remarks` to enrollments, vertical application status timeline, merchant category chips on aid vouchers, per-voucher-type balance breakdown with sync timestamp, transaction category & pending sync pill, appeal filing and resolution flow with automatic application re-opening, in-app notification inbox (`aid_released`, `appeal_submitted`, `appeal_decision`), dynamic program requirements schema and form, LGU beneficiary CSV import and pending SMS invite queue stub. Zero `any` casts; 100% type-checked. | Satisfy all beneficiary user stories and acceptance criteria for hackathon demonstration while preserving financial and security boundaries (testnet-only, device signing, append-only audit, fail-closed numerics). |
 
 ---
 

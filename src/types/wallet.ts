@@ -6,11 +6,16 @@
  */
 export type EnrolledProgram = {
   id: string;
+  enrollmentId?: string;
   name: string;               // "Typhoon Odette Relief"
   approvalStatus: 'Approved' | 'Pending' | 'Rejected';
   purpose: string;
   expiresAt: string;
   createdAt: string;           // ISO timestamp; used to determine the most recent Approved enrollment
+  category?: string;
+  acceptedMerchantCategories?: string[];
+  redemptionInstructions?: string | null;
+  rejectionRemarks?: string | null;
 };
 
 export type RedemptionRecord = {

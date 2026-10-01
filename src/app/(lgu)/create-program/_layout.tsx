@@ -51,6 +51,14 @@ const initialDraft: ProgramDraft = {
   walletTypeToggle: false,
   autoDistributeToggle: true,
   supportingDocuments: [],
+  isPrivate: false,
+  requirements: [
+    { label: 'Government-Issued Valid ID', type: 'document', isMandatory: true, description: 'Clear photo or PDF copy' },
+    { label: 'Current Evacuation / Shelter Address', type: 'text', isMandatory: true },
+    { label: 'Number of Dependent Children', type: 'number', isMandatory: true },
+    { label: 'Household includes Senior Citizen or PWD', type: 'boolean', isMandatory: false },
+  ],
+  csvBeneficiaries: [],
 };
 
 interface CreateProgramContextProps {
@@ -177,6 +185,9 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
       walletTypeToggle: program.walletTypeToggle || false,
       autoDistributeToggle: program.autoDistributeToggle || true,
       supportingDocuments: program.supportingDocuments || [],
+      isPrivate: program.is_private || false,
+      requirements: program.requirements || [],
+      csvBeneficiaries: [],
     });
   };
 
@@ -199,6 +210,9 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
         result = await updateLguProgram(editingProgramId, draft, 'draft');
       } else {
         result = await createLguProgram(draft, 'draft', profile?.id || null);
+        if (result.success && result.programId) {
+          setEditingProgramId(result.programId);
+        }
       }
 
       if (!result.success || !result.programId || !result.organizationId) {

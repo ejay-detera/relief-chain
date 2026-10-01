@@ -21,6 +21,9 @@ const ICON_FOR_TYPE: Record<NotificationType, keyof typeof FontAwesome.glyphMap>
   application_rejected: 'times-circle',
   new_applicant: 'user-plus',
   merchant_payment_received: 'money',
+  aid_released: 'gift',
+  appeal_submitted: 'gavel',
+  appeal_decision: 'balance-scale',
 };
 
 const COLOR_FOR_TYPE: Record<NotificationType, string> = {
@@ -29,6 +32,9 @@ const COLOR_FOR_TYPE: Record<NotificationType, string> = {
   application_rejected: '#D32F2F',
   new_applicant: BrandColors.navy,
   merchant_payment_received: BrandColors.green,
+  aid_released: BrandColors.green,
+  appeal_submitted: '#D97706',
+  appeal_decision: BrandColors.navy,
 };
 
 const timeAgo = (isoDate: string): string => {

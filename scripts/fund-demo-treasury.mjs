@@ -81,12 +81,13 @@ async function main() {
     throw new Error(`Treasury account not found on network. Ensure it is funded with XLM first. (${e.message})`);
   }
 
-  let distributionAccount;
+  let issuerAccount;
   try {
-    distributionAccount = await server.loadAccount(distributionKeypair.publicKey());
+    issuerAccount = await server.loadAccount(Keypair.fromSecret(issuerSecret).publicKey());
   } catch (e) {
-    throw new Error(`Distribution account not found on network. (${e.message})`);
+    throw new Error(`Issuer account not found on network. (${e.message})`);
   }
+  const issuerKeypair = Keypair.fromSecret(issuerSecret);
 
   // 2. Verify trustline on treasury
   const hasTrustline = treasuryAccount.balances.some(
@@ -112,15 +113,12 @@ async function main() {
     console.log('Submitting trustline transaction...');
     const trustRes = await server.submitTransaction(trustTx);
     console.log(`Trustline transaction successful: ${trustRes.hash}`);
-    
-    // Reload distribution account since sequence number doesn't matter for treasury now,
-    // but we want to make sure we're clean.
   } else {
     console.log('Trustline already exists.');
   }
 
-  // 3. Transfer RCPHP
-  const tx = new TransactionBuilder(distributionAccount, {
+  // 3. Mint and transfer RCPHP from Issuer directly to Treasury
+  const tx = new TransactionBuilder(issuerAccount, {
     fee: BASE_FEE,
     networkPassphrase,
   })
@@ -134,12 +132,12 @@ async function main() {
     .setTimeout(30)
     .build();
 
-  tx.sign(distributionKeypair);
+  tx.sign(issuerKeypair);
 
-  console.log('Submitting payment transaction...');
+  console.log('Submitting payment transaction from Issuer...');
   try {
     const res = await server.submitTransaction(tx);
-    console.log(`Payment transaction successful! Hash: ${res.hash}`);
+    console.log(`Treasury successfully funded with ${amount} ${ASSET_CODE}! Hash: ${res.hash}`);
   } catch (e) {
     console.error('Payment failed:');
     if (e.response && e.response.data && e.response.data.extras) {

@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { ProgramDraft } from '@/types/program';
 import { validateDirectWrite } from '@/utils/program-status';
+import { saveProgramRequirements } from './program-requirements-service';
+import { createPendingSmsInvites } from './sms-service';
 
 // No hardcoded fallback: a stale default here previously created programs
 // tagged with an orphaned issuer that has zero funded RCPHP supply, which
@@ -142,6 +144,9 @@ export const createLguProgram = async (
       disaster_type_id: draft.disasterTypeId,
       implementing_agency_id: draft.implementingAgencyId,
       funding_source_id: draft.fundingSourceId,
+      voucher_type: (draft.voucherTypes && draft.voucherTypes.length > 0)
+        ? (draft.voucherTypes.includes('food') ? 'Food' : (draft.voucherTypes.includes('medicine') ? 'Medicine' : (draft.voucherTypes.includes('supplies') ? 'Supplies' : draft.voucherTypes[0])))
+        : 'cash',
       voucher_types: draft.voucherTypes,
       voucher_value: draft.voucherValue,
       voucher_quantity: draft.voucherQuantity,
@@ -159,13 +164,11 @@ export const createLguProgram = async (
       distribution_end: draft.distributionEnd || null,
       eligibility_criteria: draft.eligibilityCriteria,
       supporting_documents: draft.supportingDocuments,
+      is_private: draft.isPrivate ?? false,
       status: status === 'published' ? 'active' : 'draft',
       created_by: createdBy,
       asset_code: 'RCPHP',
-      // Re-bootstrapped 2026-09-24. Old GBC6HZTI…/CAB57LDD… pair is orphaned
-      // (secrets lost) and must never be reused. Edge prepare ignores this
-      // column and uses STELLAR_RCPHP_ISSUER, but keep rows honest.
-      asset_issuer: process.env.EXPO_PUBLIC_STELLAR_RCPHP_ISSUER ?? 'GAIKYUNHR734V5CKHXYE6PJOTIVIGT5B6W23TOFLMDKF525W3HASPO5I',
+      asset_issuer: requireRcphpIssuer(),
     })
     .select('id, organization_id')
     .single();
@@ -178,6 +181,21 @@ export const createLguProgram = async (
       draft.affectedAreaIds,
       draft.affectedBarangayIds,
     );
+
+    if (draft.requirements && draft.requirements.length > 0) {
+      await saveProgramRequirements(programData.id, draft.requirements);
+    } else if (draft.eligibilityCriteria && draft.eligibilityCriteria.length > 0) {
+      const reqRows = draft.eligibilityCriteria.map((c) => ({
+        label: c,
+        type: (c.toLowerCase().includes('id') || c.toLowerCase().includes('document') ? 'document' : 'text') as 'document' | 'text',
+        isMandatory: true,
+      }));
+      await saveProgramRequirements(programData.id, reqRows);
+    }
+
+    if (draft.isPrivate && draft.csvBeneficiaries && draft.csvBeneficiaries.length > 0) {
+      await createPendingSmsInvites(programData.id, draft.csvBeneficiaries);
+    }
   }
 
   return { success: true, programId: programData?.id, organizationId: programData?.organization_id };
@@ -208,6 +226,9 @@ export const updateLguProgram = async (
       disaster_type_id: draft.disasterTypeId,
       implementing_agency_id: draft.implementingAgencyId,
       funding_source_id: draft.fundingSourceId,
+      voucher_type: (draft.voucherTypes && draft.voucherTypes.length > 0)
+        ? (draft.voucherTypes.includes('food') ? 'Food' : (draft.voucherTypes.includes('medicine') ? 'Medicine' : (draft.voucherTypes.includes('supplies') ? 'Supplies' : draft.voucherTypes[0])))
+        : 'cash',
       voucher_types: draft.voucherTypes,
       voucher_value: draft.voucherValue,
       voucher_quantity: draft.voucherQuantity,
@@ -225,6 +246,7 @@ export const updateLguProgram = async (
       distribution_end: draft.distributionEnd || null,
       eligibility_criteria: draft.eligibilityCriteria,
       supporting_documents: draft.supportingDocuments,
+      is_private: draft.isPrivate ?? false,
       status: status === 'published' ? 'active' : 'draft',
       asset_code: 'RCPHP',
       // See note above: post-2026-09-24 issuer, never the orphaned GBC6… pair.
@@ -302,3 +324,18 @@ export const fetchActiveProgramsWithLocations = async (): Promise<any[]> => {
   if (error) throw error;
   return data || [];
 };
+
+export const deleteLguDraft = async (programId: string): Promise<boolean> => {
+  try {
+    await supabase.from('program_requirements').delete().eq('program_id', programId);
+    await supabase.from('program_barangays').delete().eq('program_id', programId);
+    await supabase.from('program_areas').delete().eq('program_id', programId);
+    const { error } = await supabase.from('programs').delete().eq('id', programId);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Error deleting draft program:', err);
+    return false;
+  }
+};
+

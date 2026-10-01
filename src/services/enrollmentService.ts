@@ -134,7 +134,8 @@ const STROOPS_PER_RCPHP = 10_000_000;
  */
 export const updateEnrollmentStatus = async (
   enrollmentId: string,
-  approvalStatus: EnrollmentApprovalStatus
+  approvalStatus: EnrollmentApprovalStatus,
+  rejectionRemarks?: string
 ): Promise<void> => {
   if (approvalStatus === 'Approved') {
     const { data: enrollment, error: enrollmentError } = await supabase
@@ -178,9 +179,16 @@ export const updateEnrollmentStatus = async (
     return;
   }
 
+  const payload: { approval_status: EnrollmentApprovalStatus; rejection_remarks?: string } = {
+    approval_status: approvalStatus,
+  };
+  if (rejectionRemarks !== undefined) {
+    payload.rejection_remarks = rejectionRemarks;
+  }
+
   const { error } = await supabase
     .from('enrollments')
-    .update({ approval_status: approvalStatus })
+    .update(payload)
     .eq('id', enrollmentId);
 
   if (error) throw error;

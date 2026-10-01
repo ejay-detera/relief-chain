@@ -98,10 +98,12 @@ export default function BeneficiariesVerificationScreen() {
         {/* Header */}
         <FadeInView delay={0}>
           <View style={styles.header}>
-            <ThemedText style={styles.title}>Beneficiary Verification</ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Review registration submissions and verify citizen identities.
-            </ThemedText>
+            <View style={{ flex: 1 }}>
+              <ThemedText style={styles.title}>Beneficiary Verification</ThemedText>
+              <ThemedText style={styles.subtitle}>
+                Review registration submissions and verify citizen identities.
+              </ThemedText>
+            </View>
           </View>
         </FadeInView>
 
@@ -148,6 +150,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
     paddingBottom: Spacing.two,
     backgroundColor: 'white',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 22,

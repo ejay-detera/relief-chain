@@ -51,6 +51,7 @@ flowchart TB
   LG --> LG5["✅ Settings · edit-profile · security"]
   LG --> LG6["✅ create-program — 7 steps"]
   LG --> LG7["⬜ analytics / report export UI"]
+  LG --> LG8["✅ Beneficiaries CSV Import + SMS Invite Queue"]
 
   BN --> BN1["✅ Dashboard"]
   BN --> BN2["✅ My Assistance — entitlements · balance"]
@@ -58,6 +59,10 @@ flowchart TB
   BN --> BN4["✅ Find Organization"]
   BN --> BN5["✅ Profile · transactions"]
   BN --> BN6["✅ Wallet recovery"]
+  BN --> BN7["✅ Application Status · Timeline"]
+  BN --> BN8["✅ Appeals & Re-opening"]
+  BN --> BN9["✅ Notification Inbox"]
+  BN --> BN10["✅ Dynamic Requirements Application"]
 
   MR --> MR1["✅ Dashboard + metrics"]
   MR --> MR2["✅ Receive — signed QR invoice"]
@@ -230,9 +235,16 @@ sequenceDiagram
 | Voucher escrow contract | Must | 🟡 gated | `contracts/voucher/`; blocked by cash-only gate in `prepare-payment` |
 | Merchant cash-out | Should | 🟡 simulated | `request-cashout`, `SimulatedCashOutNotice.tsx` |
 | Public transparency data | Should | 🟡 no UI | `public_financial_transparency`, `auditor_view_*` |
-| Analytics / export UI | Should | ⬜ | — |
-| SMS notifications | Should | ⬜ partial planned | — |
-| Bluetooth offline sync | Should | ⬜ planned build | — |
+| Application status & timeline (BEN-02) | Must | ✅ | `(beneficiary)/application-status`, `ApplicationStatus/`, `application-status-service.ts` |
+| Aid detail & merchant categories (BEN-03) | Must | ✅ | `program-voucher-card.tsx`, `active-program-card.tsx` |
+| Per-voucher-type balance & cache timestamp (BEN-04) | Must | ✅ | `total-balance-card.tsx`, `use-beneficiary-balances.ts` |
+| Transaction history category & pending sync (BEN-05) | Medium | ✅ | `transaction-row.tsx`, `transaction-list.tsx` |
+| Beneficiary appeal & re-opening flow (BEN-06 / ORG-08) | Medium | ✅ | `(beneficiary)/submit-appeal`, `(beneficiary)/my-appeals`, `Appeals/`, `appeal-service.ts` |
+| In-app notification inbox (BEN-07) | Medium | ✅ | `(beneficiary)/notifications`, `NotificationsModal.tsx` |
+| Dynamic requirements & program criteria (US8) | High | ✅ | `(beneficiary)/apply-program`, `ApplyProgram/`, `program-requirements-service.ts` |
+| Beneficiary CSV import & SMS invite queue (US8) | High | ✅ | `(lgu)/import-beneficiaries`, `sms-service.ts` |
+| SMS notifications | Should | 🟡 simulated queue | `sms-service.ts`, `pending_sms_invites` (external gateway uncontracted) |
+| Bluetooth offline sync | Should | 🟡 pending sync pill | `transaction-row.tsx` (marked 'Pending Sync' until on-chain confirmation; BLE protocol planned) |
 | Donor portal | Could | ⬜ partial planned | — |
 | Mainnet / real money | — | ❌ | hard-disabled |
 | AI prediction | — | ❌ | not in scope |

@@ -85,6 +85,36 @@ export default function BeneficiaryLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="application-status"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="submit-appeal"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="my-appeals"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="apply-program"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

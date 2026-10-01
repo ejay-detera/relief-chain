@@ -3,6 +3,7 @@ import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { fetchRegisteredMerchants } from '@/services/programService';
+import { FontAwesome } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -163,6 +164,66 @@ export default function VoucherScreen() {
       .join(', ');
   };
 
+  const getAssistanceMode = (): 'cash' | 'food' | 'medicine' | 'custom' => {
+    if (draft.voucherTypes.length === 0) return 'cash';
+    if (draft.voucherTypes.length === 1 && draft.voucherTypes[0] === 'food') return 'food';
+    if (draft.voucherTypes.length === 1 && draft.voucherTypes[0] === 'medicine') return 'medicine';
+    return 'custom';
+  };
+  const activeMode = getAssistanceMode();
+
+  const selectAssistanceMode = (mode: 'cash' | 'food' | 'medicine' | 'custom') => {
+    if (mode === 'cash') {
+      updateDraft({
+        voucherTypes: [],
+        redemptionType: 'cash',
+        voucherValue: 0,
+        voucherQuantity: 1,
+        selectedMerchants: [],
+        voucherExpiration: '',
+      });
+      setDateError('');
+    } else if (mode === 'food') {
+      const defaultFoodMerchants = dbMerchants.filter((m) =>
+        ['SM Supermarket', 'Puregold', '7-Eleven', 'Robinsons Supermarket', 'Metro Gaisano'].includes(m)
+      );
+      updateDraft({
+        voucherTypes: ['food'],
+        redemptionType: 'merchant',
+        voucherValue: draft.aidPerHousehold,
+        voucherQuantity: 1,
+        selectedMerchants: defaultFoodMerchants.length > 0 ? defaultFoodMerchants : ['SM Supermarket', 'Puregold'],
+      });
+      if (!draft.voucherExpiration) {
+        setPresetDate(60);
+      }
+    } else if (mode === 'medicine') {
+      const defaultPharmacies = dbMerchants.filter((m) =>
+        m.toLowerCase().includes('drug') || m.toLowerCase().includes('pharmacy') || m.toLowerCase().includes('mercury')
+      );
+      updateDraft({
+        voucherTypes: ['medicine'],
+        redemptionType: 'merchant',
+        voucherValue: draft.aidPerHousehold,
+        voucherQuantity: 1,
+        selectedMerchants: defaultPharmacies.length > 0 ? defaultPharmacies : ['Mercury Drug'],
+      });
+      if (!draft.voucherExpiration) {
+        setPresetDate(60);
+      }
+    } else {
+      updateDraft({
+        voucherTypes: draft.voucherTypes.length > 0 ? draft.voucherTypes : ['food'],
+        redemptionType: 'merchant',
+        voucherValue: draft.voucherValue > 0 ? draft.voucherValue : Math.floor(draft.aidPerHousehold / 2),
+        voucherQuantity: 1,
+      });
+      if (!draft.voucherExpiration) {
+        setPresetDate(60);
+      }
+    }
+  };
+
   const isNextDisabled =
     (hasVouchersSelected && (
       draft.voucherValue <= 0 ||
@@ -174,13 +235,126 @@ export default function VoucherScreen() {
 
   return (
     <View style={styles.container}>
-      <StepIndicator currentStep={5} title="Voucher Configuration" />
+      <StepIndicator currentStep={5} title="Aid Type & Vouchers" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <FadeInView delay={0}>
+        {/* ASSISTANCE TYPE SELECTION */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionHeaderTitle}>
+            Assistance Type <Text style={styles.required}>*</Text>
+          </Text>
+          <Text style={styles.sectionSubtitle}>
+            Choose how assistance will be distributed to eligible households.
+          </Text>
+
+          <View style={styles.assistanceCardsContainer}>
+            {/* Cash Assistance Option */}
+            <TouchableOpacity
+              style={[styles.assistanceCard, activeMode === 'cash' && styles.assistanceCardActive]}
+              onPress={() => selectAssistanceMode('cash')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.assistanceIconBg, activeMode === 'cash' && styles.assistanceIconBgActive]}>
+                <FontAwesome name="money" size={18} color={activeMode === 'cash' ? '#FFFFFF' : BrandColors.navy} />
+              </View>
+              <View style={styles.assistanceTextWrap}>
+                <Text style={[styles.assistanceTitle, activeMode === 'cash' && styles.assistanceTitleActive]}>
+                  Cash Assistance (Pure Cash)
+                </Text>
+                <Text style={styles.assistanceDesc}>
+                  Disbursed directly into beneficiary&apos;s wallet in RCPHP. Freedom to withdraw or spend anywhere.
+                </Text>
+              </View>
+              <View style={[styles.radioCircle, activeMode === 'cash' && styles.radioCircleActive]}>
+                {activeMode === 'cash' && <View style={styles.radioDot} />}
+              </View>
+            </TouchableOpacity>
+
+            {/* Food Voucher Option */}
+            <TouchableOpacity
+              style={[styles.assistanceCard, activeMode === 'food' && styles.assistanceCardActive]}
+              onPress={() => selectAssistanceMode('food')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.assistanceIconBg, activeMode === 'food' && styles.assistanceIconBgActive]}>
+                <FontAwesome name="cutlery" size={17} color={activeMode === 'food' ? '#FFFFFF' : BrandColors.navy} />
+              </View>
+              <View style={styles.assistanceTextWrap}>
+                <Text style={[styles.assistanceTitle, activeMode === 'food' && styles.assistanceTitleActive]}>
+                  Food Voucher (Merchants Only)
+                </Text>
+                <Text style={styles.assistanceDesc}>
+                  Aid is issued as Food Vouchers redeemable exclusively at accredited supermarkets and grocery stores.
+                </Text>
+              </View>
+              <View style={[styles.radioCircle, activeMode === 'food' && styles.radioCircleActive]}>
+                {activeMode === 'food' && <View style={styles.radioDot} />}
+              </View>
+            </TouchableOpacity>
+
+            {/* Medicine Voucher Option */}
+            <TouchableOpacity
+              style={[styles.assistanceCard, activeMode === 'medicine' && styles.assistanceCardActive]}
+              onPress={() => selectAssistanceMode('medicine')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.assistanceIconBg, activeMode === 'medicine' && styles.assistanceIconBgActive]}>
+                <FontAwesome name="medkit" size={17} color={activeMode === 'medicine' ? '#FFFFFF' : BrandColors.navy} />
+              </View>
+              <View style={styles.assistanceTextWrap}>
+                <Text style={[styles.assistanceTitle, activeMode === 'medicine' && styles.assistanceTitleActive]}>
+                  Medicine Voucher (Pharmacies)
+                </Text>
+                <Text style={styles.assistanceDesc}>
+                  Aid is issued as Medicine Vouchers redeemable exclusively at accredited pharmacies & drugstores.
+                </Text>
+              </View>
+              <View style={[styles.radioCircle, activeMode === 'medicine' && styles.radioCircleActive]}>
+                {activeMode === 'medicine' && <View style={styles.radioDot} />}
+              </View>
+            </TouchableOpacity>
+
+            {/* Custom / Mixed Option */}
+            <TouchableOpacity
+              style={[styles.assistanceCard, activeMode === 'custom' && styles.assistanceCardActive]}
+              onPress={() => selectAssistanceMode('custom')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.assistanceIconBg, activeMode === 'custom' && styles.assistanceIconBgActive]}>
+                <FontAwesome name="sliders" size={17} color={activeMode === 'custom' ? '#FFFFFF' : BrandColors.navy} />
+              </View>
+              <View style={styles.assistanceTextWrap}>
+                <Text style={[styles.assistanceTitle, activeMode === 'custom' && styles.assistanceTitleActive]}>
+                  Custom / Mixed (Vouchers + Cash)
+                </Text>
+                <Text style={styles.assistanceDesc}>
+                  Select multiple voucher categories and disburse remaining aid balance automatically as cash.
+                </Text>
+              </View>
+              <View style={[styles.radioCircle, activeMode === 'custom' && styles.radioCircleActive]}>
+                {activeMode === 'custom' && <View style={styles.radioDot} />}
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* CASH CONFIRMATION BANNER */}
+        {activeMode === 'cash' && (
+          <View style={styles.cashActiveCard}>
+            <View style={styles.cashActiveHeader}>
+              <FontAwesome name="check-circle" size={18} color={BrandColors.green} />
+              <Text style={styles.cashActiveTitle}>100% Cash Assistance Configured</Text>
+            </View>
+            <Text style={styles.cashActiveText}>
+              All ₱{draft.aidPerHousehold.toLocaleString()} per household will be disbursed directly as Cash in RCPHP. No merchant accreditation or voucher expiration dates required.
+            </Text>
+          </View>
+        )}
+
         {/* BUDGET ALLOCATION INFO CARD */}
         <View style={styles.budgetCard}>
-          <Text style={styles.budgetCardTitle}>Step 2 Budget Reference</Text>
+          <Text style={styles.budgetCardTitle}>Aid Allocation Breakdown</Text>
           <View style={styles.budgetRow}>
             <View style={styles.budgetCol}>
               <Text style={styles.budgetLabel}>Total Budget</Text>
@@ -202,7 +376,7 @@ export default function VoucherScreen() {
               </Text>
             </View>
             <View style={styles.budgetCol}>
-              <Text style={styles.budgetLabel}>Remaining Cash Assistance</Text>
+              <Text style={styles.budgetLabel}>Cash Assistance</Text>
               <Text style={[styles.budgetValue, styles.cashValue]}>
                 ₱{remainingCash.toLocaleString()}
               </Text>
@@ -222,35 +396,29 @@ export default function VoucherScreen() {
             </>
           )}
 
-          {isBudgetExceeded ? (
+          {isBudgetExceeded && (
             <View style={styles.warningContainer}>
               <Text style={styles.warningText}>
                 ⚠️ Total configured value (₱{totalAidValuePerBeneficiary.toLocaleString()}) exceeds the allocated aid limit of ₱{draft.aidPerHousehold.toLocaleString()} per household.
               </Text>
             </View>
-          ) : (
-            <View style={[styles.infoContainer, remainingCash === 0 && styles.allVouchersContainer]}>
-              <Text style={[styles.infoText, remainingCash === 0 && styles.allVouchersText]}>
-                {remainingCash > 0
-                  ? `💡 Note: The remaining ₱${remainingCash.toLocaleString()} per household will be distributed automatically as Cash Assistance.`
-                  : `🎉 All allocated aid (₱${draft.aidPerHousehold.toLocaleString()}) will be distributed via vouchers.`}
-              </Text>
-            </View>
           )}
         </View>
 
-        {/* Voucher Type (Dropdown with Multi-Select) */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Voucher Types</Text>
-          <TouchableOpacity
-            style={styles.dropdownTrigger}
-            onPress={() => setVoucherTypeModalVisible(true)}>
-            <Text style={[styles.dropdownValue, draft.voucherTypes.length === 0 && styles.placeholderText]}>
-              {getVoucherTypeLabels()}
-            </Text>
-            <Text style={styles.dropdownChevron}>▼</Text>
-          </TouchableOpacity>
-        </View>
+        {/* CUSTOM VOUCHER TYPES DROPDOWN (ONLY SHOWN IN CUSTOM MODE) */}
+        {activeMode === 'custom' && (
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Select Voucher Categories</Text>
+            <TouchableOpacity
+              style={styles.dropdownTrigger}
+              onPress={() => setVoucherTypeModalVisible(true)}>
+              <Text style={[styles.dropdownValue, draft.voucherTypes.length === 0 && styles.placeholderText]}>
+                {getVoucherTypeLabels()}
+              </Text>
+              <Text style={styles.dropdownChevron}>▼</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {hasVouchersSelected ? (
           <>
@@ -304,7 +472,8 @@ export default function VoucherScreen() {
                   value={getExpirationDateObject()}
                   mode="date"
                   display="default"
-                  onChange={onExpirationChange}
+                  onValueChange={(event, date) => onExpirationChange(event, date)}
+                  onDismiss={() => setShowDatePicker(false)}
                 />
               )}
 
@@ -760,5 +929,110 @@ const styles = StyleSheet.create({
     color: BrandColors.grey,
     fontFamily: 'PlusJakartaSans_400Regular',
     fontSize: 13,
+  },
+  sectionContainer: {
+    marginBottom: Spacing.four,
+  },
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: BrandColors.navy,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: BrandColors.grey,
+    marginBottom: Spacing.three,
+    lineHeight: 16,
+  },
+  assistanceCardsContainer: {
+    gap: Spacing.two,
+  },
+  assistanceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.three,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: BrandColors.lightGray,
+    borderRadius: BorderRadius.lg,
+    columnGap: Spacing.three,
+  },
+  assistanceCardActive: {
+    borderColor: BrandColors.green,
+    backgroundColor: '#F7FCF6',
+  },
+  assistanceIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EEEDED',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  assistanceIconBgActive: {
+    backgroundColor: BrandColors.navy,
+  },
+  assistanceTextWrap: {
+    flex: 1,
+  },
+  assistanceTitle: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: BrandColors.navy,
+    marginBottom: 2,
+  },
+  assistanceTitleActive: {
+    color: BrandColors.navy,
+  },
+  assistanceDesc: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: BrandColors.grey,
+    lineHeight: 15,
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: BrandColors.grey,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioCircleActive: {
+    borderColor: BrandColors.green,
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: BrandColors.green,
+  },
+  cashActiveCard: {
+    backgroundColor: '#EDF7ED',
+    borderWidth: 1,
+    borderColor: BrandColors.green,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
+  },
+  cashActiveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: Spacing.two,
+    marginBottom: 4,
+  },
+  cashActiveTitle: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: BrandColors.navy,
+  },
+  cashActiveText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#2E5A27',
+    lineHeight: 16,
   },
 });

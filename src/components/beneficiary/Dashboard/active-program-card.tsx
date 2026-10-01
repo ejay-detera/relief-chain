@@ -56,6 +56,15 @@ export function ActiveProgramCard({ program, entitlement, balanceState, onPress 
           <FontAwesome name="calendar" size={12} color={BrandColors.navy} />
           <ThemedText style={styles.expiryText}>Expires: {program.expiresAt}</ThemedText>
         </View>
+
+        {program.acceptedMerchantCategories && program.acceptedMerchantCategories.length > 0 && (
+          <View style={styles.merchantsRow}>
+            <ThemedText style={styles.merchantsLabel}>Accepted at: </ThemedText>
+            <ThemedText style={styles.merchantsText} numberOfLines={1}>
+              {program.acceptedMerchantCategories.join(', ')}
+            </ThemedText>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -117,5 +126,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: BrandColors.navy,
+  },
+  merchantsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.two,
+    backgroundColor: '#F7FAFC',
+    padding: Spacing.two,
+    borderRadius: BorderRadius.sm,
+  },
+  merchantsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: BrandColors.grey,
+  },
+  merchantsText: {
+    fontSize: 11,
+    color: BrandColors.navy,
+    fontWeight: '500',
+    flex: 1,
   },
 });

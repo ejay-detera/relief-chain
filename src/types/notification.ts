@@ -11,7 +11,10 @@ export type NotificationType =
   | 'application_approved'
   | 'application_rejected'
   | 'new_applicant'
-  | 'merchant_payment_received';
+  | 'merchant_payment_received'
+  | 'aid_released'
+  | 'appeal_submitted'
+  | 'appeal_decision';
 
 export type AppNotification = Readonly<{
   id: string;
