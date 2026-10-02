@@ -14,7 +14,9 @@ export type NotificationType =
   | 'merchant_payment_received'
   | 'aid_released'
   | 'appeal_submitted'
-  | 'appeal_decision';
+  | 'appeal_decision'
+  | 'redemption_confirmed'
+  | 'added_to_program_list';
 
 export type AppNotification = Readonly<{
   id: string;

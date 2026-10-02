@@ -1,16 +1,21 @@
+import { StepUpModal } from '@/components/Mfa/StepUpModal';
 import { useAuth } from '@/context/AuthContext';
-import {
-  LookupData,
-  createLguProgram,
-  fetchLguPrograms,
-  fetchLookupData,
-  updateLguProgram,
-} from '@/services/programService';
-import { ProgramDraft } from '@/types/program';
-import { Stack } from 'expo-router';
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { useActivateCashProgram } from '@/hooks/use-activate-cash-program';
+import { useMfa } from '@/hooks/use-mfa';
+import { useStepUp } from '@/hooks/use-step-up';
+import {
+    LookupData,
+    createLguProgram,
+    fetchLguPrograms,
+    fetchLookupData,
+    updateLguProgram,
+} from '@/services/programService';
+import type { StepUpEvaluation } from '@/types/mfa';
+import { ProgramDraft } from '@/types/program';
+import { evaluateStepUp } from '@/utils/step-up';
+import { Stack } from 'expo-router';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 
 const initialDraft: ProgramDraft = {
   name: '',
@@ -85,6 +90,52 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
   const [isLoadingLookups, setIsLoadingLookups] = useState(true);
   const { activateProgram } = useActivateCashProgram();
 
+  // Editing an already-active program requires a fresh MFA step-up before any
+  // write (restrictive RLS policy "Active program changes require recent
+  // AAL2" on public.programs). This gate prompts for re-verification inline
+  // instead of letting the save fail with PGRST116 (0 rows returned by RLS).
+  const mfa = useMfa();
+  const evaluation: StepUpEvaluation = mfa.assurance
+    ? evaluateStepUp(mfa.assurance)
+    : { isFresh: false, secondsRemaining: 0, requiresEnrollment: !mfa.isEnabled };
+  const stepUp = useStepUp(mfa.factors, evaluation);
+  const pendingStepUpResolveRef = useRef<((verified: boolean) => void) | null>(null);
+
+  const waitForStepUp = useCallback((): Promise<boolean> => {
+    return new Promise((resolve) => {
+      pendingStepUpResolveRef.current = resolve;
+      stepUp.begin();
+    });
+  }, [stepUp]);
+
+  const handleSubmitStepUpCode = useCallback(
+    async (code: string) => {
+      const verified = await stepUp.submitCode(code);
+      if (verified) {
+        await mfa.refresh();
+        pendingStepUpResolveRef.current?.(true);
+        pendingStepUpResolveRef.current = null;
+      }
+    },
+    [mfa, stepUp],
+  );
+
+  const handleCancelStepUp = useCallback(() => {
+    stepUp.cancel();
+    pendingStepUpResolveRef.current?.(false);
+    pendingStepUpResolveRef.current = null;
+  }, [stepUp]);
+
+  const handleEnrollInsteadOfStepUp = useCallback(() => {
+    stepUp.cancel();
+    pendingStepUpResolveRef.current?.(false);
+    pendingStepUpResolveRef.current = null;
+    Alert.alert(
+      'Authenticator required',
+      'Set up an authenticator app in Settings → Security before editing an active program.',
+    );
+  }, [stepUp]);
+
   const [lookups, setLookups] = useState<LookupData>({
     disasterTypes: [],
     cities: [],
@@ -148,9 +199,14 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
   };
 
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
+  // Raw mapped status of the program being edited (fetchLguPrograms maps the
+  // database's 'active' to 'published'). Used only to decide whether the
+  // step-up gate applies — the server policy remains the sole authority.
+  const [editingProgramStatus, setEditingProgramStatus] = useState<string | null>(null);
 
   const startEditingProgram = (program: any) => {
     setEditingProgramId(program.id);
+    setEditingProgramStatus(program.status ?? null);
     setDraft({
       name: program.name,
       description: program.description,
@@ -193,6 +249,7 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
 
   const clearEditingState = () => {
     setEditingProgramId(null);
+    setEditingProgramStatus(null);
     resetDraft();
   };
 
@@ -202,8 +259,19 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
 
   const publishProgram = async (status: 'draft' | 'published'): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
     try {
+      // Editing a program that is currently active requires a fresh step-up
+      // (restrictive RLS). Prompt before attempting the write so the user
+      // gets a clear re-verification step instead of a bare PGRST116 error.
+      const requiresStepUpGate = !!editingProgramId && editingProgramStatus === 'published';
+      if (requiresStepUpGate && !evaluation.isFresh) {
+        const verified = await waitForStepUp();
+        if (!verified) {
+          return { success: false };
+        }
+      }
+
       let result: { success: boolean; programId?: string; organizationId?: string } = { success: false };
-      
+
       // Step 1: ALWAYS save the database row as a draft first. 
       // Financial constraints prevent direct inserts of 'active' status without funding evidence.
       if (editingProgramId) {
@@ -251,6 +319,16 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
         clearEditingState,
       }}>
       {children}
+      <StepUpModal
+        actionDescription="save changes to this active program"
+        errorMessage={stepUp.error}
+        isVerifying={stepUp.phase === 'verifying'}
+        onCancel={handleCancelStepUp}
+        onEnrollInstead={handleEnrollInsteadOfStepUp}
+        onSubmitCode={handleSubmitStepUpCode}
+        requiresEnrollment={evaluation.requiresEnrollment}
+        visible={stepUp.phase === 'prompting' || stepUp.phase === 'verifying'}
+      />
     </CreateProgramContext.Provider>
   );
 }

@@ -43,16 +43,19 @@ create table if not exists public.beneficiary_appeals (
 
 alter table public.beneficiary_appeals enable row level security;
 
+drop policy if exists "Beneficiaries can view own appeals" on public.beneficiary_appeals;
 create policy "Beneficiaries can view own appeals"
   on public.beneficiary_appeals for select
   to authenticated
   using (beneficiary_id = (select auth.uid()));
 
+drop policy if exists "Beneficiaries can insert own appeals" on public.beneficiary_appeals;
 create policy "Beneficiaries can insert own appeals"
   on public.beneficiary_appeals for insert
   to authenticated
   with check (beneficiary_id = (select auth.uid()));
 
+drop policy if exists "Org members can view appeals" on public.beneficiary_appeals;
 create policy "Org members can view appeals"
   on public.beneficiary_appeals for select
   to authenticated
@@ -66,6 +69,7 @@ create policy "Org members can view appeals"
     )
   );
 
+drop policy if exists "Org members can update appeals" on public.beneficiary_appeals;
 create policy "Org members can update appeals"
   on public.beneficiary_appeals for update
   to authenticated
@@ -95,11 +99,13 @@ create table if not exists public.program_requirements (
 
 alter table public.program_requirements enable row level security;
 
+drop policy if exists "Anyone authenticated can view program requirements" on public.program_requirements;
 create policy "Anyone authenticated can view program requirements"
   on public.program_requirements for select
   to authenticated
   using (true);
 
+drop policy if exists "Org members can manage program requirements" on public.program_requirements;
 create policy "Org members can manage program requirements"
   on public.program_requirements for all
   to authenticated
@@ -127,6 +133,7 @@ create table if not exists public.enrollment_requirement_responses (
 
 alter table public.enrollment_requirement_responses enable row level security;
 
+drop policy if exists "Beneficiaries can view own requirement responses" on public.enrollment_requirement_responses;
 create policy "Beneficiaries can view own requirement responses"
   on public.enrollment_requirement_responses for select
   to authenticated
@@ -137,6 +144,7 @@ create policy "Beneficiaries can view own requirement responses"
     )
   );
 
+drop policy if exists "Beneficiaries can insert own requirement responses" on public.enrollment_requirement_responses;
 create policy "Beneficiaries can insert own requirement responses"
   on public.enrollment_requirement_responses for insert
   to authenticated
@@ -162,11 +170,13 @@ create table if not exists public.pending_sms_invites (
 
 alter table public.pending_sms_invites enable row level security;
 
+drop policy if exists "Org members can view pending invites" on public.pending_sms_invites;
 create policy "Org members can view pending invites"
   on public.pending_sms_invites for select
   to authenticated
   using (true);
 
+drop policy if exists "Org members can insert pending invites" on public.pending_sms_invites;
 create policy "Org members can insert pending invites"
   on public.pending_sms_invites for insert
   to authenticated

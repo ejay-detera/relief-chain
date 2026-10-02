@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { EmptyState } from '@/components/shared/empty-state';
 import { FadeInView } from '@/components/shared/FadeInView';
-import { BottomTabInset, BrandColors, MaxContentWidth, Spacing, BorderRadius } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { BorderRadius, BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useNotifications } from '@/hooks/use-notifications';
 import type { AppNotification, NotificationType } from '@/types/notification';
 
@@ -22,6 +22,8 @@ const ICON_FOR_TYPE: Record<NotificationType, keyof typeof FontAwesome.glyphMap>
   aid_released: 'gift',
   appeal_submitted: 'gavel',
   appeal_decision: 'balance-scale',
+  redemption_confirmed: 'shopping-cart',
+  added_to_program_list: 'list-ul',
 };
 
 const COLOR_FOR_TYPE: Record<NotificationType, string> = {
@@ -33,6 +35,8 @@ const COLOR_FOR_TYPE: Record<NotificationType, string> = {
   aid_released: BrandColors.green,
   appeal_submitted: '#D97706',
   appeal_decision: BrandColors.navy,
+  redemption_confirmed: BrandColors.green,
+  added_to_program_list: BrandColors.navy,
 };
 
 const timeAgo = (isoDate: string): string => {

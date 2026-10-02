@@ -9,6 +9,8 @@ type OrganizationProgramCardProps = {
   program: OrganizationProgram;
   disabled: boolean;
   onApply: (program: OrganizationProgram) => void;
+  /** Deep-links to the beneficiary's own application status for this program. */
+  onViewStatus: (program: OrganizationProgram) => void;
 };
 
 const registrationLabelStyle = (status: OrganizationProgram['registrationStatus']) => {
@@ -17,12 +19,17 @@ const registrationLabelStyle = (status: OrganizationProgram['registrationStatus'
   return styles.registrationClosed;
 };
 
-export function OrganizationProgramCard({ program, disabled, onApply }: OrganizationProgramCardProps) {
+export function OrganizationProgramCard({ program, disabled, onApply, onViewStatus }: OrganizationProgramCardProps) {
   const showRegistrationWindow = program.registrationOpen !== null || program.registrationClose !== null;
   const isApplyDisabled = disabled || !program.canApply;
   const isLocationBlocked = !program.isEligibleByLocation;
   const isApproved = program.existingEnrollmentStatus === 'Approved';
   const isPending = program.existingEnrollmentStatus === 'Pending';
+  // Rejected is checked alongside Approved/Pending below, ahead of the
+  // location/closed checks — any existing enrollment means the beneficiary
+  // already applied, so the card routes them to their status instead of
+  // back to "Apply".
+  const isRejected = program.existingEnrollmentStatus === 'Rejected';
   const isClosed = program.registrationStatus === 'Closed';
 
   const locationText =
@@ -65,15 +72,35 @@ export function OrganizationProgramCard({ program, disabled, onApply }: Organiza
       )}
 
       {isApproved ? (
-        <View style={styles.approvedPill}>
+        <TouchableOpacity
+          accessibilityHint="View your application status for this program"
+          accessibilityRole="button"
+          onPress={() => onViewStatus(program)}
+          style={styles.approvedPill}
+        >
           <FontAwesome color="#27AE60" name="check-circle" size={13} style={styles.statusIcon} />
           <ThemedText style={styles.approvedPillLabel}>Enrolled & Approved</ThemedText>
-        </View>
+        </TouchableOpacity>
       ) : isPending ? (
-        <View style={styles.statusPill}>
+        <TouchableOpacity
+          accessibilityHint="View your application status for this program"
+          accessibilityRole="button"
+          onPress={() => onViewStatus(program)}
+          style={styles.statusPill}
+        >
           <FontAwesome color={BrandColors.navy} name="clock-o" size={13} style={styles.statusIcon} />
           <ThemedText style={styles.statusPillLabel}>Application Pending</ThemedText>
-        </View>
+        </TouchableOpacity>
+      ) : isRejected ? (
+        <TouchableOpacity
+          accessibilityHint="View your application status for this program"
+          accessibilityRole="button"
+          onPress={() => onViewStatus(program)}
+          style={styles.ineligiblePill}
+        >
+          <FontAwesome color="#C0392B" name="times-circle" size={13} style={styles.statusIcon} />
+          <ThemedText style={styles.ineligiblePillLabel}>Application Rejected — View Details</ThemedText>
+        </TouchableOpacity>
       ) : isLocationBlocked ? (
         <View style={styles.ineligiblePill}>
           <FontAwesome color="#C0392B" name="exclamation-circle" size={13} style={styles.statusIcon} />

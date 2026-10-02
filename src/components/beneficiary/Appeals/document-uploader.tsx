@@ -1,9 +1,8 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import { FontAwesome } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { FontAwesome } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 export interface PickedFile {
   name: string;
@@ -19,16 +18,53 @@ interface Props {
   maxFiles?: number;
 }
 
+// Default allow-list covers png/jpg/pdf/docx. `.docx` is OOXML
+// (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`),
+// not the legacy `.doc` MIME type (`application/msword`) — both are included
+// since some pickers/OSes still report the legacy type for `.doc` files.
+const DEFAULT_ALLOWED_TYPES = [
+  'image/*',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+// `program_requirements.allowed_file_types` (and `allowedTypes` passed down
+// from `RequirementItem`) stores bare extension strings like 'png'/'docx',
+// not MIME types — but `expo-document-picker`'s `type` option filters by
+// MIME type. Passing the raw extension strings through unconverted silently
+// disabled filtering on at least some platforms. This maps the stored
+// extensions to real MIME types before handing them to the picker.
+const EXTENSION_TO_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
+
+const resolvePickerTypes = (allowed: string[]): string[] => {
+  const resolved = allowed.map((entry) => {
+    // Already a MIME type (contains a slash, e.g. 'image/*', 'application/pdf').
+    if (entry.includes('/')) return entry;
+    const normalized = entry.trim().toLowerCase().replace(/^\./, '');
+    return EXTENSION_TO_MIME[normalized] ?? entry;
+  });
+  // De-duplicate in case e.g. 'jpg' and 'jpeg' both map to 'image/jpeg'.
+  return Array.from(new Set(resolved));
+};
+
 export function DocumentUploader({
   files,
   onFilesChange,
-  allowedTypes = ['image/*', 'application/pdf', 'application/msword'],
+  allowedTypes = DEFAULT_ALLOWED_TYPES,
   maxFiles = 3,
 }: Props) {
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: allowedTypes,
+        type: resolvePickerTypes(allowedTypes),
         copyToCacheDirectory: true,
         multiple: true,
       });

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { type CachedBeneficiaryBalance, getCachedBalance, setCachedBalance } from '@/services/beneficiary-balance-cache';
 import { fetchLiveRCPHPBalance } from '@/services/stellar-account-balance-service';
 import { parseStroopAmount, type StroopAmount } from '@/types/blockchain';
 import type { LiveBalanceState, PilotBalanceSummary, ProjectionState } from '@/types/projection';
@@ -41,6 +43,13 @@ export type BeneficiaryBalancesHook = Readonly<{
   balance: ProjectionState<PilotBalanceSummary>;
   liveBalance: LiveBalanceState;
   abandoned: readonly AbandonedBalanceRow[];
+  /**
+   * The last successfully reconciled balance persisted on this device, shown
+   * only when `balance.status === 'unavailable'` (US4). Null until a
+   * successful fetch has happened at least once on this device, or if none
+   * was ever cached (e.g. first launch with no connectivity).
+   */
+  lastSyncedBalance: CachedBeneficiaryBalance | null;
   refresh: () => Promise<void>;
 }>;
 
@@ -134,9 +143,12 @@ const toProjectionState = (rows: readonly ProjectionRow[]): ProjectionState<Pilo
  * no polling loop.
  */
 export function useBeneficiaryBalances(walletAddress?: string | null): BeneficiaryBalancesHook {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
   const [balance, setBalance] = useState<ProjectionState<PilotBalanceSummary>>({ status: 'loading' });
   const [liveBalance, setLiveBalance] = useState<LiveBalanceState>({ status: 'idle' });
   const [abandoned, setAbandoned] = useState<readonly AbandonedBalanceRow[]>([]);
+  const [lastSyncedBalance, setLastSyncedBalance] = useState<CachedBeneficiaryBalance | null>(null);
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -158,8 +170,22 @@ export function useBeneficiaryBalances(walletAddress?: string | null): Beneficia
         if (request !== requestRef.current) return;
 
         const rows = (data ?? []) as ProjectionRow[];
-        setBalance(toProjectionState(rows));
+        const nextState = toProjectionState(rows);
+        setBalance(nextState);
         setAbandoned(rows.filter(isAbandoned).map(toAbandonedRow));
+        // A successful read, of any status, means the "last synced" fallback
+        // banner is no longer relevant — only shown while `balance` itself
+        // is `unavailable`.
+        setLastSyncedBalance(null);
+
+        // Persist a last-known-good copy on every successful, non-empty read
+        // so a later fetch failure has something real to fall back to
+        // (US4). `empty` (zero programs, not a failure) is not cached — an
+        // offline fallback showing "0.00" for a beneficiary who simply has
+        // no programs yet would be indistinguishable from a real zero.
+        if (userId && (nextState.status === 'current' || nextState.status === 'stale')) {
+          void setCachedBalance(userId, nextState.data, nextState.metadata);
+        }
       } catch (err: unknown) {
         if (request !== requestRef.current) return;
         setBalance({
@@ -167,6 +193,10 @@ export function useBeneficiaryBalances(walletAddress?: string | null): Beneficia
           reason: err instanceof Error ? err.message : 'Balance service is unavailable.',
           retryable: true,
         });
+        if (userId) {
+          const cached = await getCachedBalance(userId);
+          if (request === requestRef.current) setLastSyncedBalance(cached);
+        }
       }
     };
 
@@ -197,7 +227,7 @@ export function useBeneficiaryBalances(walletAddress?: string | null): Beneficia
     };
 
     await Promise.all([loadProjection(), loadLive()]);
-  }, [walletAddress]);
+  }, [walletAddress, userId]);
 
   // Mount fetch is intentional: initial state is already `loading`, and `load`
   // revalidates on wallet change. Matches the existing hook pattern.
@@ -206,5 +236,5 @@ export function useBeneficiaryBalances(walletAddress?: string | null): Beneficia
     void load();
   }, [load]);
 
-  return { balance, liveBalance, abandoned, refresh: load };
+  return { balance, liveBalance, abandoned, lastSyncedBalance, refresh: load };
 }

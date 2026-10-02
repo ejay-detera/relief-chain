@@ -107,46 +107,24 @@ export const fetchProgramAppeals = async (
   return ((data ?? []) as unknown as RawAppealRow[]).map(mapRow);
 };
 
+/**
+ * Resolves an appeal (approve/reject). Delegates both the status update and,
+ * on approval, the enrollment reopen to a single `security definer` RPC
+ * (`resolve_beneficiary_appeal`) so the two writes happen in one transaction
+ * — a crash or dropped connection between them can no longer leave an appeal
+ * marked 'approved' with its enrollment never reopened. The RPC also
+ * enforces that reviewer notes are present when rejecting.
+ */
 export const resolveAppeal = async (
   appealId: string,
   decision: 'approved' | 'rejected',
   reviewerNotes?: string
 ): Promise<void> => {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const reviewerId = sessionData.session?.user.id;
+  const { error } = await supabase.rpc('resolve_beneficiary_appeal', {
+    p_appeal_id: appealId,
+    p_decision: decision,
+    p_reviewer_notes: reviewerNotes ?? null,
+  });
 
-  const { data: appeal, error: fetchErr } = await supabase
-    .from('beneficiary_appeals')
-    .select('enrollment_id, beneficiary_id, program_id')
-    .eq('id', appealId)
-    .single();
-
-  if (fetchErr || !appeal) throw fetchErr ?? new Error('Appeal not found');
-
-  const now = new Date().toISOString();
-
-  // 1. Update appeal record
-  const { error: updateErr } = await supabase
-    .from('beneficiary_appeals')
-    .update({
-      status: decision,
-      reviewer_notes: reviewerNotes ?? null,
-      reviewed_by: reviewerId ?? null,
-      reviewed_at: now,
-      updated_at: now,
-    })
-    .eq('id', appealId);
-
-  if (updateErr) throw updateErr;
-
-  // 2. If approved, re-open enrollment for verification review
-  if (decision === 'approved' && appeal.enrollment_id) {
-    await supabase
-      .from('enrollments')
-      .update({
-        approval_status: 'Pending',
-        rejection_remarks: null,
-      })
-      .eq('id', appeal.enrollment_id);
-  }
+  if (error) throw error;
 };

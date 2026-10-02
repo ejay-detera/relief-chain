@@ -1,9 +1,8 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { RedemptionRecord } from '@/types/wallet';
+import { FontAwesome } from '@expo/vector-icons';
+import { StyleSheet, View } from 'react-native';
 
 type Props = {
   record: RedemptionRecord;
@@ -21,25 +20,28 @@ export function TransactionRow({ record }: Props) {
           <ThemedText style={styles.merchant} numberOfLines={1}>
             {record.merchant}
           </ThemedText>
-          {record.category && (
-            <View style={styles.categoryBadge}>
-              <ThemedText style={styles.categoryBadgeText}>{record.category}</ThemedText>
-            </View>
-          )}
+          <View style={styles.categoryBadge}>
+            <ThemedText style={styles.categoryBadgeText}>{record.fundingSource}</ThemedText>
+          </View>
         </View>
 
         <View style={styles.metaRow}>
           <ThemedText style={styles.date}>{record.date}</ThemedText>
           {isPending && (
+            // "Pending" here means the on-chain transaction has not yet been
+            // confirmed by Stellar reconciliation — it has no relation to
+            // Bluetooth offline sync, which has no implementation in this
+            // app. Labelled "Confirming On-Chain" rather than "Pending
+            // Sync" so it doesn't imply a capability that doesn't exist.
             <View style={styles.pendingSyncPill}>
               <FontAwesome name="refresh" size={9} color="#B45309" />
-              <ThemedText style={styles.pendingSyncText}>Pending Sync</ThemedText>
+              <ThemedText style={styles.pendingSyncText}>Confirming On-Chain</ThemedText>
             </View>
           )}
         </View>
 
         <ThemedText style={styles.hash} selectable numberOfLines={1}>
-          {isPending ? 'Syncing to Stellar ledger…' : record.txHash}
+          {record.txHash ?? 'Awaiting transaction submission…'}
         </ThemedText>
       </View>
 
@@ -52,7 +54,9 @@ export function TransactionRow({ record }: Props) {
         >
           {isCredit ? `+${record.amount}` : `-${record.amount}`}
         </ThemedText>
-        <ThemedText style={styles.balanceLabel}>Balance: {record.remainingBalance}</ThemedText>
+        {record.remainingBalance && (
+          <ThemedText style={styles.balanceLabel}>Balance: {record.remainingBalance}</ThemedText>
+        )}
         <View
           style={[
             styles.statusDot,

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { uploadBeneficiaryDocuments } from '@/services/document-upload-service';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { DocumentUploader, PickedFile } from './document-uploader';
 
 interface Props {
@@ -14,6 +15,7 @@ export function AppealForm({ programName, isSubmitting, onSubmit }: Props) {
   const [reason, setReason] = useState('');
   const [files, setFiles] = useState<PickedFile[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleSubmit = async () => {
     const trimmed = reason.trim();
@@ -24,12 +26,23 @@ export function AppealForm({ programName, isSubmitting, onSubmit }: Props) {
     setErrorMessage(null);
 
     try {
-      const documentUrls = files.map((f) => f.uri);
+      setIsUploading(true);
+      // Upload each attached file to Storage first so reviewers on another
+      // device/session can actually open it later — the raw picker `uri` is
+      // a local path on this device only and is never readable remotely.
+      const documentUrls = files.length > 0 ? await uploadBeneficiaryDocuments(files, 'appeals') : [];
       await onSubmit(trimmed, documentUrls);
     } catch (err) {
-      Alert.alert('Submission Error', err instanceof Error ? err.message : 'Failed to submit appeal.');
+      Alert.alert(
+        'Submission Error',
+        err instanceof Error ? err.message : 'Failed to submit appeal.'
+      );
+    } finally {
+      setIsUploading(false);
     }
   };
+
+  const busy = isSubmitting || isUploading;
 
   return (
     <View style={styles.container}>
@@ -69,11 +82,11 @@ export function AppealForm({ programName, isSubmitting, onSubmit }: Props) {
       <DocumentUploader files={files} onFilesChange={setFiles} />
 
       <Pressable
-        style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+        style={[styles.submitButton, busy && styles.submitButtonDisabled]}
         onPress={handleSubmit}
-        disabled={isSubmitting}
+        disabled={busy}
       >
-        {isSubmitting ? (
+        {busy ? (
           <ActivityIndicator color="white" />
         ) : (
           <ThemedText style={styles.submitButtonText}>Submit Appeal</ThemedText>

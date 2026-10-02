@@ -1,19 +1,20 @@
-import React, { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ApplicationStatusCard } from '@/components/beneficiary/ApplicationStatus/application-status-card';
+import { ApplicationStatusList } from '@/components/beneficiary/ApplicationStatus/application-status-list';
+import { ApplicationStatusSkeleton } from '@/components/beneficiary/ApplicationStatus/application-status-skeleton';
+import { RequirementStatusList } from '@/components/beneficiary/ApplicationStatus/requirement-status-list';
+import { StatusTimeline } from '@/components/beneficiary/ApplicationStatus/status-timeline';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { FadeInView } from '@/components/shared/FadeInView';
-import { ApplicationStatusCard } from '@/components/beneficiary/ApplicationStatus/application-status-card';
-import { ApplicationStatusList } from '@/components/beneficiary/ApplicationStatus/application-status-list';
-import { ApplicationStatusSkeleton } from '@/components/beneficiary/ApplicationStatus/application-status-skeleton';
-import { StatusTimeline } from '@/components/beneficiary/ApplicationStatus/status-timeline';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useApplicationStatus } from '@/hooks/use-application-status';
 import { ApplicationStatusDetails } from '@/types/application-status';
@@ -103,6 +104,10 @@ export default function ApplicationStatusScreen() {
 
               <FadeInView delay={100}>
                 <StatusTimeline timeline={currentDetails.timeline} />
+              </FadeInView>
+
+              <FadeInView delay={150}>
+                <RequirementStatusList enrollmentId={currentDetails.enrollmentId} />
               </FadeInView>
             </View>
           )}

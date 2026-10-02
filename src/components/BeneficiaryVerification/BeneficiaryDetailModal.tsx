@@ -1,9 +1,9 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import { FilePreviewModal } from '@/components/shared/FilePreviewModal';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +27,9 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
   const [applications, setApplications] = useState<BeneficiaryApplication[]>([]);
   const [loadingApplications, setLoadingApplications] = useState(false);
   const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
+  const [rejectingApplicationId, setRejectingApplicationId] = useState<string | null>(null);
+  const [rejectionNotesById, setRejectionNotesById] = useState<Record<string, string>>({});
+  const [showIdPreview, setShowIdPreview] = useState(false);
 
   const loadApplications = async (beneficiaryId: string) => {
     setLoadingApplications(true);
@@ -45,13 +48,35 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
     void loadApplications(beneficiary.id);
   }, [beneficiary]);
 
-  const handleApplicationDecision = async (enrollmentId: string, status: 'Approved' | 'Rejected') => {
+  const handleApproveApplication = async (enrollmentId: string) => {
     setUpdatingApplicationId(enrollmentId);
     try {
-      await updateEnrollmentStatus(enrollmentId, status);
+      await updateEnrollmentStatus(enrollmentId, 'Approved');
       if (beneficiary) await loadApplications(beneficiary.id);
     } catch (err) {
-      console.error('Error updating application status:', err);
+      console.error('Error approving application:', err);
+      Alert.alert('Error', 'Failed to approve this application. Please try again.');
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  };
+
+  // Rejecting requires a reason (BEN-02) — opens an inline field rather than
+  // rejecting immediately on tap.
+  const handleConfirmRejectApplication = async (enrollmentId: string) => {
+    const reason = rejectionNotesById[enrollmentId]?.trim();
+    if (!reason) {
+      Alert.alert('Reason Required', 'Please explain why this application is being rejected.');
+      return;
+    }
+    setUpdatingApplicationId(enrollmentId);
+    try {
+      await updateEnrollmentStatus(enrollmentId, 'Rejected', reason);
+      setRejectingApplicationId(null);
+      if (beneficiary) await loadApplications(beneficiary.id);
+    } catch (err) {
+      console.error('Error rejecting application:', err);
+      Alert.alert('Error', 'Failed to reject this application. Please try again.');
     } finally {
       setUpdatingApplicationId(null);
     }
@@ -86,11 +111,7 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
     };
   }, [beneficiary]);
 
-  const handleOpenBrowser = async () => {
-    if (signedUrl) {
-      await WebBrowser.openBrowserAsync(signedUrl);
-    }
-  };
+  const handleOpenIdPreview = () => setShowIdPreview(true);
 
   const handleAction = async (status: 'Verified' | 'Rejected' | 'Pending') => {
     if (!beneficiary) return;
@@ -115,6 +136,12 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
 
   return (
     <Modal visible={!!beneficiary} animationType="slide" transparent>
+      <FilePreviewModal
+        fileName={beneficiary.gov_id_url ?? 'Government ID'}
+        onClose={() => setShowIdPreview(false)}
+        signedUrl={signedUrl}
+        visible={showIdPreview}
+      />
       <View style={styles.overlay}>
         <View style={styles.modalContent}>
           {/* Header */}
@@ -180,26 +207,65 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
                             Voucher: ₱{application.voucherBalance.toLocaleString()}
                           </ThemedText>
                         )}
+                        {application.approvalStatus === 'Pending' &&
+                          rejectingApplicationId === application.enrollmentId && (
+                            <TextInput
+                              style={styles.rejectionReasonInput}
+                              placeholder="Explain why this application is being rejected"
+                              placeholderTextColor="#94A3B8"
+                              value={rejectionNotesById[application.enrollmentId] ?? ''}
+                              onChangeText={(text) =>
+                                setRejectionNotesById((prev) => ({ ...prev, [application.enrollmentId]: text }))
+                              }
+                              multiline
+                            />
+                          )}
+
                         {application.approvalStatus === 'Pending' && (
                           <View style={styles.applicationActionsRow}>
-                            <Pressable
-                              disabled={isUpdating}
-                              onPress={() => handleApplicationDecision(application.enrollmentId, 'Rejected')}
-                              style={[styles.applicationActionButton, styles.applicationRejectButton]}
-                            >
-                              <ThemedText style={styles.applicationRejectText}>Reject</ThemedText>
-                            </Pressable>
-                            <Pressable
-                              disabled={isUpdating}
-                              onPress={() => handleApplicationDecision(application.enrollmentId, 'Approved')}
-                              style={[styles.applicationActionButton, styles.applicationApproveButton]}
-                            >
-                              {isUpdating ? (
-                                <ActivityIndicator color="white" size="small" />
-                              ) : (
-                                <ThemedText style={styles.applicationApproveText}>Approve</ThemedText>
-                              )}
-                            </Pressable>
+                            {rejectingApplicationId === application.enrollmentId ? (
+                              <>
+                                <Pressable
+                                  disabled={isUpdating}
+                                  onPress={() => setRejectingApplicationId(null)}
+                                  style={[styles.applicationActionButton, styles.applicationCancelButton]}
+                                >
+                                  <ThemedText style={styles.applicationCancelText}>Cancel</ThemedText>
+                                </Pressable>
+                                <Pressable
+                                  disabled={isUpdating}
+                                  onPress={() => handleConfirmRejectApplication(application.enrollmentId)}
+                                  style={[styles.applicationActionButton, styles.applicationRejectButton]}
+                                >
+                                  {isUpdating ? (
+                                    <ActivityIndicator color="#D32F2F" size="small" />
+                                  ) : (
+                                    <ThemedText style={styles.applicationRejectText}>Confirm Reject</ThemedText>
+                                  )}
+                                </Pressable>
+                              </>
+                            ) : (
+                              <>
+                                <Pressable
+                                  disabled={isUpdating}
+                                  onPress={() => setRejectingApplicationId(application.enrollmentId)}
+                                  style={[styles.applicationActionButton, styles.applicationRejectButton]}
+                                >
+                                  <ThemedText style={styles.applicationRejectText}>Reject</ThemedText>
+                                </Pressable>
+                                <Pressable
+                                  disabled={isUpdating}
+                                  onPress={() => handleApproveApplication(application.enrollmentId)}
+                                  style={[styles.applicationActionButton, styles.applicationApproveButton]}
+                                >
+                                  {isUpdating ? (
+                                    <ActivityIndicator color="white" size="small" />
+                                  ) : (
+                                    <ThemedText style={styles.applicationApproveText}>Approve</ThemedText>
+                                  )}
+                                </Pressable>
+                              </>
+                            )}
                           </View>
                         )}
                       </View>
@@ -230,6 +296,10 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
                 <DetailRow label="Complete Address" value={beneficiary.complete_address} />
                 <DetailRow label="Municipality / City" value={beneficiary.municipality_city} />
                 <DetailRow label="Full Location Summary" value={beneficiary.location} />
+                <DetailRow
+                  label="Household Size"
+                  value={beneficiary.household_size != null ? `${beneficiary.household_size} ${beneficiary.household_size === 1 ? 'person' : 'people'}` : null}
+                />
               </View>
             </View>
 
@@ -256,13 +326,13 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
                     isImage(beneficiary.gov_id_url) ? (
                       <View style={styles.imageWrapper}>
                         <Image source={{ uri: signedUrl }} style={styles.idImage} contentFit="contain" />
-                        <Pressable onPress={handleOpenBrowser} style={styles.viewFullButton}>
+                        <Pressable onPress={handleOpenIdPreview} style={styles.viewFullButton}>
                           <FontAwesome name="external-link" size={14} color="white" />
                           <ThemedText style={styles.viewFullText}>View Full Image</ThemedText>
                         </Pressable>
                       </View>
                     ) : (
-                      <Pressable onPress={handleOpenBrowser} style={styles.fileLinkButton}>
+                      <Pressable onPress={handleOpenIdPreview} style={styles.fileLinkButton}>
                         <FontAwesome name="file-pdf-o" size={24} color="#D32F2F" />
                         <ThemedText style={styles.fileLinkText}>Open ID Document (PDF/File)</ThemedText>
                       </Pressable>
@@ -545,6 +615,29 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  applicationCancelButton: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  applicationCancelText: {
+    color: '#374151',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  rejectionReasonInput: {
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: '#334155',
+    backgroundColor: '#FFF5F5',
+    marginTop: Spacing.two,
+    minHeight: 40,
+    textAlignVertical: 'top',
   },
   footer: {
     backgroundColor: 'white',

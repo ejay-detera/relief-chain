@@ -22,6 +22,8 @@ export type UserProfile = {
   gov_id_url?: string | null;
   complete_address?: string | null;
   municipality_city?: string | null;
+  /** Total number of people in the beneficiary's household, including themselves (BEN-01). */
+  household_size?: number | null;
   verification_status?: 'Pending' | 'Verified' | 'Rejected' | null;
   city_id?: number | null;
   area_id?: number | null;

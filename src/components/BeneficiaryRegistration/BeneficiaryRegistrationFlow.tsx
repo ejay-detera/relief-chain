@@ -29,6 +29,30 @@ export const BeneficiaryRegistrationFlow = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
+  /**
+   * Uploads the already-selected government ID to the given Storage path,
+   * retrying up to three attempts before giving up. Kept separate from
+   * `createAccount` so a failed-upload retry re-attempts only the upload —
+   * re-running `supabase.auth.signUp()` against an email that already has an
+   * account would fail or create confusion, not actually fix anything.
+   */
+  const uploadIdDocument = async (
+    document: NonNullable<BeneficiaryRegistrationData['governmentIdDocument']>,
+    filePath: string
+  ): Promise<boolean> => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const uploadPayload = await readDocumentForUpload(document).catch(() => null);
+      if (!uploadPayload) continue;
+
+      const { error: uploadError } = await supabase.storage
+        .from('valid_ids')
+        .upload(filePath, uploadPayload.body, { contentType: uploadPayload.contentType, upsert: true });
+
+      if (!uploadError) return true;
+    }
+    return false;
+  };
+
   const update = (values: Partial<BeneficiaryRegistrationData>) => setData((current) => ({ ...current, ...values }));
   const validate = (target: Step) => {
     const message = getBeneficiaryStepError(data, target);
@@ -48,6 +72,36 @@ export const BeneficiaryRegistrationFlow = () => {
     });
     return () => subscription.remove();
   }, [step]);
+
+  /**
+   * Retries only the ID upload against an account that was already created
+   * by a prior `createAccount()` call. `filePath` is the same Storage key
+   * recorded on that account's `gov_id_url` metadata, so a successful retry
+   * lands in the exact place the profile already expects it.
+   */
+  const retryIdUpload = async (
+    document: NonNullable<BeneficiaryRegistrationData['governmentIdDocument']>,
+    filePath: string
+  ) => {
+    setIsSubmitting(true);
+    try {
+      const uploaded = await uploadIdDocument(document, filePath);
+      if (!uploaded) {
+        Alert.alert(
+          'ID Upload Failed',
+          'We still could not upload your government ID. Your registration is not complete without it — please try again.',
+          [
+            { text: 'Retry', onPress: () => void retryIdUpload(document, filePath) },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+      router.replace({ pathname: '/(auth)/registration-success', params: { role: 'beneficiary' } });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const createAccount = async () => {
     const invalidStep = steps.find((target) => getBeneficiaryStepError(data, target));
@@ -88,6 +142,7 @@ export const BeneficiaryRegistrationFlow = () => {
           sex: data.sex, civil_status: data.civilStatus, complete_address: data.completeAddress.trim(),
           municipality_city: data.municipalityCity.trim(), gov_id_url: filePath,
           city_id: data.cityId, area_id: data.districtId, barangay_id: data.barangayId,
+          household_size: data.householdSize,
         } },
       });
       if (error) {
@@ -95,22 +150,28 @@ export const BeneficiaryRegistrationFlow = () => {
         return;
       }
 
-      // 3. Upload ID document to Supabase storage 'valid_ids' bucket if session exists
+      // 3. Upload ID document to Supabase storage 'valid_ids' bucket if session
+      // exists. The profile row already exists at this point (auth.signUp
+      // above triggers handle_new_user()), and a client has no admin API to
+      // delete it, so a failed upload cannot be rolled back outright — but it
+      // must not be silently treated as a completed registration either
+      // (BEN-01 requires a valid ID). Offer an explicit retry that re-attempts
+      // only the upload rather than advancing to registration-success with no
+      // ID actually on file.
       if (signUpData?.session) {
-        const uploadPayload = await readDocumentForUpload(document).catch(() => {
-          Alert.alert('ID document unavailable', 'Your account was created, but we could not read your ID document. Please update it later in your profile.');
-          return null;
-        });
-        
-        if (uploadPayload) {
-          const { error: uploadError } = await supabase.storage
-            .from('valid_ids')
-            .upload(filePath, uploadPayload.body, { contentType: uploadPayload.contentType });
-
-          if (uploadError) {
-            Alert.alert('ID Upload failed', 'Your account was created, but the ID upload failed: ' + uploadError.message);
-          }
+        const uploaded = await uploadIdDocument(document, filePath);
+        if (!uploaded) {
+          Alert.alert(
+            'ID Upload Failed',
+            'Your account was created, but we could not upload your government ID after multiple attempts. Your registration is not complete without it — please try again.',
+            [
+              { text: 'Retry', onPress: () => void retryIdUpload(document, filePath) },
+              { text: 'Cancel', style: 'cancel' },
+            ]
+          );
+          return;
         }
+
         router.replace({ pathname: '/(auth)/registration-success', params: { role: 'beneficiary' } });
       } else {
         Alert.alert('Email Verification Required', 'Account created! Since email confirmation is required, you must upload your ID securely after logging in.');

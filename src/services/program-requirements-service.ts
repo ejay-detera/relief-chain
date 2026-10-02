@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import {
-  EnrollmentRequirementResponse,
-  ProgramRequirement,
-  RequirementResponseInput,
+    EnrollmentRequirementResponse,
+    ProgramRequirement,
+    RequirementResponseInput,
 } from '@/types/program-requirement';
 
 interface RawRequirementRow {
@@ -101,6 +101,10 @@ export const fetchEnrollmentResponses = async (
       value,
       file_url,
       created_at,
+      status,
+      reviewer_notes,
+      reviewed_by,
+      reviewed_at,
       requirement:program_requirements (
         id,
         program_id,
@@ -124,6 +128,10 @@ export const fetchEnrollmentResponses = async (
     value: row.value,
     fileUrl: row.file_url,
     createdAt: row.created_at,
+    status: row.status ?? 'submitted',
+    reviewerNotes: row.reviewer_notes ?? null,
+    reviewedBy: row.reviewed_by ?? null,
+    reviewedAt: row.reviewed_at ?? null,
     requirement: row.requirement
       ? {
           id: row.requirement.id,
@@ -135,4 +143,24 @@ export const fetchEnrollmentResponses = async (
         }
       : undefined,
   }));
+};
+
+/**
+ * Marks a single requirement response verified/rejected. Delegates to the
+ * `review_requirement_response` RPC (not a direct `.update()`) so the
+ * reviewer attribution (`reviewed_by`, `reviewed_at`) cannot be forged by the
+ * client and reviewer notes are enforced server-side when rejecting.
+ */
+export const reviewRequirementResponse = async (
+  responseId: string,
+  status: 'verified' | 'rejected',
+  reviewerNotes?: string
+): Promise<void> => {
+  const { error } = await supabase.rpc('review_requirement_response', {
+    p_response_id: responseId,
+    p_status: status,
+    p_reviewer_notes: reviewerNotes ?? null,
+  });
+
+  if (error) throw error;
 };

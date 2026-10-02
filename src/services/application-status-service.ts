@@ -4,11 +4,13 @@ import { ApplicationStage, ApplicationStatusDetails, StatusHistoryEntry } from '
 interface RawEnrollmentQueryRow {
   id: string;
   program_id: string;
+  beneficiary_identity_id: string | null;
   approval_status: 'Approved' | 'Pending' | 'Rejected';
   voucher_balance: number | null;
   category: string;
   created_at: string;
   approved_at: string | null;
+  rejected_at?: string | null;
   rejection_remarks?: string | null;
   program?: {
     id: string;
@@ -17,6 +19,15 @@ interface RawEnrollmentQueryRow {
       name: string;
     } | null;
   } | null;
+  beneficiary_identity?: {
+    verified_at: string | null;
+  } | null;
+}
+
+/** Real timestamps gathered for stages that `enrollments` alone cannot answer. */
+interface TimelineEvidence {
+  /** When this enrollment's distribution_recipients row (if any) reached `confirmed` — the actual aid-release event. */
+  aidReleasedAt: string | null;
 }
 
 const STAGES_ORDER: ApplicationStage[] = [
@@ -67,15 +78,25 @@ const STAGE_LABELS: Record<ApplicationStage, { label: string; description: strin
 /**
  * Builds the chronological stepper/timeline based on enrollment state, redemptions,
  * and distribution events.
+ *
+ * Timestamps are drawn from real, distinct columns where one exists —
+ * `rejected_at` for a rejection, `beneficiary_identities.verified_at` for
+ * verification, `distribution_recipients.confirmed_at` for aid release — so
+ * adjacent stages no longer silently share one `approved_at` value. Only
+ * `registered`/`pending_verification` still share `created_at`: the schema
+ * genuinely has no earlier moment to point to, since registration and
+ * program application are the same `enrollments` insert today.
  */
 function buildTimeline(
   row: RawEnrollmentQueryRow,
+  evidence: TimelineEvidence,
   hasRedemptions: boolean,
   firstRedemptionAt: string | null,
   isFullyConsumed: boolean
 ): { currentStage: ApplicationStage; currentStageLabel: string; timeline: StatusHistoryEntry[] } {
   const approvalStatus = row.approval_status;
   const rejectionReason = row.rejection_remarks ?? null;
+  const verifiedAt = row.beneficiary_identity?.verified_at ?? null;
 
   if (approvalStatus === 'Rejected') {
     const timeline: StatusHistoryEntry[] = [
@@ -99,7 +120,10 @@ function buildTimeline(
         stage: 'rejected',
         label: STAGE_LABELS.rejected.label,
         description: rejectionReason ? `Reason: ${rejectionReason}` : STAGE_LABELS.rejected.description,
-        timestamp: row.approved_at ?? row.created_at,
+        // rejected_at is the real moment of rejection (set by the
+        // enrollments_set_rejected_at trigger); approved_at/created_at are
+        // only fallbacks for rows written before that column existed.
+        timestamp: row.rejected_at ?? row.approved_at ?? row.created_at,
         isCompleted: true,
         isCurrent: true,
       },
@@ -130,8 +154,18 @@ function buildTimeline(
     let ts: string | null = null;
     if (stage === 'registered' || stage === 'pending_verification') {
       ts = row.created_at;
-    } else if (stage === 'verified' || stage === 'approved' || stage === 'aid_released') {
+    } else if (stage === 'verified') {
+      // Real verification timestamp from beneficiary_identities when
+      // available; falls back to approved_at only for identities verified
+      // before this column was wired to the status screen.
+      ts = idx <= activeStageIndex ? (verifiedAt ?? row.approved_at ?? row.created_at) : null;
+    } else if (stage === 'approved') {
       ts = idx <= activeStageIndex ? (row.approved_at ?? row.created_at) : null;
+    } else if (stage === 'aid_released') {
+      // Real aid-release timestamp from the confirmed distribution_recipients
+      // row when one exists; falls back to approved_at if the enrollment was
+      // approved outside the batch-distribution workflow.
+      ts = idx <= activeStageIndex ? (evidence.aidReleasedAt ?? row.approved_at ?? row.created_at) : null;
     } else if (stage === 'redeemed' || stage === 'completed') {
       ts = idx <= activeStageIndex ? firstRedemptionAt : null;
     }
@@ -154,6 +188,26 @@ function buildTimeline(
   };
 }
 
+/**
+ * Fetches the confirmed-at timestamp of this enrollment's distribution
+ * (aid-release) record, if one exists. A beneficiary can read their own
+ * `distribution_recipients` rows per the
+ * "Beneficiaries can view own distribution recipients" policy
+ * (20261002220000_add_rejected_at_and_require_rejection_remarks.sql).
+ */
+const fetchAidReleasedAt = async (enrollmentId: string): Promise<string | null> => {
+  const { data } = await supabase
+    .from('distribution_recipients')
+    .select('confirmed_at')
+    .eq('enrollment_id', enrollmentId)
+    .eq('status', 'confirmed')
+    .order('confirmed_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return data?.confirmed_at ?? null;
+};
+
 export const fetchApplicationStatusDetails = async (
   enrollmentId: string
 ): Promise<ApplicationStatusDetails> => {
@@ -162,11 +216,13 @@ export const fetchApplicationStatusDetails = async (
     .select(`
       id,
       program_id,
+      beneficiary_identity_id,
       approval_status,
       voucher_balance,
       category,
       created_at,
       approved_at,
+      rejected_at,
       rejection_remarks,
       program:programs (
         id,
@@ -174,6 +230,9 @@ export const fetchApplicationStatusDetails = async (
         organization:organizations (
           name
         )
+      ),
+      beneficiary_identity:beneficiary_identities (
+        verified_at
       )
     `)
     .eq('id', enrollmentId)
@@ -183,12 +242,15 @@ export const fetchApplicationStatusDetails = async (
     throw enrollmentError ?? new Error('Application enrollment not found');
   }
 
-  // Check redemptions
-  const { data: redemptions } = await supabase
-    .from('redemptions')
-    .select('id, created_at, amount, remaining_balance')
-    .eq('enrollment_id', enrollmentId)
-    .order('created_at', { ascending: true });
+  // Check redemptions and the real aid-release timestamp in parallel.
+  const [{ data: redemptions }, aidReleasedAt] = await Promise.all([
+    supabase
+      .from('redemptions')
+      .select('id, created_at, amount, remaining_balance')
+      .eq('enrollment_id', enrollmentId)
+      .order('created_at', { ascending: true }),
+    fetchAidReleasedAt(enrollmentId),
+  ]);
 
   const redemptionList = redemptions ?? [];
   const hasRedemptions = redemptionList.length > 0;
@@ -199,6 +261,7 @@ export const fetchApplicationStatusDetails = async (
   const rawRow = enrollment as unknown as RawEnrollmentQueryRow;
   const { currentStage, currentStageLabel, timeline } = buildTimeline(
     rawRow,
+    { aidReleasedAt },
     hasRedemptions,
     firstRedemptionAt,
     isFullyConsumed
@@ -236,11 +299,13 @@ export const fetchBeneficiaryApplicationHistory = async (
     .select(`
       id,
       program_id,
+      beneficiary_identity_id,
       approval_status,
       voucher_balance,
       category,
       created_at,
       approved_at,
+      rejected_at,
       rejection_remarks,
       program:programs (
         id,
@@ -248,6 +313,9 @@ export const fetchBeneficiaryApplicationHistory = async (
         organization:organizations (
           name
         )
+      ),
+      beneficiary_identity:beneficiary_identities (
+        verified_at
       )
     `)
     .eq('beneficiary_id', targetBeneficiaryId)
@@ -255,14 +323,53 @@ export const fetchBeneficiaryApplicationHistory = async (
 
   if (error || !enrollments) return [];
 
+  // Same per-enrollment redemption/aid-release lookup as the single-item
+  // detail fetch, run for every row in parallel rather than serially — this
+  // also fixes the previous inconsistency where the list view inferred
+  // "has this been redeemed" from `voucher_balance > 0` while the detail
+  // view actually queried `redemptions`, which could disagree for the same
+  // enrollment depending on which screen was open.
+  const evidenceByEnrollmentId = new Map<
+    string,
+    { hasRedemptions: boolean; firstRedemptionAt: string | null; aidReleasedAt: string | null }
+  >();
+
+  await Promise.all(
+    enrollments.map(async (item: any) => {
+      const [{ data: redemptions }, aidReleasedAt] = await Promise.all([
+        supabase
+          .from('redemptions')
+          .select('id, created_at')
+          .eq('enrollment_id', item.id)
+          .order('created_at', { ascending: true }),
+        fetchAidReleasedAt(item.id),
+      ]);
+      const redemptionList = redemptions ?? [];
+      evidenceByEnrollmentId.set(item.id, {
+        hasRedemptions: redemptionList.length > 0,
+        firstRedemptionAt: redemptionList.length > 0 ? redemptionList[0].created_at : null,
+        aidReleasedAt,
+      });
+    })
+  );
+
   const results: ApplicationStatusDetails[] = [];
   for (const item of enrollments) {
     const rawRow = item as unknown as RawEnrollmentQueryRow;
+    const balance = Number(rawRow.voucher_balance ?? 0);
+    const evidence = evidenceByEnrollmentId.get(rawRow.id) ?? {
+      hasRedemptions: false,
+      firstRedemptionAt: null,
+      aidReleasedAt: null,
+    };
+    const isFullyConsumed = evidence.hasRedemptions && balance <= 0;
+
     const { currentStage, currentStageLabel, timeline } = buildTimeline(
       rawRow,
-      Number(rawRow.voucher_balance ?? 0) > 0,
-      null,
-      false
+      { aidReleasedAt: evidence.aidReleasedAt },
+      evidence.hasRedemptions,
+      evidence.firstRedemptionAt,
+      isFullyConsumed
     );
     results.push({
       enrollmentId: rawRow.id,
@@ -274,7 +381,7 @@ export const fetchBeneficiaryApplicationHistory = async (
       approvalStatus: rawRow.approval_status,
       rejectionReason: rawRow.rejection_remarks ?? null,
       category: rawRow.category,
-      voucherBalance: Number(rawRow.voucher_balance ?? 0),
+      voucherBalance: balance,
       timeline,
       createdAt: rawRow.created_at,
       updatedAt: rawRow.approved_at,

@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { RequirementsForm } from '@/components/beneficiary/ApplyProgram/requirements-form';
-import { BottomTabInset, BrandColors, MaxContentWidth, Spacing, BorderRadius } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { BorderRadius, BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganizationPrograms } from '@/hooks/use-organization-programs';
 import { fetchProgramRequirements } from '@/services/program-requirements-service';
@@ -30,6 +30,22 @@ export default function ApplyProgramScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedProgram = organizations.find((p) => p.id === params.programId);
+
+  // Defense-in-depth: if the beneficiary already has an enrollment for this
+  // program (e.g. reached via a stale deep link or back-navigation before
+  // the Find Organization list refreshed), redirect to their status instead
+  // of letting them resubmit — the DB's unique (beneficiary_id, program_id)
+  // constraint would reject a duplicate insert anyway.
+  useEffect(() => {
+    if (selectedProgram?.existingEnrollmentStatus) {
+      router.replace({
+        pathname: '/(beneficiary)/application-status',
+        params: selectedProgram.existingEnrollmentId
+          ? { enrollmentId: selectedProgram.existingEnrollmentId }
+          : undefined,
+      });
+    }
+  }, [router, selectedProgram]);
 
   useEffect(() => {
     async function loadReqs() {
@@ -85,6 +101,20 @@ export default function ApplyProgramScreen() {
       setIsSubmitting(false);
     }
   };
+
+  if (selectedProgram?.existingEnrollmentStatus) {
+    // Redirect is in-flight (effect above); render nothing instead of
+    // flashing the submit form for an already-applied program.
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={BrandColors.navy} />
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>

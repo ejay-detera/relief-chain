@@ -6,6 +6,7 @@ import { ReconciliationBadge } from '@/components/shared/reconciliation-badge';
 import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { parseStroopAmount } from '@/types/blockchain';
 import type { BeneficiaryProgramEntitlement, ProjectionState } from '@/types/projection';
 import { EnrolledProgram } from '@/types/wallet';
 import { formatStroops } from '@/utils/format-stroops';
@@ -107,6 +108,22 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
         </View>
       )}
 
+      {/* Approved allocation amount — visible immediately on approval,
+          independent of whether reconciliation has produced a balance
+          projection row yet (US3: "amount... visible immediately after
+          Organization approval"). Previously only the reconciled balance
+          below was shown, which could read "No reconciled balance" for a
+          window after approval even though the approved amount was already
+          on file. */}
+      {isApproved && program.allocatedAmountStroops != null && (
+        <View style={styles.allocatedRow}>
+          <ThemedText style={styles.allocatedLabel}>Approved Amount</ThemedText>
+          <ThemedText style={styles.allocatedValue}>
+            {formatStroops(parseStroopAmount(program.allocatedAmountStroops))} {PILOT_ASSET_CODE}
+          </ThemedText>
+        </View>
+      )}
+
       <View style={styles.bodyRow}>
         <View style={styles.balanceColumn}>
           <ThemedText style={styles.balanceLabel}>Reconciled Balance</ThemedText>
@@ -129,25 +146,34 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
         </View>
       </View>
 
-      {/* Merchant Categories & Redemption Instructions (US3) */}
-      {program.acceptedMerchantCategories && program.acceptedMerchantCategories.length > 0 && (
-        <View style={styles.merchantsSection}>
-          <ThemedText style={styles.merchantsLabel}>Accepted at:</ThemedText>
-          <View style={styles.categoriesWrap}>
-            {program.acceptedMerchantCategories.map((cat, idx) => (
-              <View key={idx} style={styles.categoryChip}>
-                <FontAwesome name="shopping-bag" size={10} color={BrandColors.navy} />
-                <ThemedText style={styles.categoryChipText}>{cat}</ThemedText>
-              </View>
-            ))}
-          </View>
-          {program.redemptionInstructions && (
-            <ThemedText style={styles.instructionsText}>
-              {program.redemptionInstructions}
-            </ThemedText>
-          )}
-        </View>
-      )}
+      {/* Merchant Categories & Redemption Instructions (US3). Only real,
+          DB-accredited `program_merchants` rows are ever shown here — an
+          empty list means "no accredited merchants listed yet" and says so
+          plainly, rather than fabricating participant names. */}
+      <View style={styles.merchantsSection}>
+        <ThemedText style={styles.merchantsLabel}>Accepted at:</ThemedText>
+        {program.acceptedMerchantCategories && program.acceptedMerchantCategories.length > 0 ? (
+          <>
+            <View style={styles.categoriesWrap}>
+              {program.acceptedMerchantCategories.map((cat, idx) => (
+                <View key={idx} style={styles.categoryChip}>
+                  <FontAwesome name="shopping-bag" size={10} color={BrandColors.navy} />
+                  <ThemedText style={styles.categoryChipText}>{cat}</ThemedText>
+                </View>
+              ))}
+            </View>
+            {program.redemptionInstructions && (
+              <ThemedText style={styles.instructionsText}>
+                {program.redemptionInstructions}
+              </ThemedText>
+            )}
+          </>
+        ) : (
+          <ThemedText style={styles.noMerchantsText}>
+            No accredited merchants listed yet for this program. Check back soon.
+          </ThemedText>
+        )}
+      </View>
 
       {isApproved ? (
         <Pressable onPress={() => router.push('/(beneficiary)/pay-scan')} style={styles.redeemButton}>
@@ -328,6 +354,31 @@ const styles = StyleSheet.create({
     color: '#718096',
     marginTop: 2,
     fontStyle: 'italic',
+  },
+  noMerchantsText: {
+    fontSize: 11,
+    color: '#718096',
+    fontStyle: 'italic',
+  },
+  allocatedRow: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    marginBottom: Spacing.three,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  allocatedLabel: {
+    fontSize: 12,
+    color: '#166534',
+    fontWeight: '600',
+  },
+  allocatedValue: {
+    fontSize: 14,
+    color: '#166534',
+    fontWeight: '700',
   },
   redeemButton: {
     flexDirection: 'row',

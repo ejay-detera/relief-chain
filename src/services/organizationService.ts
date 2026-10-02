@@ -3,15 +3,15 @@ import type { UserProfile } from '@/types/auth';
 import { OrganizationProgram } from '@/types/organization';
 import type { RequirementResponseInput } from '@/types/program-requirement';
 import { fetchWithRetry } from '@/utils/fetch-with-retry';
-import { getRegistrationStatus } from '@/utils/registration-window';
 import { isLocationEligible, isProgramApplicable } from '@/utils/program-applicability';
+import { getRegistrationStatus } from '@/utils/registration-window';
 import { submitRequirementResponses } from './program-requirements-service';
 
 export {
-  isLocationEligible,
-  isProgramApplicable,
-  type LocationEligibilityInput,
-  type ProgramApplicabilityInput,
+    isLocationEligible,
+    isProgramApplicable,
+    type LocationEligibilityInput,
+    type ProgramApplicabilityInput
 } from '@/utils/program-applicability';
 
 const VALID_CATEGORIES = ['Food', 'Medicine', 'School Supplies', 'Cash'] as const;
@@ -66,21 +66,29 @@ export const fetchOrganizationPrograms = async (
         .in('status', ['active', 'draft']),
       supabase
         .from('enrollments')
-        .select('program_id, approval_status')
+        .select('id, program_id, approval_status')
         .eq('beneficiary_id', beneficiaryId),
     ]);
 
     if (programsResult.error) throw programsResult.error;
     if (enrollmentsResult.error) throw enrollmentsResult.error;
 
-    const enrollmentByProgramId = new Map<string, 'Approved' | 'Pending' | 'Rejected'>();
+    const enrollmentByProgramId = new Map<
+      string,
+      { id: string; approvalStatus: 'Approved' | 'Pending' | 'Rejected' }
+    >();
     for (const enrollment of enrollmentsResult.data ?? []) {
-      enrollmentByProgramId.set(enrollment.program_id, enrollment.approval_status);
+      enrollmentByProgramId.set(enrollment.program_id, {
+        id: enrollment.id,
+        approvalStatus: enrollment.approval_status,
+      });
     }
 
     return (programsResult.data ?? []).map((row: any) => {
       const { status, canApply } = getRegistrationStatus(row.registration_open, row.registration_close);
-      const existingEnrollmentStatus = enrollmentByProgramId.get(row.id) ?? null;
+      const existingEnrollment = enrollmentByProgramId.get(row.id) ?? null;
+      const existingEnrollmentStatus = existingEnrollment?.approvalStatus ?? null;
+      const existingEnrollmentId = existingEnrollment?.id ?? null;
 
       const assignedBarangays: { id: number; name: string }[] = (row.program_barangays ?? [])
         .map((pb: any) => ({ id: pb.barangay_id, name: pb.barangays?.name }))
@@ -119,6 +127,7 @@ export const fetchOrganizationPrograms = async (
         canApply: canApply && existingEnrollmentStatus === null && isEligibleByLocation,
         voucherType: resolvedVoucherType,
         existingEnrollmentStatus,
+        existingEnrollmentId,
         isEligibleByLocation,
         eligibleBarangayNames: assignedBarangays.map((b) => b.name),
         eligibleAreaNames: assignedAreas.map((a) => a.name),

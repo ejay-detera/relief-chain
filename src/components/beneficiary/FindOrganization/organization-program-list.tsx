@@ -15,6 +15,7 @@ type OrganizationProgramListProps = {
   error: Error | null;
   applyDisabled: boolean;
   onApply: (program: OrganizationProgram) => void;
+  onViewStatus: (program: OrganizationProgram) => void;
   onRetry: () => void;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -28,6 +29,7 @@ export function OrganizationProgramList({
   error,
   applyDisabled,
   onApply,
+  onViewStatus,
   onRetry,
   emptyTitle,
   emptyDescription,
@@ -63,6 +65,7 @@ export function OrganizationProgramList({
           <OrganizationProgramCard
             disabled={applyDisabled}
             onApply={onApply}
+            onViewStatus={onViewStatus}
             program={program}
           />
         </FadeInView>

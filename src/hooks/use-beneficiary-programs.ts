@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { EnrolledProgram } from '@/types/wallet';
+import { useCallback, useEffect, useState } from 'react';
 
 type EnrollmentRow = {
   id: string;
@@ -10,6 +10,7 @@ type EnrollmentRow = {
   created_at: string;
   category: string;
   rejection_remarks?: string | null;
+  allocation_amount_stroops: number | string | null;
   program: {
     id: string;
     name: string;
@@ -20,13 +21,6 @@ type EnrollmentRow = {
       category: string;
     }[];
   } | null;
-};
-
-const DEFAULT_CATEGORY_MERCHANTS: Record<string, string[]> = {
-  Food: ['Groceries & Supermarkets', 'Local Public Markets', 'Sari-Sari Stores'],
-  Medicine: ['Pharmacies & Drugstores', 'Community Health Clinics'],
-  'School Supplies': ['Bookstores & Stationery', 'School Merchandise Outlets'],
-  Cash: ['Accredited Cash-Out Centers', 'Disaster Relief Outposts'],
 };
 
 /**
@@ -53,6 +47,7 @@ export function useBeneficiaryPrograms() {
           created_at,
           category,
           rejection_remarks,
+          allocation_amount_stroops,
           program:programs (
             id,
             name,
@@ -75,19 +70,32 @@ export function useBeneficiaryPrograms() {
         .filter((e) => e.program != null)
         .map((e) => {
           const aidCategory = e.category || e.program?.voucher_type || 'General Assistance';
-          const explicitMerchants = (e.program?.program_merchants ?? [])
-            .map((pm) => pm.category)
-            .filter((cat): cat is string => Boolean(cat));
-
-          const acceptedCategories =
-            explicitMerchants.length > 0
-              ? Array.from(new Set(explicitMerchants))
-              : DEFAULT_CATEGORY_MERCHANTS[aidCategory] ?? ['Accredited Partner Merchants'];
+          // `program_merchants` is the real, DB-enforced accreditation record
+          // (validated by `validate_program_merchant_change`). Previously, an
+          // empty result here silently fell back to a hardcoded
+          // DEFAULT_CATEGORY_MERCHANTS map with invented merchant names like
+          // "Groceries & Supermarkets" — showing redemption guidance for
+          // merchants that were never actually accredited for this program.
+          // Now an empty list is shown as empty, with the card itself
+          // choosing a clear "not yet listed" message instead of fabricating
+          // participants (US3).
+          const acceptedCategories = Array.from(
+            new Set(
+              (e.program?.program_merchants ?? [])
+                .map((pm) => pm.category)
+                .filter((cat): cat is string => Boolean(cat))
+            )
+          );
 
           const instructions =
-            aidCategory === 'Cash'
-              ? 'Present your digital QR voucher at authorized cash disbursement stations.'
-              : `Present your voucher QR to scan at accredited ${aidCategory.toLowerCase()} retail partners.`;
+            acceptedCategories.length === 0
+              ? null
+              : aidCategory === 'Cash'
+                ? 'Present your digital QR voucher at authorized cash disbursement stations.'
+                : `Present your voucher QR to scan at accredited ${aidCategory.toLowerCase()} retail partners.`;
+
+          const allocationAmountStroops =
+            e.allocation_amount_stroops != null ? Number(e.allocation_amount_stroops) : null;
 
           return {
             id: e.program!.id,
@@ -101,6 +109,14 @@ export function useBeneficiaryPrograms() {
             acceptedMerchantCategories: acceptedCategories,
             redemptionInstructions: instructions,
             rejectionRemarks: e.rejection_remarks ?? null,
+            // The approved allocation amount, independent of whether
+            // reconciliation has produced a balance projection row yet (US3:
+            // "amount... visible immediately after approval"). Only
+            // meaningful once approved; null for Pending/Rejected.
+            allocatedAmountStroops:
+              e.approval_status === 'Approved' && allocationAmountStroops && allocationAmountStroops > 0
+                ? allocationAmountStroops
+                : null,
           };
         });
 

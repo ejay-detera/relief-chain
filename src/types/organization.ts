@@ -12,6 +12,8 @@ export type OrganizationProgram = {
   canApply: boolean;
   voucherType: string | null;
   existingEnrollmentStatus: 'Approved' | 'Pending' | 'Rejected' | null;
+  /** The Beneficiary's own Enrollment id for this Program, when one exists. Used to deep-link to its status view. */
+  existingEnrollmentId: string | null;
   /** True when the Program has no barangay restriction, or the Beneficiary's barangay is one of the assigned barangays. */
   isEligibleByLocation: boolean;
   /** Names of the barangays the Program is restricted to, for display when the Beneficiary is not eligible. Empty means no restriction. */

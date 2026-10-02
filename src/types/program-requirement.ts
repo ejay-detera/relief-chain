@@ -17,6 +17,8 @@ export interface RequirementResponseInput {
   fileUrl?: string;
 }
 
+export type RequirementResponseStatus = 'submitted' | 'verified' | 'rejected';
+
 export interface EnrollmentRequirementResponse {
   id: string;
   enrollmentId: string;
@@ -24,5 +26,10 @@ export interface EnrollmentRequirementResponse {
   value: string | null;
   fileUrl: string | null;
   createdAt: string;
+  /** Per-requirement review verdict, independent of the enrollment's overall approval_status. */
+  status: RequirementResponseStatus;
+  reviewerNotes: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   requirement?: ProgramRequirement;
 }

@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +32,15 @@ export default function FindOrganizationScreen() {
   const isVerified = profile?.verification_status === 'Verified';
   const hasBarangay = Boolean(profile?.barangay_id);
 
+  // Re-fetch whenever this screen regains focus, so a program just applied to
+  // (from apply-program.tsx, a separate hook instance) no longer shows the
+  // stale "Apply" button when the beneficiary navigates back here.
+  useFocusEffect(
+    useCallback(() => {
+      void retry();
+    }, [retry])
+  );
+
   const handleApply = (program: OrganizationProgram) => {
     router.push({
       pathname: '/(beneficiary)/apply-program',
@@ -40,6 +49,13 @@ export default function FindOrganizationScreen() {
         programName: program.programName,
         voucherType: program.voucherType ?? '',
       },
+    });
+  };
+
+  const handleViewStatus = (program: OrganizationProgram) => {
+    router.push({
+      pathname: '/(beneficiary)/application-status',
+      params: program.existingEnrollmentId ? { enrollmentId: program.existingEnrollmentId } : undefined,
     });
   };
 
@@ -255,6 +271,7 @@ export default function FindOrganizationScreen() {
             onApply={handleApply}
             onEmptyAction={handleEmptyAction}
             onRetry={retry}
+            onViewStatus={handleViewStatus}
             organizations={filteredPrograms}
           />
         </ScrollView>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DuplicateFlagsPanel } from '@/components/BeneficiaryVerification/DuplicateFlagsPanel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BrandColors, Spacing } from '@/constants/theme';
@@ -105,6 +106,11 @@ export default function BeneficiariesVerificationScreen() {
               </ThemedText>
             </View>
           </View>
+        </FadeInView>
+
+        {/* Duplicate registration flags (BEN-01) */}
+        <FadeInView delay={20}>
+          <DuplicateFlagsPanel />
         </FadeInView>
 
         {/* Search */}
