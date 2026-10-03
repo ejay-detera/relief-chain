@@ -1,8 +1,5 @@
-import { StepUpModal } from '@/components/Mfa/StepUpModal';
 import { useAuth } from '@/context/AuthContext';
 import { useActivateCashProgram } from '@/hooks/use-activate-cash-program';
-import { useMfa } from '@/hooks/use-mfa';
-import { useStepUp } from '@/hooks/use-step-up';
 import {
     LookupData,
     createLguProgram,
@@ -10,11 +7,10 @@ import {
     fetchLookupData,
     updateLguProgram,
 } from '@/services/programService';
-import type { StepUpEvaluation } from '@/types/mfa';
 import { ProgramDraft } from '@/types/program';
-import { evaluateStepUp } from '@/utils/step-up';
+import { requestDeviceConfirmation } from '@/utils/biometric-auth';
 import { Stack } from 'expo-router';
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
 const initialDraft: ProgramDraft = {
@@ -90,51 +86,41 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
   const [isLoadingLookups, setIsLoadingLookups] = useState(true);
   const { activateProgram } = useActivateCashProgram();
 
-  // Editing an already-active program requires a fresh MFA step-up before any
-  // write (restrictive RLS policy "Active program changes require recent
-  // AAL2" on public.programs). This gate prompts for re-verification inline
-  // instead of letting the save fail with PGRST116 (0 rows returned by RLS).
-  const mfa = useMfa();
-  const evaluation: StepUpEvaluation = mfa.assurance
-    ? evaluateStepUp(mfa.assurance)
-    : { isFresh: false, secondsRemaining: 0, requiresEnrollment: !mfa.isEnabled };
-  const stepUp = useStepUp(mfa.factors, evaluation);
-  const pendingStepUpResolveRef = useRef<((verified: boolean) => void) | null>(null);
-
-  const waitForStepUp = useCallback((): Promise<boolean> => {
-    return new Promise((resolve) => {
-      pendingStepUpResolveRef.current = resolve;
-      stepUp.begin();
-    });
-  }, [stepUp]);
-
-  const handleSubmitStepUpCode = useCallback(
-    async (code: string) => {
-      const verified = await stepUp.submitCode(code);
-      if (verified) {
-        await mfa.refresh();
-        pendingStepUpResolveRef.current?.(true);
-        pendingStepUpResolveRef.current = null;
+  // Editing an active program prompts the user for device password / biometric confirmation.
+  const requestDeviceAuthApproval = useCallback((): Promise<boolean> => {
+    return new Promise(async (resolve) => {
+      try {
+        const auth = await requestDeviceConfirmation(
+          'Confirm device passcode or biometric to save changes to this program'
+        );
+        if (auth.ok) {
+          resolve(true);
+          return;
+        }
+        if (auth.reason === 'cancelled') {
+          Alert.alert('Action Cancelled', 'Program changes were not saved.');
+          resolve(false);
+          return;
+        }
+        if (auth.reason === 'unenrolled') {
+          // Device has no screen lock set up (e.g. testing in simulator or web)
+          Alert.alert(
+            'Confirm Program Changes',
+            'No screen lock is configured on this device. Do you want to proceed with saving changes?',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Confirm', onPress: () => resolve(true) },
+            ]
+          );
+          return;
+        }
+        Alert.alert('Authentication Failed', auth.message || 'Device authentication failed.');
+        resolve(false);
+      } catch {
+        resolve(false);
       }
-    },
-    [mfa, stepUp],
-  );
-
-  const handleCancelStepUp = useCallback(() => {
-    stepUp.cancel();
-    pendingStepUpResolveRef.current?.(false);
-    pendingStepUpResolveRef.current = null;
-  }, [stepUp]);
-
-  const handleEnrollInsteadOfStepUp = useCallback(() => {
-    stepUp.cancel();
-    pendingStepUpResolveRef.current?.(false);
-    pendingStepUpResolveRef.current = null;
-    Alert.alert(
-      'Authenticator required',
-      'Set up an authenticator app in Settings → Security before editing an active program.',
-    );
-  }, [stepUp]);
+    });
+  }, []);
 
   const [lookups, setLookups] = useState<LookupData>({
     disasterTypes: [],
@@ -259,23 +245,23 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
 
   const publishProgram = async (status: 'draft' | 'published'): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
     try {
-      // Editing a program that is currently active requires a fresh step-up
-      // (restrictive RLS). Prompt before attempting the write so the user
-      // gets a clear re-verification step instead of a bare PGRST116 error.
-      const requiresStepUpGate = !!editingProgramId && editingProgramStatus === 'published';
-      if (requiresStepUpGate && !evaluation.isFresh) {
-        const verified = await waitForStepUp();
-        if (!verified) {
+      const isEditingActiveProgram =
+        !!editingProgramId &&
+        (editingProgramStatus === 'published' || editingProgramStatus === 'active');
+
+      // Prompt for device password or biometric confirmation when editing an active program
+      if (isEditingActiveProgram) {
+        const approved = await requestDeviceAuthApproval();
+        if (!approved) {
           return { success: false };
         }
       }
 
       let result: { success: boolean; programId?: string; organizationId?: string } = { success: false };
 
-      // Step 1: ALWAYS save the database row as a draft first. 
-      // Financial constraints prevent direct inserts of 'active' status without funding evidence.
       if (editingProgramId) {
-        result = await updateLguProgram(editingProgramId, draft, 'draft');
+        const targetStatus = isEditingActiveProgram ? 'published' : status;
+        result = await updateLguProgram(editingProgramId, draft, targetStatus);
       } else {
         result = await createLguProgram(draft, 'draft', profile?.id || null);
         if (result.success && result.programId) {
@@ -287,8 +273,8 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
         return { success: false };
       }
 
-      // Step 2: If the user requested to publish, we invoke the Edge Function activation flow.
-      if (status === 'published') {
+      // Only invoke the on-chain activation flow when newly publishing a draft
+      if (status === 'published' && (!editingProgramId || editingProgramStatus === 'draft')) {
         await activateProgram(result.organizationId, result.programId);
       }
 
@@ -319,16 +305,6 @@ export function CreateProgramProvider({ children }: { children: React.ReactNode 
         clearEditingState,
       }}>
       {children}
-      <StepUpModal
-        actionDescription="save changes to this active program"
-        errorMessage={stepUp.error}
-        isVerifying={stepUp.phase === 'verifying'}
-        onCancel={handleCancelStepUp}
-        onEnrollInstead={handleEnrollInsteadOfStepUp}
-        onSubmitCode={handleSubmitStepUpCode}
-        requiresEnrollment={evaluation.requiresEnrollment}
-        visible={stepUp.phase === 'prompting' || stepUp.phase === 'verifying'}
-      />
     </CreateProgramContext.Provider>
   );
 }

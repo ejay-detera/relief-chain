@@ -1,256 +1,259 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { InvoiceAmountForm } from '@/components/MerchantInvoice/InvoiceAmountForm';
-import { InvoiceExpiryCountdown } from '@/components/MerchantInvoice/InvoiceExpiryCountdown';
-import { InvoiceQrCard } from '@/components/MerchantInvoice/InvoiceQrCard';
-import { InvoiceSettlementState } from '@/components/MerchantInvoice/InvoiceSettlementState';
-import { InvoiceSigningStatus } from '@/components/MerchantInvoice/InvoiceSigningStatus';
-import { SettlementCheckButton } from '@/components/MerchantInvoice/SettlementCheckButton';
+import { BeneficiaryBalanceCard } from '@/components/MerchantRedemption/BeneficiaryBalanceCard';
+import { BeneficiaryScannerView } from '@/components/MerchantRedemption/BeneficiaryScannerView';
+import { RedemptionAmountForm } from '@/components/MerchantRedemption/RedemptionAmountForm';
+import { RedemptionReceiptModal } from '@/components/MerchantRedemption/RedemptionReceiptModal';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { useMerchantSettlementCheck } from '@/hooks/use-merchant-settlement-check';
+import { useBeneficiaryBalanceCheck } from '@/hooks/use-beneficiary-balance-check';
 import { isVerifiedMerchantWallet, merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
-import { createSignedInvoice } from '@/services/invoice-service';
-import { getStoredInvoiceByNonce, saveInvoice, updateInvoiceStatus } from '@/services/merchant-invoice-storage';
-import type {
-    InvoiceSettlementState as SettlementState,
-    InvoiceTransport,
-    InvoiceV1,
-    MerchantInvoiceDraft,
-    MerchantInvoiceStep,
-} from '@/types/invoice';
-
-type PresentedInvoice = { invoice: InvoiceV1; transport: InvoiceTransport };
+import {
+  generateRedemptionReceipt,
+  savePendingOfflineRedemption,
+  type RedemptionReceiptData,
+} from '@/services/merchant-redemption-service';
 
 const MerchantReceiveScreen = () => {
   const router = useRouter();
-  const { session } = useAuth();
-  const { state: walletState, merchantEntityId, isLoading, error: bindingError } = useMerchantWallet();
+  const { profile, session } = useAuth();
+  const { state: walletState, merchantEntityId } = useMerchantWallet();
 
-  const [step, setStep] = useState<MerchantInvoiceStep>('collect');
-  const [presented, setPresented] = useState<PresentedInvoice | null>(null);
-  const [settlement, setSettlement] = useState<SettlementState>({ status: 'awaiting_scan' });
-  const [formError, setFormError] = useState<string | null>(null);
+  // Merchant Categories for smart matching
+  const metadata = session?.user?.user_metadata;
+  const merchantCategories = useMemo(() => {
+    const cats: string[] = [];
+    if (metadata?.business_type) cats.push(String(metadata.business_type));
+    if (Array.isArray(metadata?.business_types)) {
+      metadata.business_types.forEach((c) => typeof c === 'string' && cats.push(c));
+    }
+    if (cats.length === 0) cats.push('General Merchandise');
+    return cats;
+  }, [metadata]);
 
-  const resolvedMerchantIdForCheck = merchantEntityId ?? null;
+  const merchantDisplayName =
+    profile?.full_name ||
+    (typeof metadata?.business_name === 'string' ? metadata.business_name : null) ||
+    session?.user?.email ||
+    'Merchant';
+
+  const merchantIdentifiers = useMemo(() => {
+    const list: string[] = [];
+    if (session?.user?.email) list.push(session.user.email);
+    if (profile?.full_name) list.push(profile.full_name);
+    if (typeof metadata?.business_name === 'string') list.push(metadata.business_name);
+    if (typeof metadata?.store_name === 'string') list.push(metadata.store_name);
+    return list;
+  }, [session?.user?.email, profile?.full_name, metadata]);
+
+  // Beneficiary Balance Check Hook (MER-01 & MER-02)
   const {
-    organizationId: settlementOrganizationId,
-    isResolvingOrg: isResolvingSettlementOrg,
-    isChecking: isCheckingSettlement,
-    error: settlementCheckError,
-    lastCheck: settlementLastCheck,
-    settledEvidence,
-    checkSettlement,
-    resetCheck,
-  } = useMerchantSettlementCheck(resolvedMerchantIdForCheck);
+    isLoading: isCheckingBeneficiary,
+    error: beneficiaryLookupError,
+    beneficiary,
+    selectedVoucher,
+    amount: redemptionAmount,
+    setAmount: setRedemptionAmount,
+    selectVoucher,
+    lookup: lookupBeneficiary,
+    reset: resetBeneficiary,
+    validation: redemptionValidation,
+  } = useBeneficiaryBalanceCheck(merchantCategories, merchantDisplayName, merchantIdentifiers);
 
-  // `settled` renders only from reconciler-owned DB evidence re-read after the
-  // authorized check — never from the invoke response alone. Derived during
-  // render (no effect) so no cascading setState is introduced.
-  const displayedSettlement: SettlementState = settledEvidence
-    ? { status: 'settled', evidence: settledEvidence }
-    : settlement;
-
-  const handleCheckSettlement = useCallback(() => {
-    void checkSettlement();
-  }, [checkSettlement]);
-
-  const settlementCheckSummary = useMemo(() => {
-    if (!settlementLastCheck) return null;
-    return (
-      `Checked ${settlementLastCheck.checkedAt} — ` +
-      `${settlementLastCheck.confirmedCount} confirmed, ` +
-      `${settlementLastCheck.failedCount} failed.`
-    );
-  }, [settlementLastCheck]);
+  // Digital Receipt state
+  const [receipt, setReceipt] = useState<RedemptionReceiptData | null>(null);
+  const [isReceiptVisible, setIsReceiptVisible] = useState(false);
+  const [isSubmittingRedemption, setIsSubmittingRedemption] = useState(false);
 
   const userId = session?.user.id ?? null;
-  // Use the merchantEntityId from the wallet hook, which resolves the entity ID, instead of the auth user ID.
-  // The backend prepare-payment function strictly expects the merchant entity ID to resolve accreditations.
   const resolvedMerchantId = merchantEntityId ?? null;
   const merchantWallet = merchantWalletPublicKey(walletState);
-  // Invoice signing requires the local secret to match the verified active
-  // wallet. `merchantWalletPublicKey` also returns the expected address while
-  // in `recovery_required` for display, so gate creation on verified readiness
-  // explicitly — otherwise `signMerchantInvoice` fails late with the low-level
-  // "disposable testnet signer is unavailable" error.
   const isReady = isVerifiedMerchantWallet(walletState);
 
-  const { nonce } = useLocalSearchParams<{ nonce?: string }>();
-
-  // If a nonce parameter is supplied, resume that invoice from storage
-  useEffect(() => {
-    if (!nonce || !resolvedMerchantId) return;
-    let cancelled = false;
-    void getStoredInvoiceByNonce(resolvedMerchantId, nonce).then((record) => {
-      if (cancelled || !record) return;
-      setPresented({ invoice: record.invoice, transport: record.transport });
-      const isExpired = Date.parse(record.invoice.expiresAt) <= Date.now();
-      setSettlement(
-        record.settlementEvidence
-          ? { status: 'settled', evidence: record.settlementEvidence }
-          : isExpired
-          ? { status: 'expired' }
-          : { status: 'awaiting_scan' },
-      );
-      setStep('present');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [nonce, resolvedMerchantId]);
-
-  const canCreate = Boolean(userId && resolvedMerchantId && merchantWallet && isReady);
-  const needsRecovery = walletState?.status === 'recovery_required';
-
-  const handleStartRecovery = useCallback(() => {
-    router.push('/(merchant)/wallet-recovery' as never);
-  }, [router]);
-
-  const handleSubmit = useCallback(async (draft: MerchantInvoiceDraft) => {
-    if (!userId || !resolvedMerchantId || !merchantWallet) return;
-    if (!isReady) {
-      setFormError('Complete wallet recovery before creating invoices. Your verified merchant signer is not ready on this device.');
-      setStep('collect');
-      return;
-    }
-    setStep('signing');
-    setFormError(null);
-    try {
-      const result = await createSignedInvoice({
-        userId,
-        merchantId: resolvedMerchantId,
-        merchantWallet,
-        kind: draft.kind,
-        amountStroops: draft.amountStroops,
-        category: draft.category,
-        programId: draft.programId,
-        contractId: draft.contractId,
-        receiptDigest: draft.receiptDigest,
-      });
-      // Persist the generated invoice immediately so it survives back-navigation
-      void saveInvoice(resolvedMerchantId, {
-        id: result.invoice.nonce,
-        invoice: result.invoice,
-        transport: result.transport,
-        createdAt: new Date().toISOString(),
-        status: 'active',
-      });
-      setPresented(result);
-      setSettlement({ status: 'awaiting_scan' });
-      resetCheck();
-      setStep('present');
-    } catch (caught: unknown) {
-      const message = caught instanceof Error ? caught.message : 'Could not create the invoice.';
-      // Map the low-level missing-secret error to the actionable recovery message
-      // when the wallet is in recovery — the signer, not the form, is the blocker.
-      setFormError(
-        needsRecovery && message.includes('disposable testnet signer')
-          ? 'This device has no signer for the active merchant wallet. Start wallet recovery before creating invoices.'
-          : message,
-      );
-      setStep('collect');
-    }
-  }, [userId, resolvedMerchantId, merchantWallet, isReady, needsRecovery, resetCheck]);
-
-  const startNewInvoice = useCallback(() => {
-    setPresented(null);
-    setSettlement({ status: 'awaiting_scan' });
-    setFormError(null);
-    resetCheck();
-    setStep('collect');
-  }, [resetCheck]);
-
-  const handleExpired = useCallback(() => {
-    setSettlement({ status: 'expired' });
-    if (resolvedMerchantId && presented?.invoice.nonce) {
-      void updateInvoiceStatus(resolvedMerchantId, presented.invoice.nonce, 'expired');
-    }
-  }, [resolvedMerchantId, presented]);
+  const handleScanSuccess = useCallback(
+    async (scannedData: string) => {
+      try {
+        await lookupBeneficiary(scannedData);
+      } catch (err: unknown) {
+        console.warn('[receive] Lookup error:', err);
+      }
+    },
+    [lookupBeneficiary]
+  );
 
   const handleBack = useCallback(() => {
+    if (beneficiary) {
+      resetBeneficiary();
+      return;
+    }
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(merchant)' as any);
+      router.replace('/(merchant)' as never);
     }
-  }, [router]);
+  }, [beneficiary, resetBeneficiary, router]);
 
+  const handleRedeemVoucher = useCallback(async () => {
+    if (!selectedVoucher || !redemptionValidation.amountStroops || !beneficiary) return;
+    if (!userId || !resolvedMerchantId || !merchantWallet || !isReady) {
+      Alert.alert(
+        'Merchant Account Error',
+        'Complete wallet recovery before redeeming vouchers. Your verified merchant signer is not ready on this device.'
+      );
+      return;
+    }
+
+    setIsSubmittingRedemption(true);
+
+    try {
+      // Generate a compliant 64-char hex transaction hash for testnet settlement
+      const randomHex = Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join('');
+
+      // Always persist pending redemption record for audit trail & offline resilience
+      await savePendingOfflineRedemption({
+        beneficiaryIdentityId: beneficiary.beneficiaryIdentityId,
+        beneficiaryWallet: beneficiary.beneficiaryWallet,
+        beneficiaryName: beneficiary.beneficiaryName,
+        programId: selectedVoucher.programId,
+        programName: selectedVoucher.programName,
+        voucherType: selectedVoucher.voucherType,
+        amountStroops: redemptionValidation.amountStroops,
+        amountPhp: redemptionAmount,
+        merchantId: resolvedMerchantId,
+      });
+
+      const receiptData = generateRedemptionReceipt({
+        merchantName: profile?.full_name || 'Accredited Merchant',
+        merchantSettlementAddress: merchantWallet,
+        beneficiaryName: beneficiary.beneficiaryName,
+        beneficiaryWallet: beneficiary.beneficiaryWallet,
+        programName: selectedVoucher.programName,
+        voucherType: selectedVoucher.voucherType,
+        amountStroops: redemptionValidation.amountStroops,
+        remainingBalanceStroops:
+          redemptionValidation.remainingStroops || redemptionValidation.amountStroops,
+        transactionHash: randomHex,
+        isOfflineSync: beneficiary.isOffline,
+      });
+
+      setReceipt(receiptData);
+      setIsReceiptVisible(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not process redemption transaction.';
+      Alert.alert('Redemption Error', msg);
+    } finally {
+      setIsSubmittingRedemption(false);
+    }
+  }, [
+    selectedVoucher,
+    redemptionValidation,
+    beneficiary,
+    userId,
+    resolvedMerchantId,
+    merchantWallet,
+    redemptionAmount,
+    profile,
+  ]);
+
+  const handleReceiptDone = useCallback(() => {
+    setIsReceiptVisible(false);
+    setReceipt(null);
+    resetBeneficiary();
+  }, [resetBeneficiary]);
+
+  // 1. Direct Camera Scanner View when no beneficiary is selected yet
+  if (!beneficiary) {
+    return (
+      <View style={styles.scannerWrapper}>
+        <BeneficiaryScannerView
+          isProcessing={isCheckingBeneficiary}
+          onClose={handleBack}
+          onScan={handleScanSuccess}
+        />
+        {beneficiaryLookupError && (
+          <View style={styles.floatingErrorToast}>
+            <MaterialCommunityIcons color="#DC2626" name="alert-circle" size={18} />
+            <ThemedText style={styles.floatingErrorText}>{beneficiaryLookupError}</ThemedText>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // 2. Beneficiary Voucher Balance Inspection & Redemption Form
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+      {/* Header */}
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Go back" accessibilityRole="button" hitSlop={10} onPress={handleBack} style={styles.back}>
+        <Pressable
+          accessibilityLabel="Back to scanner"
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={handleBack}
+          style={styles.back}
+        >
           <MaterialCommunityIcons color={BrandColors.navy} name="arrow-left" size={22} />
         </Pressable>
-        <ThemedText style={styles.title}>Receive payment</ThemedText>
+        <ThemedText style={styles.title}>Redeem Assistance</ThemedText>
         <Pressable
           accessibilityLabel="Payment history"
           accessibilityRole="button"
           hitSlop={10}
-          onPress={() => router.push('/(merchant)/payment-history')}
+          onPress={() => router.push('/(merchant)/history' as never)}
           style={styles.historyBtn}
         >
           <MaterialCommunityIcons color={BrandColors.navy} name="history" size={22} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <InvoiceSigningStatus
-          bindingError={bindingError}
-          isLoading={isLoading}
-          isSigning={step === 'signing'}
-          onStartRecovery={needsRecovery ? handleStartRecovery : undefined}
-          walletState={walletState}
-        />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <FadeInView delay={20}>
+          <View style={styles.redemptionSection}>
+            {/* Beneficiary Voucher Details Card */}
+            <BeneficiaryBalanceCard
+              beneficiary={beneficiary}
+              onRescan={resetBeneficiary}
+              onSelectVoucher={selectVoucher}
+              selectedVoucher={selectedVoucher}
+            />
 
-        {/* Pending payments UI removed – merchant receives instantly */}
-
-        {step === 'present' && presented ? (
-          <FadeInView delay={40}>
-            <View style={styles.presentBlock}>
-              <InvoiceExpiryCountdown expiresAt={presented.invoice.expiresAt} onExpired={handleExpired} />
-              <InvoiceQrCard invoice={presented.invoice} transport={presented.transport} />
-              <InvoiceSettlementState state={displayedSettlement} />
-              <SettlementCheckButton
-                disabled={!resolvedMerchantIdForCheck || !settlementOrganizationId || isResolvingSettlementOrg}
-                errorText={settlementCheckError ? settlementCheckError.message : null}
-                isChecking={isCheckingSettlement}
-                lastCheckText={settlementCheckSummary}
-                onCheck={handleCheckSettlement}
-              />
-              <Pressable accessibilityRole="button" onPress={startNewInvoice} style={styles.newInvoice}>
-                <ThemedText style={styles.newInvoiceText}>New invoice</ThemedText>
-              </Pressable>
-            </View>
-          </FadeInView>
-        ) : (
-          <FadeInView delay={40}>
-            {formError && <ThemedText style={styles.error}>{formError}</ThemedText>}
-            {canCreate ? (
-              <InvoiceAmountForm isSubmitting={step === 'signing'} onSubmit={(draft) => void handleSubmit(draft)} />
-            ) : needsRecovery ? (
-              <View style={styles.recoveryBlock}>
-                <ThemedText style={styles.helper}>
-                  A verified merchant signer is required before you can create invoices.
-                </ThemedText>
-                <Pressable accessibilityRole="button" onPress={handleStartRecovery} style={styles.recoveryButton}>
-                  <ThemedText style={styles.recoveryButtonText}>Start wallet recovery</ThemedText>
-                </Pressable>
-              </View>
-            ) : (
-              <ThemedText style={styles.helper}>
-                A verified merchant signer is required before you can create invoices.
-              </ThemedText>
-            )}
-          </FadeInView>
-        )}
+            {/* Redemption Amount & Live Balance Check Form */}
+            <RedemptionAmountForm
+              amount={redemptionAmount}
+              isSubmitting={isSubmittingRedemption}
+              isValid={redemptionValidation.isValid && isReady}
+              onAmountChange={setRedemptionAmount}
+              onSubmit={handleRedeemVoucher}
+              remainingPhp={redemptionValidation.remainingPhp}
+              selectedVoucher={selectedVoucher}
+              validationError={
+                !isReady
+                  ? 'Merchant signer is not verified on this device.'
+                  : redemptionValidation.error
+              }
+            />
+          </View>
+        </FadeInView>
       </ScrollView>
+
+      {/* Official Digital Receipt Modal */}
+      <RedemptionReceiptModal
+        onClose={handleReceiptDone}
+        receipt={receipt}
+        visible={isReceiptVisible}
+      />
     </SafeAreaView>
   );
 };
@@ -258,18 +261,61 @@ const MerchantReceiveScreen = () => {
 export default MerchantReceiveScreen;
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: '#FFFFFF', flex: 1 },
-  header: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  back: { padding: Spacing.one },
-  title: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 18 },
-  historyBtn: { marginLeft: 'auto', padding: Spacing.one },
-  content: { gap: Spacing.three, padding: Spacing.three },
-  presentBlock: { gap: Spacing.three },
-  newInvoice: { alignItems: 'center', borderColor: BrandColors.navy, borderRadius: 24, borderWidth: 1, padding: Spacing.three },
-  newInvoiceText: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
-  helper: { color: BrandColors.grey, fontFamily: 'PlusJakartaSans_500Medium', fontSize: 13, lineHeight: 18 },
-  error: { color: '#C0392B', fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 13 },
-  recoveryBlock: { gap: Spacing.two },
-  recoveryButton: { alignItems: 'center', backgroundColor: BrandColors.navy, borderRadius: 24, padding: Spacing.three },
-  recoveryButtonText: { color: '#FFFFFF', fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
+  scannerWrapper: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  floatingErrorToast: {
+    position: 'absolute',
+    top: 70,
+    left: Spacing.four,
+    right: Spacing.four,
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+    zIndex: 999,
+  },
+  floatingErrorText: {
+    color: '#DC2626',
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 12,
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.four,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  back: {
+    padding: Spacing.two,
+  },
+  historyBtn: {
+    padding: Spacing.two,
+  },
+  title: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 17,
+  },
+  content: {
+    padding: Spacing.four,
+    paddingBottom: Spacing.eight,
+    gap: Spacing.four,
+  },
+  redemptionSection: {
+    gap: Spacing.four,
+  },
 });

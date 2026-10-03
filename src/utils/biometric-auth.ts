@@ -95,3 +95,12 @@ export const requestPaymentApproval = async (
     };
   }
 };
+
+/**
+ * Requests device approval (biometric or device password/passcode) for administrative actions.
+ */
+export const requestDeviceConfirmation = async (
+  promptMessage: string = 'Confirm device passcode or biometric to proceed'
+): Promise<PaymentApprovalResult> => {
+  return requestPaymentApproval(promptMessage);
+};

@@ -1,15 +1,18 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ReconciliationBadge } from '@/components/shared/reconciliation-badge';
 import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
 import { parseStroopAmount } from '@/types/blockchain';
 import type { BeneficiaryProgramEntitlement, ProjectionState } from '@/types/projection';
 import { EnrolledProgram } from '@/types/wallet';
 import { formatStroops } from '@/utils/format-stroops';
+import { VoucherQrModal } from './voucher-qr-modal';
 
 type Props = {
   program: EnrolledProgram;
@@ -34,6 +37,10 @@ const balancePlaceholder = (status: ProjectionState<unknown>['status']): string 
 
 export function ProgramVoucherCard({ program, entitlement, balanceState }: Props) {
   const router = useRouter();
+  const { state: walletState } = usePilotWallet();
+  const walletAddress = pilotWalletPublicKey(walletState) ?? undefined;
+  const [isVoucherQrVisible, setIsVoucherQrVisible] = useState(false);
+
   const isApproved = program.approvalStatus === 'Approved';
   const isRejected = program.approvalStatus === 'Rejected';
   const balanceLabel = entitlement
@@ -176,14 +183,29 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
       </View>
 
       {isApproved ? (
-        <Pressable onPress={() => router.push('/(beneficiary)/pay-scan')} style={styles.redeemButton}>
-          <FontAwesome name="qrcode" size={14} color="white" />
-          <ThemedText style={styles.redeemButtonText}>Scan to Redeem</ThemedText>
+        <Pressable
+          accessibilityLabel="Show Voucher QR"
+          accessibilityRole="button"
+          onPress={() => setIsVoucherQrVisible(true)}
+          style={styles.redeemButton}
+        >
+          <FontAwesome name="qrcode" size={16} color="white" />
+          <ThemedText style={styles.redeemButtonText}>Show Voucher QR</ThemedText>
         </Pressable>
       ) : (
         <Pressable onPress={goToStatus} style={styles.statusDetailButton}>
           <ThemedText style={styles.statusDetailButtonText}>Check Status Details</ThemedText>
         </Pressable>
+      )}
+
+      {isApproved && (
+        <VoucherQrModal
+          beneficiaryWallet={walletAddress}
+          entitlement={entitlement}
+          onClose={() => setIsVoucherQrVisible(false)}
+          program={program}
+          visible={isVoucherQrVisible}
+        />
       )}
     </View>
   );
