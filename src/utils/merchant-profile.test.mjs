@@ -4,6 +4,10 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  AVATAR_PRESETS,
+  getDefaultAvatarForUser,
+} from './avatar-presets.ts';
+import {
   buildMerchantProfileUpdatePayloads,
   extractMerchantMetadata,
   validateMerchantProfileForm,
@@ -17,6 +21,7 @@ test('extractMerchantMetadata extracts fields correctly from full metadata', () 
     contact_person: 'Dr. Clara Reyes',
     contact_number: '+639171234567',
     operating_notes: 'Open 24/7',
+    avatar_preset: 'merchant-pharmacy',
   };
 
   const result = extractMerchantMetadata(metadata);
@@ -26,6 +31,7 @@ test('extractMerchantMetadata extracts fields correctly from full metadata', () 
   assert.equal(result.contactPerson, 'Dr. Clara Reyes');
   assert.equal(result.contactNumber, '+639171234567');
   assert.equal(result.operatingNotes, 'Open 24/7');
+  assert.equal(result.avatarPreset, 'merchant-pharmacy');
 });
 
 test('extractMerchantMetadata handles fallbacks when primary fields are missing', () => {
@@ -44,6 +50,7 @@ test('extractMerchantMetadata handles fallbacks when primary fields are missing'
   assert.equal(result.contactPerson, 'Juan Dela Cruz');
   assert.equal(result.contactNumber, '09181234567');
   assert.equal(result.operatingNotes, '');
+  assert.equal(result.avatarPreset, '');
 });
 
 test('extractMerchantMetadata safely handles null or non-object metadata', () => {
@@ -53,6 +60,7 @@ test('extractMerchantMetadata safely handles null or non-object metadata', () =>
   assert.equal(resultNull.businessAddress, '');
   assert.equal(resultNull.contactPerson, '');
   assert.equal(resultNull.contactNumber, '');
+  assert.equal(resultNull.avatarPreset, '');
 
   const resultUndefined = extractMerchantMetadata(undefined);
   assert.equal(resultUndefined.businessName, '');
@@ -87,7 +95,7 @@ test('validateMerchantProfileForm validates mandatory business fields', () => {
   assert.match(invalidPhone.error, /phone/i);
 });
 
-test('buildMerchantProfileUpdatePayloads formats clean mutation objects', () => {
+test('buildMerchantProfileUpdatePayloads formats clean mutation objects with avatar_preset', () => {
   const form = {
     businessName: '  Fresh Market  ',
     ownerName: '  Maria Dela Cruz  ',
@@ -95,6 +103,7 @@ test('buildMerchantProfileUpdatePayloads formats clean mutation objects', () => 
     mobileNumber: '  09171234567  ',
     businessType: 'grocery',
     operatingNotes: '  8am - 8pm  ',
+    avatarPreset: 'merchant-basket',
   };
 
   const payloads = buildMerchantProfileUpdatePayloads(form);
@@ -112,8 +121,36 @@ test('buildMerchantProfileUpdatePayloads formats clean mutation objects', () => 
   assert.equal(payloads.authMetadataPayload.business_type, 'grocery');
   assert.deepEqual(payloads.authMetadataPayload.business_types, ['grocery']);
   assert.equal(payloads.authMetadataPayload.operating_notes, '8am - 8pm');
+  assert.equal(payloads.authMetadataPayload.avatar_preset, 'merchant-basket');
 
   assert.equal(payloads.merchantEntityPayload.display_name, 'Fresh Market');
+});
+
+test('getDefaultAvatarForUser provides role-specific default avatars deterministically', () => {
+  const merchantAvatar1 = getDefaultAvatarForUser('merchant', 'merchant-user-123');
+  const merchantAvatar2 = getDefaultAvatarForUser('merchant', 'merchant-user-123');
+  assert.equal(merchantAvatar1.id, merchantAvatar2.id, 'Deterministic for same user identifier');
+  assert.equal(merchantAvatar1.role, 'merchant');
+
+  const beneficiaryAvatar = getDefaultAvatarForUser('beneficiary', 'ben-user-456');
+  assert.equal(beneficiaryAvatar.role, 'beneficiary');
+
+  const lguAvatar = getDefaultAvatarForUser('lgu', 'lgu-user-789');
+  assert.equal(lguAvatar.role, 'lgu');
+
+  // Explicit preset matching
+  const explicit = getDefaultAvatarForUser('merchant', 'user-1', 'merchant-pharmacy');
+  assert.equal(explicit.id, 'merchant-pharmacy');
+});
+
+test('AVATAR_PRESETS contains presets for merchant, beneficiary, and lgu roles', () => {
+  const merchantPresets = AVATAR_PRESETS.filter((p) => p.role === 'merchant');
+  const beneficiaryPresets = AVATAR_PRESETS.filter((p) => p.role === 'beneficiary');
+  const lguPresets = AVATAR_PRESETS.filter((p) => p.role === 'lgu');
+
+  assert.ok(merchantPresets.length >= 4, 'Has at least 4 merchant presets');
+  assert.ok(beneficiaryPresets.length >= 4, 'Has at least 4 beneficiary presets');
+  assert.ok(lguPresets.length >= 2, 'Has at least 2 LGU presets');
 });
 
 test('Merchant _layout registers edit-profile route', () => {
@@ -166,6 +203,26 @@ test('Merchant profile screen does not duplicate merchant ID, stellar wallet, or
   );
 });
 
+test('UserAvatar is used across Merchant, Beneficiary, and Edit Profile screens', () => {
+  const merchantContent = readFileSync(
+    fileURLToPath(new URL('../components/MerchantProfile/MerchantProfileContent.tsx', import.meta.url)),
+    'utf8',
+  );
+  assert.match(merchantContent, /<UserAvatar/, 'MerchantProfileContent must use UserAvatar');
+
+  const beneficiaryHeader = readFileSync(
+    fileURLToPath(new URL('../components/beneficiary/Profile/profile-header.tsx', import.meta.url)),
+    'utf8',
+  );
+  assert.match(beneficiaryHeader, /<UserAvatar/, 'Beneficiary ProfileHeader must use UserAvatar');
+
+  const editProfile = readFileSync(
+    fileURLToPath(new URL('../app/(merchant)/edit-profile.tsx', import.meta.url)),
+    'utf8',
+  );
+  assert.match(editProfile, /<UserAvatar/, 'Edit profile must use UserAvatar');
+  assert.match(editProfile, /<AvatarPresetSelector/, 'Edit profile must use AvatarPresetSelector');
+});
 
 test('Merchant edit profile screen contains required editable fields and other details', () => {
   const editProfilePath = fileURLToPath(new URL('../app/(merchant)/edit-profile.tsx', import.meta.url));

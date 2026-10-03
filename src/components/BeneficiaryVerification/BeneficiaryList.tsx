@@ -2,6 +2,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { FadeInView } from '@/components/shared/FadeInView';
+import { UserAvatar } from '@/components/shared/UserAvatar';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import type { UserProfile } from '@/types/auth';
@@ -43,9 +44,7 @@ export const BeneficiaryList = ({ data, loading, refreshing, onRefresh, onSelect
       <Pressable onPress={() => onSelect(item)} style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.profileInfo}>
-            <View style={styles.avatar}>
-              <FontAwesome name="user" size={18} color="white" />
-            </View>
+            <UserAvatar id={item.id} name={item.full_name} role="beneficiary" size={38} />
             <View>
               <ThemedText style={styles.name}>{item.full_name || 'Anonymous'}</ThemedText>
               <ThemedText style={styles.subtext}>Gov ID: {item.gov_id || 'Not set'}</ThemedText>

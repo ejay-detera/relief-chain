@@ -1,11 +1,13 @@
-import { FontAwesome } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
+import { UserAvatar } from '@/components/shared/UserAvatar';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Spacing } from '@/constants/theme';
 
 type Props = {
   fullName: string | null;
+  userId?: string | null;
+  avatarPreset?: string | null;
 };
 
 const toHandle = (fullName: string | null): string => {
@@ -14,11 +16,20 @@ const toHandle = (fullName: string | null): string => {
   return `@${slug || 'beneficiary'}`;
 };
 
-export function ProfileHeader({ fullName }: Props) {
+export function ProfileHeader({ fullName, userId, avatarPreset }: Props) {
   return (
     <View style={styles.container}>
-      <View style={styles.avatarPlaceholder}>
-        <FontAwesome color={BrandColors.grey} name="user" size={44} />
+      <View style={styles.avatarWrap}>
+        <UserAvatar
+          avatarPreset={avatarPreset}
+          borderColor={BrandColors.green}
+          borderWidth={3}
+          id={userId}
+          name={fullName}
+          role="beneficiary"
+          showBorder
+          size={88}
+        />
       </View>
       <ThemedText style={styles.name}>{fullName || 'Loading...'}</ThemedText>
       <ThemedText style={styles.handle}>{toHandle(fullName)}</ThemedText>
@@ -31,13 +42,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.five,
   },
-  avatarPlaceholder: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: BrandColors.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
+  avatarWrap: {
     marginBottom: Spacing.three,
   },
   name: {

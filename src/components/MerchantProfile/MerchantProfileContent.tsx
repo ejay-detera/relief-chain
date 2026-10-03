@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { LogoutButton } from '@/components/shared/LogoutButton';
+import { UserAvatar } from '@/components/shared/UserAvatar';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 
@@ -10,6 +11,8 @@ type Props = {
   fullName: string;
   handle: string;
   businessName?: string | null;
+  avatarPreset?: string | null;
+  userId?: string | null;
   onEditPress?: () => void;
   children?: React.ReactNode;
 };
@@ -18,6 +21,8 @@ export const MerchantProfileContent = ({
   fullName,
   handle,
   businessName,
+  avatarPreset,
+  userId,
   onEditPress,
   children,
 }: Props) => {
@@ -30,8 +35,17 @@ export const MerchantProfileContent = ({
         <View style={styles.logoRow}>
           <Image contentFit="contain" source={require('@/assets/public/Logo.svg')} style={styles.logo} />
         </View>
-        <View style={styles.avatar}>
-          <MaterialCommunityIcons color={BrandColors.navy} name="storefront-outline" size={64} />
+        <View style={styles.avatarWrap}>
+          <UserAvatar
+            avatarPreset={avatarPreset}
+            borderColor={BrandColors.green}
+            borderWidth={4}
+            id={userId}
+            name={primaryTitle}
+            role="merchant"
+            showBorder
+            size={120}
+          />
         </View>
         <ThemedText style={styles.name}>{primaryTitle}</ThemedText>
         {showOwnerSubtitle && (
@@ -78,16 +92,10 @@ const styles = StyleSheet.create({
     height: 58,
     width: 104,
   },
-  avatar: {
+  avatarWrap: {
     alignItems: 'center',
-    backgroundColor: BrandColors.lightGray,
-    borderColor: BrandColors.green,
-    borderRadius: 62,
-    borderWidth: 4,
-    height: 124,
     justifyContent: 'center',
     marginTop: Spacing.two,
-    width: 124,
   },
   name: {
     color: BrandColors.navy,

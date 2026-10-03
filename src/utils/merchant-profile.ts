@@ -5,6 +5,7 @@ export interface ExtractedMerchantMetadata {
   contactPerson: string;
   contactNumber: string;
   operatingNotes: string;
+  avatarPreset: string;
 }
 
 export interface MerchantProfileFormData {
@@ -15,6 +16,7 @@ export interface MerchantProfileFormData {
   email?: string;
   businessType?: string;
   operatingNotes?: string;
+  avatarPreset?: string;
 }
 
 export interface MerchantProfileValidationResult {
@@ -41,6 +43,7 @@ export interface PreparedMerchantProfileUpdates {
     business_type?: string;
     business_types?: string[];
     operating_notes?: string;
+    avatar_preset?: string;
   };
   merchantEntityPayload: {
     display_name: string;
@@ -63,6 +66,7 @@ export const extractMerchantMetadata = (metadata: unknown): ExtractedMerchantMet
       contactPerson: '',
       contactNumber: '',
       operatingNotes: '',
+      avatarPreset: '',
     };
   }
 
@@ -77,6 +81,7 @@ export const extractMerchantMetadata = (metadata: unknown): ExtractedMerchantMet
     contactPerson: safeString(data.contact_person) || safeString(data.owner_name) || safeString(data.full_name),
     contactNumber: safeString(data.contact_number) || safeString(data.mobile_number),
     operatingNotes: safeString(data.operating_notes),
+    avatarPreset: safeString(data.avatar_preset),
   };
 };
 
@@ -118,6 +123,7 @@ export const buildMerchantProfileUpdatePayloads = (
   const mobileNumber = form.mobileNumber.trim();
   const businessType = form.businessType?.trim();
   const operatingNotes = form.operatingNotes?.trim();
+  const avatarPreset = form.avatarPreset?.trim();
 
   const authMetadata: PreparedMerchantProfileUpdates['authMetadataPayload'] = {
     business_name: businessName,
@@ -137,6 +143,10 @@ export const buildMerchantProfileUpdatePayloads = (
 
   if (operatingNotes) {
     authMetadata.operating_notes = operatingNotes;
+  }
+
+  if (avatarPreset) {
+    authMetadata.avatar_preset = avatarPreset;
   }
 
   return {

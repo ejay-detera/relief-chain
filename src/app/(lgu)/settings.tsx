@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FadeInView } from '@/components/shared/FadeInView';
 import { LogoutButton } from '@/components/shared/LogoutButton';
+import { UserAvatar } from '@/components/shared/UserAvatar';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BottomTabInset, BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
@@ -28,9 +29,7 @@ const SettingsScreen = () => {
             <FadeInView delay={80}>
               <Pressable onPress={() => router.push('/(lgu)/edit-profile' as any)} style={styles.menuRow}>
                 <View style={styles.menuRowLeft}>
-                  <View style={styles.menuIconCircle}>
-                    <FontAwesome color={BrandColors.navy} name="user" size={16} />
-                  </View>
+                  <UserAvatar id={profile?.id} name={profile?.full_name} role="lgu" size={38} />
                   <View>
                     <ThemedText style={styles.menuRowTitle}>Edit Profile</ThemedText>
                     <ThemedText style={styles.menuRowSubtitle}>{profile?.full_name ?? 'Organization account'}</ThemedText>
