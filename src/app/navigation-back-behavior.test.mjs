@@ -83,4 +83,8 @@ test('Sub-screens use safe canGoBack fallback navigation', () => {
 
   const merchantHistory = readFileSync(fileURLToPath(new URL('./(merchant)/history.tsx', import.meta.url)), 'utf8');
   assert.match(merchantHistory, /router\.canGoBack\(\)/, 'Merchant history must verify canGoBack');
+
+  const merchantEditProfile = readFileSync(fileURLToPath(new URL('./(merchant)/edit-profile.tsx', import.meta.url)), 'utf8');
+  assert.match(merchantEditProfile, /router\.canGoBack\(\)/, 'Merchant edit-profile must verify canGoBack');
 });
+
