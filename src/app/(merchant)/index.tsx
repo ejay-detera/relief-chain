@@ -167,12 +167,14 @@ const MerchantDashboardScreen = () => {
           onRequestRefund={setRefundSettlement}
           onRetryRefunds={() => void refreshRefunds()}
           onRetrySettlements={() => void refreshSettlements()}
+          onViewAllRefunds={() => router.push({ pathname: '/(merchant)/history', params: { tab: 'refunds' } })}
+          onViewAllSettlements={() => router.push({ pathname: '/(merchant)/history', params: { tab: 'settlements' } })}
           refunds={refundsState}
           settlements={settlementsState}
         />
       </FadeInView>
       <FadeInView delay={160}>
-        <RecentPayments onViewAll={() => router.push('/(merchant)/transactions')} payments={displayedPayments} />
+        <RecentPayments onViewAll={() => router.push({ pathname: '/(merchant)/history', params: { tab: 'payments' } })} payments={displayedPayments} />
       </FadeInView>
     </ScrollView>
     <MerchantBottomNavigation active="dashboard" />
