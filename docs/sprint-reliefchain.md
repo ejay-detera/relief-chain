@@ -321,7 +321,7 @@
 - I receive a 'Payment Received' notification once the transaction settles on-chain.
 
 ### MER-03 — View redemption history
-**Priority:** Medium · **Role:** Merchant · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Merchant · **Developer:** Agent Team · **Status:** Done
 
 > As a Merchant, I want to view my redemption history so that I can reconcile payments received.
 

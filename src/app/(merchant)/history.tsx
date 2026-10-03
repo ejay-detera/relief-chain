@@ -42,6 +42,8 @@ export default function MerchantHistoryScreen() {
     summary: transactionSummary,
     filter,
     setFilter,
+    datePreset,
+    setDatePreset,
     searchQuery,
     setSearchQuery,
     isLoading: isTxLoading,
@@ -119,12 +121,14 @@ export default function MerchantHistoryScreen() {
         {activeTab === 'payments' && (
           <HistoryPaymentsTab
             bottomInset={bottomInset}
+            datePreset={datePreset}
             filter={filter}
             filteredTransactions={filteredTransactions}
             isLoading={isTxLoading}
             onRefresh={() => void refreshTransactions()}
             onSelectTransaction={setSelectedTx}
             searchQuery={searchQuery}
+            setDatePreset={setDatePreset}
             setFilter={setFilter}
             setSearchQuery={setSearchQuery}
             summary={transactionSummary}

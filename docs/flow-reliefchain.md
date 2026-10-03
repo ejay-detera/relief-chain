@@ -69,7 +69,7 @@ flowchart TB
   MR --> MR3["✅ Programs — accreditation"]
   MR --> MR4["✅ Profile · security"]
   MR --> MR5["🟡 Cash-out — externally simulated"]
-  MR --> MR6["✅ Payment History — invoices · receipts · QR resume"]
+  MR --> MR6["✅ Dedicated History (MER-03) — redemptions · settlements · refunds · CSV export"]
 
   style LG7 fill:#3d3520
   style MR5 fill:#3d3520
@@ -231,6 +231,7 @@ sequenceDiagram
 | Refunds + disputes | Should | ✅ | `refunds`, `disputes`, `dispute_evidence`, contract `refund` |
 | Retention + identity disposition | Should | ✅ | retention/disposition migration + functions |
 | Merchant metrics | Should | ✅ | `merchant_metrics`, hardened RPC |
+| Merchant redemption & refund history (MER-03) | Medium | ✅ | `(merchant)/history`, `MerchantHistory/`, `use-merchant-transactions.ts` |
 | Org dashboard + financials | Must | ✅ | `(lgu)/index.tsx`, `use-organization-financials.ts` |
 | Voucher escrow contract | Must | 🟡 gated | `contracts/voucher/`; blocked by cash-only gate in `prepare-payment` |
 | Merchant cash-out | Should | 🟡 simulated | `request-cashout`, `SimulatedCashOutNotice.tsx` |

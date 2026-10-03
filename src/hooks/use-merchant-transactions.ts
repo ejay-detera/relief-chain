@@ -40,12 +40,75 @@ export const shortReference = (correlationId: string | null, id: string): string
   return `STL-${raw.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
 };
 
+export type DateRangePreset = 'all' | 'today' | '7d' | '30d';
+
+export const matchesDateRange = (
+  dateIso: string,
+  preset: DateRangePreset,
+  now = new Date(),
+): boolean => {
+  if (preset === 'all') return true;
+  const date = new Date(dateIso);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1;
+  const targetTime = date.getTime();
+
+  if (preset === 'today') {
+    return targetTime >= startOfDay && targetTime <= endOfDay;
+  }
+  if (preset === '7d') {
+    const sevenDaysAgo = startOfDay - 6 * 24 * 60 * 60 * 1000;
+    return targetTime >= sevenDaysAgo && targetTime <= endOfDay;
+  }
+  if (preset === '30d') {
+    const thirtyDaysAgo = startOfDay - 29 * 24 * 60 * 60 * 1000;
+    return targetTime >= thirtyDaysAgo && targetTime <= endOfDay;
+  }
+  return true;
+};
+
+export const exportTransactionsToCsv = (transactions: readonly MerchantTransaction[]): string => {
+  const headers = [
+    'Reference',
+    'Date',
+    'Payer',
+    'Program',
+    'Kind',
+    'Amount (PHP)',
+    'Status',
+    'Transaction Hash',
+  ];
+
+  const escapeCsv = (val: string | number | null | undefined): string => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const rows = transactions.map((tx) => [
+    escapeCsv(shortReference(tx.correlationId, tx.id)),
+    escapeCsv(tx.occurredAt),
+    escapeCsv(tx.payerName),
+    escapeCsv(tx.programName || 'N/A'),
+    escapeCsv(tx.kind === 'voucher_redemption' ? 'Voucher' : 'Cash'),
+    escapeCsv(tx.amount.toFixed(2)),
+    escapeCsv(tx.status),
+    escapeCsv(tx.transactionHash || 'N/A'),
+  ].join(','));
+
+  return [headers.map((h) => `"${h}"`).join(','), ...rows].join('\n');
+};
+
 export type MerchantTransactionsHook = Readonly<{
   transactions: readonly MerchantTransaction[];
   filteredTransactions: readonly MerchantTransaction[];
   summary: MerchantTransactionsSummary;
   filter: MerchantTransactionFilter;
   setFilter: (filter: MerchantTransactionFilter) => void;
+  datePreset: DateRangePreset;
+  setDatePreset: (preset: DateRangePreset) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   isLoading: boolean;
@@ -56,6 +119,7 @@ export type MerchantTransactionsHook = Readonly<{
 export function useMerchantTransactions(merchantEntityId: string | null): MerchantTransactionsHook {
   const [transactions, setTransactions] = useState<readonly MerchantTransaction[]>([]);
   const [filter, setFilter] = useState<MerchantTransactionFilter>('all');
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,6 +235,10 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
       result = result.filter((item) => item.kind === filter);
     }
 
+    if (datePreset !== 'all') {
+      result = result.filter((item) => matchesDateRange(item.rawDate, datePreset));
+    }
+
     if (searchQuery.trim().length > 0) {
       const query = searchQuery.trim().toLowerCase();
       result = result.filter(
@@ -183,7 +251,7 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
     }
 
     return result;
-  }, [transactions, filter, searchQuery]);
+  }, [transactions, filter, datePreset, searchQuery]);
 
   const summary = useMemo<MerchantTransactionsSummary>(() => {
     let total = ZERO_STROOPS;
@@ -214,6 +282,8 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
     summary,
     filter,
     setFilter,
+    datePreset,
+    setDatePreset,
     searchQuery,
     setSearchQuery,
     isLoading,
