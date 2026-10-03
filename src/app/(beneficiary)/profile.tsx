@@ -45,7 +45,11 @@ export default function ProfileScreen() {
           ) : (
             <>
               <FadeInView delay={0}>
-                <ProfileHeader fullName={profile?.full_name ?? null} />
+                <ProfileHeader
+                  avatarPreset={typeof session?.user?.user_metadata?.avatar_preset === 'string' ? session.user.user_metadata.avatar_preset : null}
+                  fullName={profile?.full_name ?? null}
+                  userId={session?.user?.id}
+                />
               </FadeInView>
 
               <FadeInView delay={40}>

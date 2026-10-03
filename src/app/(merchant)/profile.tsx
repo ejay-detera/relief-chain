@@ -45,10 +45,12 @@ const MerchantProfileScreen = () => {
         >
           <FadeInView delay={0}>
             <MerchantProfileContent
+              avatarPreset={extracted.avatarPreset}
               businessName={businessName}
               fullName={ownerName}
               handle={createHandle(displayName)}
               onEditPress={() => router.push('/(merchant)/edit-profile' as never)}
+              userId={session?.user?.id}
             >
               {/* Edit Business Profile Action */}
               <Pressable

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { FilePreviewModal } from '@/components/shared/FilePreviewModal';
+import { UserAvatar } from '@/components/shared/UserAvatar';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +46,7 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
 
   useEffect(() => {
     if (!beneficiary) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadApplications(beneficiary.id);
   }, [beneficiary]);
 
@@ -156,9 +158,15 @@ export const BeneficiaryDetailModal = ({ beneficiary, onClose, onUpdateStatus }:
           <ScrollView contentContainerStyle={styles.scrollContent}>
             {/* Profile Overview */}
             <View style={styles.card}>
-              <View style={styles.avatar}>
-                <FontAwesome name="user" size={32} color="white" />
-              </View>
+              <UserAvatar
+                borderColor={BrandColors.green}
+                borderWidth={2}
+                id={beneficiary.id}
+                name={beneficiary.full_name}
+                role="beneficiary"
+                showBorder
+                size={64}
+              />
               <ThemedText style={styles.fullName}>{beneficiary.full_name}</ThemedText>
               <ThemedText style={styles.roleSub}>Beneficiary Account</ThemedText>
             </View>

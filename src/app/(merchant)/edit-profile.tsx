@@ -16,6 +16,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FadeInView } from '@/components/shared/FadeInView';
+import { AvatarPresetSelector, UserAvatar } from '@/components/shared/UserAvatar';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
@@ -67,6 +68,7 @@ export default function MerchantEditProfileScreen() {
     (extracted.businessType as MerchantBusinessType) || 'grocery',
   );
   const [operatingNotes, setOperatingNotes] = useState(extracted.operatingNotes || '');
+  const [avatarPreset, setAvatarPreset] = useState<string>(extracted.avatarPreset || '');
   const [isSaving, setIsSaving] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -151,6 +153,7 @@ export default function MerchantEditProfileScreen() {
         businessType,
         email: email.trim(),
         operatingNotes: operatingNotes.trim(),
+        avatarPreset: avatarPreset.trim() || undefined,
       });
 
       await refreshProfile();
@@ -336,6 +339,35 @@ export default function MerchantEditProfileScreen() {
               <ThemedText style={styles.cardDescription}>
                 Editable details shown on invoices, customer receipts, and program listings.
               </ThemedText>
+
+              {/* Profile Avatar Selection */}
+              <View style={styles.avatarSection}>
+                <View style={styles.avatarPreviewWrap}>
+                  <UserAvatar
+                    avatarPreset={avatarPreset}
+                    borderColor={BrandColors.green}
+                    borderWidth={3}
+                    id={session?.user?.id}
+                    name={businessName || ownerName}
+                    role="merchant"
+                    showBorder
+                    size={76}
+                  />
+                  <View style={styles.avatarPreviewTextWrap}>
+                    <ThemedText style={styles.avatarSectionTitle}>Store Avatar</ThemedText>
+                    <ThemedText style={styles.avatarSectionSubtitle}>
+                      Choose a default avatar icon for your merchant profile.
+                    </ThemedText>
+                  </View>
+                </View>
+
+                <AvatarPresetSelector
+                  onSelectPreset={setAvatarPreset}
+                  role="merchant"
+                  selectedPresetId={avatarPreset}
+                  userIdentifier={session?.user?.id}
+                />
+              </View>
 
               {/* Business Name */}
               <View style={styles.fieldGroup}>
@@ -831,5 +863,33 @@ const styles = StyleSheet.create({
     color: BrandColors.grey,
     fontFamily: 'PlusJakartaSans_600SemiBold',
     fontSize: 14,
+  },
+  avatarSection: {
+    backgroundColor: '#FAFAFA',
+    borderColor: '#E2E8F0',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: Spacing.four,
+    padding: Spacing.three,
+  },
+  avatarPreviewWrap: {
+    alignItems: 'center',
+    columnGap: Spacing.three,
+    flexDirection: 'row',
+    marginBottom: Spacing.two,
+  },
+  avatarPreviewTextWrap: {
+    flex: 1,
+  },
+  avatarSectionTitle: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 14,
+  },
+  avatarSectionSubtitle: {
+    color: BrandColors.grey,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    fontSize: 11,
+    marginTop: 2,
   },
 });
