@@ -5,12 +5,12 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 
+import { HistoryFilterDropdowns } from '@/components/MerchantHistory/HistoryFilterDropdowns';
 import { TransactionExportModal } from '@/components/MerchantHistory/TransactionExportModal';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
@@ -57,18 +57,7 @@ export const HistoryPaymentsTab = ({
   const router = useRouter();
   const [exportModalVisible, setExportModalVisible] = useState(false);
 
-  const filterTabs: { id: MerchantTransactionFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: summary.totalCount },
-    { id: 'voucher_redemption', label: 'Vouchers', count: summary.voucherCount },
-    { id: 'cash_payment', label: 'Direct Cash', count: summary.cashCount },
-  ];
 
-  const dateTabs: { id: DateRangePreset; label: string }[] = [
-    { id: 'all', label: 'All Time' },
-    { id: 'today', label: 'Today' },
-    { id: '7d', label: 'Last 7 Days' },
-    { id: '30d', label: 'Last 30 Days' },
-  ];
 
   return (
     <>
@@ -141,50 +130,18 @@ export const HistoryPaymentsTab = ({
             )}
           </View>
 
-          {/* Filter Tabs */}
-          <View style={styles.filterRow}>
-            {filterTabs.map((tab) => {
-              const isActive = filter === tab.id;
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  key={tab.id}
-                  onPress={() => setFilter(tab.id)}
-                  style={[styles.filterChip, isActive && styles.filterChipActive]}
-                >
-                  <ThemedText style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                    {tab.label}
-                  </ThemedText>
-                  <View style={[styles.filterCountBadge, isActive && styles.filterCountBadgeActive]}>
-                    <ThemedText style={[styles.filterCountText, isActive && styles.filterCountTextActive]}>
-                      {tab.count}
-                    </ThemedText>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Date Filter Chips */}
-          <View style={styles.dateFilterContainer}>
-            <ScrollView contentContainerStyle={styles.dateFilterScroll} horizontal showsHorizontalScrollIndicator={false}>
-              {dateTabs.map((tab) => {
-                const isActive = datePreset === tab.id;
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={tab.id}
-                    onPress={() => setDatePreset(tab.id)}
-                    style={[styles.dateChip, isActive && styles.dateChipActive]}
-                  >
-                    <ThemedText style={[styles.dateChipText, isActive && styles.dateChipTextActive]}>
-                      {tab.label}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+          {/* Dropdown Filters Bar */}
+          <HistoryFilterDropdowns
+            datePreset={datePreset}
+            filter={filter}
+            onSelectDatePreset={setDatePreset}
+            onSelectFilter={setFilter}
+            typeCounts={{
+              all: summary.totalCount,
+              directCash: summary.cashCount,
+              vouchers: summary.voucherCount,
+            }}
+          />
         </View>
       }
       refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={isLoading} />}
@@ -294,53 +251,7 @@ const styles = StyleSheet.create({
   clearSearch: {
     padding: 2,
   },
-  filterRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  filterChip: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(151,151,151,0.25)',
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
-  },
-  filterChipActive: {
-    backgroundColor: BrandColors.navy,
-    borderColor: BrandColors.navy,
-  },
-  filterChipText: {
-    color: BrandColors.grey,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontSize: 12,
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
-  },
-  filterCountBadge: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(151,151,151,0.15)',
-    borderRadius: BorderRadius.full,
-    height: 18,
-    justifyContent: 'center',
-    minWidth: 18,
-    paddingHorizontal: 4,
-  },
-  filterCountBadgeActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  filterCountText: {
-    color: BrandColors.grey,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontSize: 10,
-  },
-  filterCountTextActive: {
-    color: '#FFFFFF',
-  },
+
   card: {
     backgroundColor: '#FFFFFF',
     borderColor: 'rgba(151,151,151,0.2)',
@@ -452,32 +363,5 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 12,
   },
-  dateFilterContainer: {
-    marginTop: -2,
-  },
-  dateFilterScroll: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dateChip: {
-    backgroundColor: '#F3F4F6',
-    borderColor: 'rgba(151,151,151,0.2)',
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 5,
-  },
-  dateChipActive: {
-    backgroundColor: BrandColors.navy,
-    borderColor: BrandColors.navy,
-  },
-  dateChipText: {
-    color: BrandColors.grey,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontSize: 11,
-  },
-  dateChipTextActive: {
-    color: '#FFFFFF',
-    fontFamily: 'PlusJakartaSans_700Bold',
-  },
+
 });
