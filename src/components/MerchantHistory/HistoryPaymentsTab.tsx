@@ -1,18 +1,21 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 
+import { TransactionExportModal } from '@/components/MerchantHistory/TransactionExportModal';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
-import { shortReference } from '@/hooks/use-merchant-transactions';
+import { type DateRangePreset, shortReference } from '@/hooks/use-merchant-transactions';
 import type {
   MerchantTransaction,
   MerchantTransactionFilter,
@@ -21,12 +24,14 @@ import type {
 
 type Props = {
   bottomInset: number;
+  datePreset: DateRangePreset;
   filter: MerchantTransactionFilter;
   filteredTransactions: readonly MerchantTransaction[];
   isLoading: boolean;
   onRefresh: () => void;
   onSelectTransaction: (transaction: MerchantTransaction) => void;
   searchQuery: string;
+  setDatePreset: (preset: DateRangePreset) => void;
   setFilter: (filter: MerchantTransactionFilter) => void;
   setSearchQuery: (query: string) => void;
   summary: MerchantTransactionsSummary;
@@ -37,17 +42,20 @@ const formatPhp = (amount: number): string =>
 
 export const HistoryPaymentsTab = ({
   bottomInset,
+  datePreset,
   filter,
   filteredTransactions,
   isLoading,
   onRefresh,
   onSelectTransaction,
   searchQuery,
+  setDatePreset,
   setFilter,
   setSearchQuery,
   summary,
 }: Props) => {
   const router = useRouter();
+  const [exportModalVisible, setExportModalVisible] = useState(false);
 
   const filterTabs: { id: MerchantTransactionFilter; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: summary.totalCount },
@@ -55,9 +63,17 @@ export const HistoryPaymentsTab = ({
     { id: 'cash_payment', label: 'Direct Cash', count: summary.cashCount },
   ];
 
+  const dateTabs: { id: DateRangePreset; label: string }[] = [
+    { id: 'all', label: 'All Time' },
+    { id: 'today', label: 'Today' },
+    { id: '7d', label: 'Last 7 Days' },
+    { id: '30d', label: 'Last 30 Days' },
+  ];
+
   return (
-    <FlatList
-      contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
+    <>
+      <FlatList
+        contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
       data={filteredTransactions}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       keyExtractor={(item) => item.id}
@@ -91,13 +107,20 @@ export const HistoryPaymentsTab = ({
           <View style={styles.summaryCard}>
             <View style={styles.summaryColumn}>
               <ThemedText style={styles.summaryLabel}>Total Settled Revenue</ThemedText>
-              <ThemedText style={styles.summaryAmount}>{formatPhp(summary.totalSettledPhp)}</ThemedText>
+              <ThemedText numberOfLines={1} style={styles.summaryAmount}>
+                {formatPhp(summary.totalSettledPhp)}
+              </ThemedText>
             </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryStat}>
-              <ThemedText style={styles.summaryStatLabel}>Total Payments</ThemedText>
-              <ThemedText style={styles.summaryStatValue}>{summary.totalCount}</ThemedText>
-            </View>
+            <Pressable
+              accessibilityLabel="Export redemptions"
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={() => setExportModalVisible(true)}
+              style={styles.exportButton}
+            >
+              <MaterialCommunityIcons color="#FFFFFF" name="file-download-outline" size={17} />
+              <ThemedText style={styles.exportButtonText}>Export</ThemedText>
+            </Pressable>
           </View>
 
           {/* Search Input */}
@@ -141,6 +164,27 @@ export const HistoryPaymentsTab = ({
               );
             })}
           </View>
+
+          {/* Date Filter Chips */}
+          <View style={styles.dateFilterContainer}>
+            <ScrollView contentContainerStyle={styles.dateFilterScroll} horizontal showsHorizontalScrollIndicator={false}>
+              {dateTabs.map((tab) => {
+                const isActive = datePreset === tab.id;
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={tab.id}
+                    onPress={() => setDatePreset(tab.id)}
+                    style={[styles.dateChip, isActive && styles.dateChipActive]}
+                  >
+                    <ThemedText style={[styles.dateChipText, isActive && styles.dateChipTextActive]}>
+                      {tab.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
         </View>
       }
       refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={isLoading} />}
@@ -183,6 +227,12 @@ export const HistoryPaymentsTab = ({
       }}
       showsVerticalScrollIndicator={false}
     />
+      <TransactionExportModal
+        onClose={() => setExportModalVisible(false)}
+        transactions={filteredTransactions}
+        visible={exportModalVisible}
+      />
+    </>
   );
 };
 
@@ -222,26 +272,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 20,
-  },
-  summaryDivider: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    height: 36,
-    marginHorizontal: Spacing.three,
-    width: 1,
-  },
-  summaryStat: {
-    alignItems: 'flex-end',
-  },
-  summaryStatLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontFamily: 'PlusJakartaSans_500Medium',
-    fontSize: 11,
-    marginBottom: 4,
-  },
-  summaryStatValue: {
-    color: '#FFFFFF',
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontSize: 18,
   },
   searchBox: {
     alignItems: 'center',
@@ -406,5 +436,48 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 12,
+  },
+  exportButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: BorderRadius.md,
+    flexDirection: 'row',
+    gap: 6,
+    marginLeft: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 7,
+  },
+  exportButtonText: {
+    color: '#FFFFFF',
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 12,
+  },
+  dateFilterContainer: {
+    marginTop: -2,
+  },
+  dateFilterScroll: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dateChip: {
+    backgroundColor: '#F3F4F6',
+    borderColor: 'rgba(151,151,151,0.2)',
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 5,
+  },
+  dateChipActive: {
+    backgroundColor: BrandColors.navy,
+    borderColor: BrandColors.navy,
+  },
+  dateChipText: {
+    color: BrandColors.grey,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 11,
+  },
+  dateChipTextActive: {
+    color: '#FFFFFF',
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
 });

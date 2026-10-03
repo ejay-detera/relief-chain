@@ -80,3 +80,116 @@ test('summary metrics sum Stroops and partition voucher vs cash correctly', () =
   assert.equal(voucherCount, 2);
   assert.equal(cashCount, 1);
 });
+
+export const matchesDateRange = (dateIso, preset, now = new Date()) => {
+  if (preset === 'all') return true;
+  const date = new Date(dateIso);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1;
+  const targetTime = date.getTime();
+
+  if (preset === 'today') {
+    return targetTime >= startOfDay && targetTime <= endOfDay;
+  }
+  if (preset === '7d') {
+    const sevenDaysAgo = startOfDay - 6 * 24 * 60 * 60 * 1000;
+    return targetTime >= sevenDaysAgo && targetTime <= endOfDay;
+  }
+  if (preset === '30d') {
+    const thirtyDaysAgo = startOfDay - 29 * 24 * 60 * 60 * 1000;
+    return targetTime >= thirtyDaysAgo && targetTime <= endOfDay;
+  }
+  return true;
+};
+
+export const exportTransactionsToCsv = (transactions) => {
+  const headers = [
+    'Reference',
+    'Date',
+    'Payer',
+    'Program',
+    'Kind',
+    'Amount (PHP)',
+    'Status',
+    'Transaction Hash',
+  ];
+
+  const escapeCsv = (val) => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const rows = transactions.map((tx) => [
+    escapeCsv(shortReference(tx.correlationId, tx.id)),
+    escapeCsv(tx.occurredAt),
+    escapeCsv(tx.payerName),
+    escapeCsv(tx.programName || 'N/A'),
+    escapeCsv(tx.kind === 'voucher_redemption' ? 'Voucher' : 'Cash'),
+    escapeCsv(tx.amount.toFixed(2)),
+    escapeCsv(tx.status),
+    escapeCsv(tx.transactionHash || 'N/A'),
+  ].join(','));
+
+  return [headers.map((h) => `"${h}"`).join(','), ...rows].join('\n');
+};
+
+test('matchesDateRange filters today, 7d, 30d, and all correctly', () => {
+  const fixedNow = new Date('2026-10-03T12:00:00Z');
+  const todayDate = new Date('2026-10-03T02:00:00Z').toISOString();
+  const fourDaysAgo = new Date('2026-09-29T10:00:00Z').toISOString();
+  const twentyDaysAgo = new Date('2026-09-13T10:00:00Z').toISOString();
+  const fiftyDaysAgo = new Date('2026-08-14T10:00:00Z').toISOString();
+
+  // 'all'
+  assert.equal(matchesDateRange(fiftyDaysAgo, 'all', fixedNow), true);
+
+  // 'today'
+  assert.equal(matchesDateRange(todayDate, 'today', fixedNow), true);
+  assert.equal(matchesDateRange(fourDaysAgo, 'today', fixedNow), false);
+
+  // '7d'
+  assert.equal(matchesDateRange(fourDaysAgo, '7d', fixedNow), true);
+  assert.equal(matchesDateRange(twentyDaysAgo, '7d', fixedNow), false);
+
+  // '30d'
+  assert.equal(matchesDateRange(twentyDaysAgo, '30d', fixedNow), true);
+  assert.equal(matchesDateRange(fiftyDaysAgo, '30d', fixedNow), false);
+});
+
+test('exportTransactionsToCsv generates properly escaped CSV string', () => {
+  const sampleTransactions = [
+    {
+      id: 'tx-1',
+      correlationId: '12345678-0000',
+      occurredAt: 'Today, 10:00 AM',
+      payerName: 'Maria Santos',
+      programName: 'Rice Subsidy "Special"',
+      kind: 'voucher_redemption',
+      amount: 500,
+      status: 'confirmed',
+      transactionHash: 'hash123',
+    },
+    {
+      id: 'tx-2',
+      correlationId: null,
+      occurredAt: 'Sep 28, 2026, 02:30 PM',
+      payerName: 'Juan Dela Cruz',
+      programName: null,
+      kind: 'cash_payment',
+      amount: 120.5,
+      status: 'confirmed',
+      transactionHash: null,
+    },
+  ];
+
+  const csv = exportTransactionsToCsv(sampleTransactions);
+  const lines = csv.split('\n');
+
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /^"Reference","Date","Payer","Program","Kind","Amount \(PHP\)","Status","Transaction Hash"$/);
+  assert.match(lines[1], /^"STL-12345678","Today, 10:00 AM","Maria Santos","Rice Subsidy ""Special""","Voucher","500.00","confirmed","hash123"$/);
+  assert.match(lines[2], /^"STL-TX2","Sep 28, 2026, 02:30 PM","Juan Dela Cruz","N\/A","Cash","120.50","confirmed","N\/A"$/);
+});
