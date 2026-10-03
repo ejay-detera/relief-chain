@@ -46,6 +46,11 @@ test('MerchantBottomNavigation uses router.navigate to maintain stack history', 
   );
   assert.match(
     source,
+    /router\.navigate\('\/\(merchant\)\/history'\)/,
+    'MerchantBottomNavigation must use router.navigate for History',
+  );
+  assert.match(
+    source,
     /router\.navigate\('\/\(merchant\)\/profile'\)/,
     'MerchantBottomNavigation must use router.navigate for Profile',
   );
@@ -75,4 +80,7 @@ test('Sub-screens use safe canGoBack fallback navigation', () => {
 
   const merchantTransactions = readFileSync(fileURLToPath(new URL('./(merchant)/transactions.tsx', import.meta.url)), 'utf8');
   assert.match(merchantTransactions, /router\.canGoBack\(\)/, 'Merchant transactions must verify canGoBack');
+
+  const merchantHistory = readFileSync(fileURLToPath(new URL('./(merchant)/history.tsx', import.meta.url)), 'utf8');
+  assert.match(merchantHistory, /router\.canGoBack\(\)/, 'Merchant history must verify canGoBack');
 });

@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { RefundableSettlementList } from '@/components/Refund/RefundableSettlementList';
 import { RefundList } from '@/components/Refund/RefundList';
@@ -14,15 +14,32 @@ type Props = {
   onRequestRefund: (settlement: RefundableSettlement) => void;
   refunds: MerchantRefundsHook['state'];
   onRetryRefunds: () => void;
+  onViewAllSettlements?: () => void;
+  onViewAllRefunds?: () => void;
   // Optional legacy props for backwards-compatibility
   cashOut?: unknown;
   onRetryCashOut?: () => void;
   onRequestCashOut?: () => void;
 };
 
-const Card = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const Card = ({
+  title,
+  children,
+  onViewAll,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onViewAll?: () => void;
+}) => (
   <View style={styles.card}>
-    <ThemedText style={styles.cardTitle}>{title}</ThemedText>
+    <View style={styles.cardHeader}>
+      <ThemedText style={styles.cardTitle}>{title}</ThemedText>
+      {onViewAll ? (
+        <Pressable accessibilityLabel={`View all ${title}`} accessibilityRole="button" onPress={onViewAll}>
+          <ThemedText style={styles.viewAll}>View All</ThemedText>
+        </Pressable>
+      ) : null}
+    </View>
     {children}
   </View>
 );
@@ -37,13 +54,15 @@ export const RefundsSection = ({
   onRequestRefund,
   refunds,
   onRetryRefunds,
+  onViewAllSettlements,
+  onViewAllRefunds,
 }: Props) => (
   <View style={styles.container}>
-    <Card title="Refundable settlements">
+    <Card onViewAll={onViewAllSettlements} title="Refundable settlements">
       <RefundableSettlementList onRefund={onRequestRefund} onRetry={onRetrySettlements} state={settlements} />
     </Card>
 
-    <Card title="Refund history">
+    <Card onViewAll={onViewAllRefunds} title="Refund history">
       <RefundList onRetry={onRetryRefunds} state={refunds} />
     </Card>
   </View>
@@ -59,5 +78,15 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     padding: Spacing.three,
   },
+  cardHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   cardTitle: { color: BrandColors.navy, fontFamily: 'PlusJakartaSans_700Bold', fontSize: 15 },
+  viewAll: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 11,
+  },
 });

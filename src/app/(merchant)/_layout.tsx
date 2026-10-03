@@ -10,6 +10,7 @@ const MerchantLayout = () => (
     <Stack.Screen name="wallet-recovery" />
     <Stack.Screen name="payment-history" />
     <Stack.Screen name="transactions" />
+    <Stack.Screen name="history" />
   </Stack>
 );
 

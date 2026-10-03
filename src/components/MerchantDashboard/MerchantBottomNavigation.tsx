@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight } from '@/constants/theme';
 
-export type MerchantNavigationActiveItem = 'dashboard' | 'programs' | 'profile';
+export type MerchantNavigationActiveItem = 'dashboard' | 'programs' | 'history' | 'profile';
 type Props = { active: MerchantNavigationActiveItem };
 
 export const MerchantBottomNavigation = ({ active }: Props) => {
@@ -21,6 +21,9 @@ export const MerchantBottomNavigation = ({ active }: Props) => {
     </Pressable>
     <Pressable accessibilityLabel="QR Scan" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/receive')} style={styles.item}>
       <MaterialCommunityIcons color="#FFFFFF" name="qrcode-scan" size={22} /><ThemedText style={styles.label}>QR Scan</ThemedText>
+    </Pressable>
+    <Pressable accessibilityLabel="History" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/history')} style={[styles.item, active === 'history' && styles.active]}>
+      <MaterialCommunityIcons color="#FFFFFF" name="history" size={22} /><ThemedText style={styles.label}>History</ThemedText>
     </Pressable>
     <Pressable accessibilityLabel="Profile" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/profile')} style={[styles.item, active === 'profile' && styles.active]}>
       <MaterialCommunityIcons color="#FFFFFF" name="account-outline" size={22} /><ThemedText style={styles.label}>Profile</ThemedText>
