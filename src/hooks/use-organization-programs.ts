@@ -1,6 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { applyToProgram, fetchOrganizationPrograms } from '@/services/organizationService';
 import { OrganizationProgram } from '@/types/organization';
+import type { RequirementResponseInput } from '@/types/program-requirement';
 import { useCallback, useEffect, useState } from 'react';
 
 export function useOrganizationPrograms() {
@@ -34,10 +35,11 @@ export function useOrganizationPrograms() {
   }, [load]);
 
   const apply = useCallback(
-    async (program: OrganizationProgram) => {
+    async (program: OrganizationProgram, responses?: RequirementResponseInput[]) => {
       if (!session) throw new Error('You must be signed in to apply.');
-      await applyToProgram(session.user.id, program);
+      const enrollmentId = await applyToProgram(session.user.id, program, responses);
       await load();
+      return enrollmentId;
     },
     [session, load]
   );

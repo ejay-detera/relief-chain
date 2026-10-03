@@ -15,6 +15,8 @@ export type BeneficiaryRegistrationData = {
   email: string;
   completeAddress: string;
   municipalityCity: string;
+  /** Total number of people living in the household, including the applicant. Entered as digits, e.g. "4". */
+  householdSize: string;
   governmentIdNumber: string;
   governmentIdDocument: SelectedDocumentAsset | null;
   stellarWalletAddress: string;
@@ -31,7 +33,8 @@ export type BeneficiaryRegistrationData = {
 
 export const initialBeneficiaryRegistrationData: BeneficiaryRegistrationData = {
   lastName: '', firstName: '', middleInitial: '', birthdate: '', sex: null, civilStatus: null,
-  mobileNumber: '', email: '', completeAddress: '', municipalityCity: '', governmentIdNumber: '',
+  mobileNumber: '', email: '', completeAddress: '', municipalityCity: '', householdSize: '',
+  governmentIdNumber: '',
   governmentIdDocument: null, stellarWalletAddress: '', password: '', confirmPassword: '',
   agreesToTerms: false,
   cityId: null,

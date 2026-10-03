@@ -1,3 +1,4 @@
+import { AppealsReviewSection } from '@/components/LguPrograms/AppealsReviewSection';
 import { ProgramApplicantsSection } from '@/components/LguPrograms/ProgramApplicantsSection';
 import { resolveProgramStatus } from '@/components/LguPrograms/ProgramCard';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -418,6 +419,12 @@ export default function ProgramDetailsScreen() {
         {/* Applicants (pending/approved/rejected Enrollments for this Program) */}
         <FadeInView delay={240}>
           <ProgramApplicantsSection programId={program.id} />
+        </FadeInView>
+
+        {/* Appeals (BEN-06 / ORG-08): review and resolve rejected applicants'
+            appeals. Previously had no UI despite a complete service layer. */}
+        <FadeInView delay={260}>
+          <AppealsReviewSection programId={program.id} />
         </FadeInView>
 
         {/* Eligibility criteria list */}

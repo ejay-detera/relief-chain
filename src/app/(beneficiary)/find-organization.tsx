@@ -1,7 +1,7 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
@@ -23,7 +23,7 @@ const CATEGORIES = ['All', 'Cash', 'Food', 'Medicine', 'School Supplies'] as con
 export default function FindOrganizationScreen() {
   const router = useRouter();
   const { profile } = useAuth();
-  const { organizations, isLoading, error, retry, applyToProgram } = useOrganizationPrograms();
+  const { organizations, isLoading, error, retry } = useOrganizationPrograms();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -32,13 +32,31 @@ export default function FindOrganizationScreen() {
   const isVerified = profile?.verification_status === 'Verified';
   const hasBarangay = Boolean(profile?.barangay_id);
 
-  const handleApply = async (program: OrganizationProgram) => {
-    try {
-      await applyToProgram(program);
-      Alert.alert('Application Submitted', `Your application to ${program.programName} was submitted.`);
-    } catch {
-      Alert.alert('Application Failed', 'We could not submit your application. Please try again.');
-    }
+  // Re-fetch whenever this screen regains focus, so a program just applied to
+  // (from apply-program.tsx, a separate hook instance) no longer shows the
+  // stale "Apply" button when the beneficiary navigates back here.
+  useFocusEffect(
+    useCallback(() => {
+      void retry();
+    }, [retry])
+  );
+
+  const handleApply = (program: OrganizationProgram) => {
+    router.push({
+      pathname: '/(beneficiary)/apply-program',
+      params: {
+        programId: program.id,
+        programName: program.programName,
+        voucherType: program.voucherType ?? '',
+      },
+    });
+  };
+
+  const handleViewStatus = (program: OrganizationProgram) => {
+    router.push({
+      pathname: '/(beneficiary)/application-status',
+      params: program.existingEnrollmentId ? { enrollmentId: program.existingEnrollmentId } : undefined,
+    });
   };
 
   const canApplyCount = useMemo(
@@ -253,6 +271,7 @@ export default function FindOrganizationScreen() {
             onApply={handleApply}
             onEmptyAction={handleEmptyAction}
             onRetry={retry}
+            onViewStatus={handleViewStatus}
             organizations={filteredPrograms}
           />
         </ScrollView>

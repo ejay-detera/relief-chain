@@ -4,6 +4,19 @@ export interface DocumentDraft {
   size?: number;
 }
 
+export interface ProgramRequirementDraft {
+  label: string;
+  description?: string;
+  type: 'document' | 'text' | 'number' | 'boolean';
+  isMandatory: boolean;
+  allowedFileTypes?: string[];
+}
+
+export interface CsvBeneficiaryDraft {
+  fullName: string;
+  phoneNumber: string;
+}
+
 export interface ProgramDraft {
   name: string;
   description: string;
@@ -38,5 +51,8 @@ export interface ProgramDraft {
   walletTypeToggle: boolean;
   autoDistributeToggle: boolean;
   supportingDocuments: DocumentDraft[];
+  isPrivate?: boolean;
+  requirements?: ProgramRequirementDraft[];
+  csvBeneficiaries?: CsvBeneficiaryDraft[];
 }
 

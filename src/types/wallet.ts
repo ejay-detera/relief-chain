@@ -6,21 +6,41 @@
  */
 export type EnrolledProgram = {
   id: string;
+  enrollmentId?: string;
   name: string;               // "Typhoon Odette Relief"
   approvalStatus: 'Approved' | 'Pending' | 'Rejected';
   purpose: string;
   expiresAt: string;
   createdAt: string;           // ISO timestamp; used to determine the most recent Approved enrollment
+  category?: string;
+  /** Real `program_merchants` accreditation rows only — never a fabricated fallback list (US3). */
+  acceptedMerchantCategories?: string[];
+  redemptionInstructions?: string | null;
+  rejectionRemarks?: string | null;
+  /** The approved per-beneficiary allocation in stroops, independent of reconciliation. Null unless Approved with a positive allocation on file (US3). */
+  allocatedAmountStroops?: number | null;
 };
 
 export type RedemptionRecord = {
   id: string;
   merchant: string;           // "SM Supermarket Cebu"
-  amount: string;             // "₱450"
-  category: 'Food' | 'Medicine' | 'School Supplies' | 'Cash';
+  amount: string;             // "450.0000000 RCPHP"
+  /**
+   * The funding source this transaction actually moved through — 'Cash' or
+   * 'Voucher' — sourced from `payment_intents.funding_source`, not a
+   * fabricated category label. The voucher rail is currently gated (see
+   * docs/flow-reliefchain.md), so this is 'Cash' for every live transaction
+   * today; it will reflect 'Voucher' once that rail is reachable.
+   */
+  fundingSource: 'Cash' | 'Voucher';
   date: string;               // "Jul 10, 2025"
-  remainingBalance: string;   // "₱4,550"
-  txHash: string;             // Stellar transaction hash
+  /**
+   * No per-transaction running balance is tracked anywhere in the schema —
+   * this is intentionally not synthesized. Null means "not available",
+   * shown as such rather than a fabricated figure.
+   */
+  remainingBalance: string | null;
+  txHash: string | null;             // Stellar transaction hash; null until submitted
   status: 'Completed' | 'Pending' | 'Failed';
   direction: 'credit' | 'debit'; // credit = received (e.g. grant), debit = spent (e.g. merchant payment)
 };

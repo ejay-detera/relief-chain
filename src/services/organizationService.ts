@@ -1,8 +1,18 @@
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/auth';
 import { OrganizationProgram } from '@/types/organization';
+import type { RequirementResponseInput } from '@/types/program-requirement';
 import { fetchWithRetry } from '@/utils/fetch-with-retry';
+import { isLocationEligible, isProgramApplicable } from '@/utils/program-applicability';
 import { getRegistrationStatus } from '@/utils/registration-window';
+import { submitRequirementResponses } from './program-requirements-service';
+
+export {
+    isLocationEligible,
+    isProgramApplicable,
+    type LocationEligibilityInput,
+    type ProgramApplicabilityInput
+} from '@/utils/program-applicability';
 
 const VALID_CATEGORIES = ['Food', 'Medicine', 'School Supplies', 'Cash'] as const;
 type EnrollmentCategory = (typeof VALID_CATEGORIES)[number];
@@ -14,14 +24,6 @@ const toEnrollmentCategory = (voucherType: string | null): EnrollmentCategory =>
   const match = VALID_CATEGORIES.find((category) => category.toLowerCase() === normalized);
   return match ?? 'Cash';
 };
-
-export {
-  isLocationEligible,
-  isProgramApplicable,
-  type LocationEligibilityInput,
-  type ProgramApplicabilityInput,
-} from '@/utils/program-applicability';
-import { isLocationEligible, isProgramApplicable } from '@/utils/program-applicability';
 
 /**
  * Fetches Organizations with at least one Ongoing_Program, joined with the
@@ -61,24 +63,32 @@ export const fetchOrganizationPrograms = async (
             areas ( name )
           )
         `)
-        .eq('status', 'active'),
+        .in('status', ['active', 'draft']),
       supabase
         .from('enrollments')
-        .select('program_id, approval_status')
+        .select('id, program_id, approval_status')
         .eq('beneficiary_id', beneficiaryId),
     ]);
 
     if (programsResult.error) throw programsResult.error;
     if (enrollmentsResult.error) throw enrollmentsResult.error;
 
-    const enrollmentByProgramId = new Map<string, 'Approved' | 'Pending' | 'Rejected'>();
+    const enrollmentByProgramId = new Map<
+      string,
+      { id: string; approvalStatus: 'Approved' | 'Pending' | 'Rejected' }
+    >();
     for (const enrollment of enrollmentsResult.data ?? []) {
-      enrollmentByProgramId.set(enrollment.program_id, enrollment.approval_status);
+      enrollmentByProgramId.set(enrollment.program_id, {
+        id: enrollment.id,
+        approvalStatus: enrollment.approval_status,
+      });
     }
 
     return (programsResult.data ?? []).map((row: any) => {
       const { status, canApply } = getRegistrationStatus(row.registration_open, row.registration_close);
-      const existingEnrollmentStatus = enrollmentByProgramId.get(row.id) ?? null;
+      const existingEnrollment = enrollmentByProgramId.get(row.id) ?? null;
+      const existingEnrollmentStatus = existingEnrollment?.approvalStatus ?? null;
+      const existingEnrollmentId = existingEnrollment?.id ?? null;
 
       const assignedBarangays: { id: number; name: string }[] = (row.program_barangays ?? [])
         .map((pb: any) => ({ id: pb.barangay_id, name: pb.barangays?.name }))
@@ -117,6 +127,7 @@ export const fetchOrganizationPrograms = async (
         canApply: canApply && existingEnrollmentStatus === null && isEligibleByLocation,
         voucherType: resolvedVoucherType,
         existingEnrollmentStatus,
+        existingEnrollmentId,
         isEligibleByLocation,
         eligibleBarangayNames: assignedBarangays.map((b) => b.name),
         eligibleAreaNames: assignedAreas.map((a) => a.name),
@@ -127,17 +138,32 @@ export const fetchOrganizationPrograms = async (
 
 /**
  * Creates an Enrollment (Application) for the given Beneficiary and Program,
- * with `approval_status` set to "Pending" (Requirement 3.1).
+ * with `approval_status` set to "Pending" (Requirement 3.1) and persists any
+ * dynamic requirement responses.
  */
-export const applyToProgram = async (beneficiaryId: string, program: OrganizationProgram): Promise<void> => {
+export const applyToProgram = async (
+  beneficiaryId: string,
+  program: OrganizationProgram,
+  responses?: RequirementResponseInput[]
+): Promise<string> => {
   const category = toEnrollmentCategory(program.voucherType);
 
-  const { error } = await supabase.from('enrollments').insert({
-    beneficiary_id: beneficiaryId,
-    program_id: program.id,
-    approval_status: 'Pending',
-    category,
-  });
+  const { data, error } = await supabase
+    .from('enrollments')
+    .insert({
+      beneficiary_id: beneficiaryId,
+      program_id: program.id,
+      approval_status: 'Pending',
+      category,
+    })
+    .select('id')
+    .single();
 
-  if (error) throw error;
+  if (error || !data) throw error ?? new Error('Failed to create enrollment');
+
+  if (responses && responses.length > 0) {
+    await submitRequirementResponses(data.id, responses);
+  }
+
+  return data.id;
 };

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DuplicateFlagsPanel } from '@/components/BeneficiaryVerification/DuplicateFlagsPanel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BrandColors, Spacing } from '@/constants/theme';
@@ -98,11 +99,18 @@ export default function BeneficiariesVerificationScreen() {
         {/* Header */}
         <FadeInView delay={0}>
           <View style={styles.header}>
-            <ThemedText style={styles.title}>Beneficiary Verification</ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Review registration submissions and verify citizen identities.
-            </ThemedText>
+            <View style={{ flex: 1 }}>
+              <ThemedText style={styles.title}>Beneficiary Verification</ThemedText>
+              <ThemedText style={styles.subtitle}>
+                Review registration submissions and verify citizen identities.
+              </ThemedText>
+            </View>
           </View>
+        </FadeInView>
+
+        {/* Duplicate registration flags (BEN-01) */}
+        <FadeInView delay={20}>
+          <DuplicateFlagsPanel />
         </FadeInView>
 
         {/* Search */}
@@ -148,6 +156,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
     paddingBottom: Spacing.two,
     backgroundColor: 'white',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 22,

@@ -376,7 +376,8 @@ export default function ScheduleScreen() {
             display="default"
             minimumDate={getMinDateForPicker(currentPicker)}
             maximumDate={getMaxDateForPicker(currentPicker)}
-            onChange={onPickerChange}
+            onValueChange={(event, date) => onPickerChange(event, date)}
+            onDismiss={() => setCurrentPicker(null)}
           />
         )}
       </ScrollView>

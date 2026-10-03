@@ -109,16 +109,48 @@ export default function SummaryScreen() {
         </View>
         </FadeInView>
 
-        {/* SECTION 3: ELIGIBILITY */}
+        {/* SECTION 3: ENROLLMENT & REQUIREMENTS */}
         <FadeInView delay={120}>
         <View style={styles.summaryCard}>
-          <Text style={styles.cardHeader}>3. Eligibility Criteria</Text>
-          {draft.eligibilityCriteria.map((item, index) => (
-            <View key={index} style={styles.bulletRow}>
-              <Text style={styles.bullet}>•</Text>
-              <Text style={styles.bulletText}>{item}</Text>
+          <Text style={styles.cardHeader}>3. Enrollment & Requirements</Text>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Enrollment Access</Text>
+            <Text style={[styles.detailValue, { fontFamily: 'PlusJakartaSans_700Bold', color: draft.isPrivate ? BrandColors.navy : BrandColors.green }]}>
+              {draft.isPrivate ? 'Private (Targeted CSV List)' : 'Public (Open Application)'}
+            </Text>
+          </View>
+
+          {draft.isPrivate ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Targeted Recipients</Text>
+              <Text style={styles.detailValue}>
+                {draft.csvBeneficiaries?.length || 0} pre-vetted beneficiaries (will receive SMS invites)
+              </Text>
             </View>
-          ))}
+          ) : (
+            <>
+              <Text style={[styles.detailLabel, { marginTop: Spacing.two, marginBottom: 4 }]}>
+                Required Beneficiary Submissions:
+              </Text>
+              {draft.requirements && draft.requirements.length > 0 ? (
+                draft.requirements.map((req, index) => (
+                  <View key={index} style={styles.bulletRow}>
+                    <Text style={styles.bullet}>•</Text>
+                    <Text style={styles.bulletText}>
+                      {req.label} <Text style={{ fontSize: 11, color: BrandColors.grey }}>({req.type.toUpperCase()}{req.isMandatory ? ', Required' : ', Optional'})</Text>
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                draft.eligibilityCriteria.map((item, index) => (
+                  <View key={index} style={styles.bulletRow}>
+                    <Text style={styles.bullet}>•</Text>
+                    <Text style={styles.bulletText}>{item}</Text>
+                  </View>
+                ))
+              )}
+            </>
+          )}
         </View>
         </FadeInView>
 
@@ -193,8 +225,16 @@ export default function SummaryScreen() {
       {/* FOOTER ACTIONS */}
       <View style={styles.footer}>
         <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          disabled={isSubmitting}>
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.draftButton}
-          onPress={() => handleAction('draft')}>
+          onPress={() => handleAction('draft')}
+          disabled={isSubmitting}>
           <Text style={styles.draftButtonText}>Save as Draft</Text>
         </TouchableOpacity>
 
@@ -203,7 +243,7 @@ export default function SummaryScreen() {
           onPress={() => handleAction('published')}
           disabled={isSubmitting}>
           <Text style={styles.publishButtonText}>
-            {isSubmitting ? 'Publishing...' : 'Publish Program'}
+            {isSubmitting ? 'Publishing...' : 'Publish'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -308,6 +348,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: BrandColors.lightGray,
     paddingBottom: Spacing.four,
+  },
+  backButton: {
+    height: 48,
+    paddingHorizontal: Spacing.three,
+    borderWidth: 1,
+    borderColor: BrandColors.lightGray,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.two,
+    backgroundColor: '#FAF9F6',
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: BrandColors.navy,
   },
   draftButton: {
     flex: 1,

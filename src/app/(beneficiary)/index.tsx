@@ -38,7 +38,7 @@ export default function BeneficiaryDashboard() {
   const { profile, session } = useAuth();
   const { state: walletState } = usePilotWallet();
   const userId = session?.user.id ?? null;
-  const { balance, liveBalance, refresh: refreshBalance } = useBeneficiaryBalances(
+  const { balance, liveBalance, lastSyncedBalance, refresh: refreshBalance } = useBeneficiaryBalances(
     isVerifiedPilotWallet(walletState) ? pilotWalletPublicKey(walletState) : null,
   );
   const { entitlements, abandoned, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
@@ -100,6 +100,7 @@ export default function BeneficiaryDashboard() {
                 <WalletBalanceCard
                   balance={balance}
                   liveBalance={liveBalance}
+                  lastSyncedBalance={lastSyncedBalance}
                   onWithdraw={() => setIsCashOutVisible(true)}
                   onSend={() => Alert.alert('Coming soon', 'Sending funds will be available in a future update.')}
                 />

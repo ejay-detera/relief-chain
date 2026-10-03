@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/shared/Skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import type { CachedBeneficiaryBalance } from '@/services/beneficiary-balance-cache';
 import type { LiveBalanceState, PilotBalanceSummary, ProjectionState } from '@/types/projection';
 import { formatStroops } from '@/utils/format-stroops';
 import { BalanceDisclosure } from './balance-disclosure';
@@ -13,6 +14,8 @@ import { BalanceDisclosure } from './balance-disclosure';
 type Props = {
   balance: ProjectionState<PilotBalanceSummary>;
   liveBalance: LiveBalanceState;
+  /** Last successfully reconciled balance cached on this device, shown when `balance` is `unavailable` (US4). */
+  lastSyncedBalance?: CachedBeneficiaryBalance | null;
   onWithdraw: () => void;
   onSend: () => void;
 };
@@ -31,7 +34,22 @@ const liveLabel = (fetchedAt: string): string => {
     : `Live from chain · ${parsed.toLocaleString()}`;
 };
 
-function BalanceBody({ balance, liveBalance }: { balance: ProjectionState<PilotBalanceSummary>; liveBalance: LiveBalanceState }) {
+const lastUpdatedLabel = (cachedAt: string): string => {
+  const parsed = new Date(cachedAt);
+  return Number.isNaN(parsed.getTime())
+    ? 'Last updated recently'
+    : `Last updated ${parsed.toLocaleString()}`;
+};
+
+function BalanceBody({
+  balance,
+  liveBalance,
+  lastSyncedBalance,
+}: {
+  balance: ProjectionState<PilotBalanceSummary>;
+  liveBalance: LiveBalanceState;
+  lastSyncedBalance?: CachedBeneficiaryBalance | null;
+}) {
   switch (balance.status) {
     case 'loading':
       return (
@@ -41,6 +59,28 @@ function BalanceBody({ balance, liveBalance }: { balance: ProjectionState<PilotB
         </View>
       );
     case 'unavailable':
+      // US4: show the last successfully reconciled balance from this device
+      // with a clear "last updated" timestamp instead of a blank value — the
+      // fetch failing (no connectivity) does not mean the beneficiary's
+      // balance information disappears for them.
+      if (lastSyncedBalance) {
+        return (
+          <View>
+            <ThemedText style={styles.balance}>
+              {formatStroops(lastSyncedBalance.summary.cashAvailableStroops)} {PILOT_ASSET_CODE}
+            </ThemedText>
+            <ThemedText style={styles.subBalance}>
+              Vouchers: {formatStroops(lastSyncedBalance.summary.voucherAvailableStroops)} {PILOT_ASSET_CODE}
+            </ThemedText>
+            <ThemedText style={styles.stateText}>
+              Last synced · {lastUpdatedLabel(lastSyncedBalance.cachedAt)}
+            </ThemedText>
+            <ThemedText style={styles.stateText}>
+              Can&apos;t reach the balance service right now. {balance.retryable ? 'Pull to refresh to retry.' : ''}
+            </ThemedText>
+          </View>
+        );
+      }
       return (
         <View>
           <ThemedText style={styles.balance}>Unavailable</ThemedText>
@@ -111,7 +151,7 @@ function BalanceBody({ balance, liveBalance }: { balance: ProjectionState<PilotB
   }
 }
 
-export function WalletBalanceCard({ balance, liveBalance, onWithdraw, onSend }: Props) {
+export function WalletBalanceCard({ balance, liveBalance, lastSyncedBalance, onWithdraw, onSend }: Props) {
   return (
     <LinearGradient
       colors={[BrandColors.green, '#4A90D9']}
@@ -120,7 +160,7 @@ export function WalletBalanceCard({ balance, liveBalance, onWithdraw, onSend }: 
       end={{ x: 1, y: 1 }}
     >
       <ThemedText style={styles.title}>Unrestricted Cash Balance</ThemedText>
-      <BalanceBody balance={balance} liveBalance={liveBalance} />
+      <BalanceBody balance={balance} liveBalance={liveBalance} lastSyncedBalance={lastSyncedBalance} />
       <BalanceDisclosure />
 
       <View style={styles.actionsRow}>

@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
 import { RegistrationField } from '@/components/AuthRegistration/RegistrationField';
 import { RegistrationPrimaryAction } from '@/components/AuthRegistration/RegistrationPrimaryAction';
 import { registrationStyles as styles } from '@/components/AuthRegistration/styles';
-import { BrandColors, BorderRadius, Spacing } from '@/constants/theme';
+import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
 import type { BeneficiaryRegistrationData } from '@/types/beneficiary-registration';
+import { FontAwesome } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type Props = {
   data: BeneficiaryRegistrationData;
@@ -115,6 +115,7 @@ export const BeneficiaryPersonalStep = ({ data, onChange, onNext }: Props) => {
     !data.mobileNumber ||
     !data.email ||
     !data.completeAddress ||
+    !data.householdSize ||
     !data.cityId ||
     !data.districtId ||
     !data.barangayId;
@@ -153,6 +154,16 @@ export const BeneficiaryPersonalStep = ({ data, onChange, onNext }: Props) => {
         onChangeText={(completeAddress) => onChange({ completeAddress })}
         required
         value={data.completeAddress}
+      />
+
+      {/* Household Size */}
+      <RegistrationField
+        keyboardType="number-pad"
+        label="Household Size"
+        onChangeText={(householdSize) => onChange({ householdSize: householdSize.replace(/\D/g, '').slice(0, 2) })}
+        placeholder="Total people in your household, including you"
+        required
+        value={data.householdSize}
       />
 
       {/* City (Dropdown) */}

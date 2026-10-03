@@ -40,6 +40,10 @@ export const getBeneficiaryStepError = (data: BeneficiaryRegistrationData, step:
     if (!mobileNumberPattern.test(data.mobileNumber)) return 'Enter an 11-digit Philippine mobile number starting with 09.';
     if (!emailPattern.test(data.email.trim())) return 'Enter a valid email address.';
     if (!data.completeAddress.trim() || !data.municipalityCity.trim() || !data.cityId || !data.districtId || !data.barangayId) return 'Select your complete address, city, district, and barangay.';
+    const householdSize = Number(data.householdSize);
+    if (!data.householdSize.trim() || !Number.isInteger(householdSize) || householdSize < 1 || householdSize > 50) {
+      return 'Enter the number of people in your household (including yourself).';
+    }
   }
   if (step === 3 && (!data.governmentIdNumber.trim() || !data.governmentIdDocument)) return 'Enter your government ID number and select an ID image or PDF.';
   if (step === 4) {

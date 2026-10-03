@@ -62,7 +62,33 @@ export default function ProfileScreen() {
               </FadeInView>
 
               <FadeInView delay={80}>
-                <Pressable onPress={() => router.push('/(beneficiary)/wallet-recovery' as any)} style={styles.recoveryRow}>
+                <Pressable onPress={() => router.push('/(beneficiary)/application-status')} style={styles.recoveryRow}>
+                  <View style={styles.recoveryRowLeft}>
+                    <FontAwesome color={BrandColors.navy} name="list-alt" size={16} />
+                    <View>
+                      <ThemedText style={styles.recoveryTitle}>Application Status</ThemedText>
+                      <ThemedText style={styles.recoverySubtitle}>Track your program applications & timeline</ThemedText>
+                    </View>
+                  </View>
+                  <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+                </Pressable>
+              </FadeInView>
+
+              <FadeInView delay={100}>
+                <Pressable onPress={() => router.push('/(beneficiary)/my-appeals')} style={styles.recoveryRow}>
+                  <View style={styles.recoveryRowLeft}>
+                    <FontAwesome color={BrandColors.navy} name="gavel" size={16} />
+                    <View>
+                      <ThemedText style={styles.recoveryTitle}>My Appeals</ThemedText>
+                      <ThemedText style={styles.recoverySubtitle}>Track submitted eligibility appeals</ThemedText>
+                    </View>
+                  </View>
+                  <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+                </Pressable>
+              </FadeInView>
+
+              <FadeInView delay={120}>
+                <Pressable onPress={() => router.push('/(beneficiary)/wallet-recovery')} style={styles.recoveryRow}>
                   <View style={styles.recoveryRowLeft}>
                     <FontAwesome color={BrandColors.navy} name="shield" size={16} />
                     <View>

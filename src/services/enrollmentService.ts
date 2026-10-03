@@ -134,8 +134,18 @@ const STROOPS_PER_RCPHP = 10_000_000;
  */
 export const updateEnrollmentStatus = async (
   enrollmentId: string,
-  approvalStatus: EnrollmentApprovalStatus
+  approvalStatus: EnrollmentApprovalStatus,
+  /**
+   * Required when `approvalStatus === 'Rejected'` — enforced here and, as a
+   * backstop, by the `enrollments_set_rejected_at` DB trigger (BEN-02: "the
+   * rejection reason [is] shown clearly" assumes one always exists). Unused
+   * for 'Approved'/'Pending'.
+   */
+  rejectionRemarks?: string
 ): Promise<void> => {
+  if (approvalStatus === 'Rejected' && !rejectionRemarks?.trim()) {
+    throw new Error('A rejection reason is required.');
+  }
   if (approvalStatus === 'Approved') {
     const { data: enrollment, error: enrollmentError } = await supabase
       .from('enrollments')
@@ -178,9 +188,16 @@ export const updateEnrollmentStatus = async (
     return;
   }
 
+  const payload: { approval_status: EnrollmentApprovalStatus; rejection_remarks?: string } = {
+    approval_status: approvalStatus,
+  };
+  if (rejectionRemarks !== undefined) {
+    payload.rejection_remarks = rejectionRemarks;
+  }
+
   const { error } = await supabase
     .from('enrollments')
-    .update({ approval_status: approvalStatus })
+    .update(payload)
     .eq('id', enrollmentId);
 
   if (error) throw error;
