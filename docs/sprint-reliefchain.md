@@ -94,7 +94,7 @@
 ## 3. Organization
 
 ### ORG-01 — Transfer funds to another organization
-**Priority:** Medium · **Role:** Organization · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Organization · **Developer:** — · **Status:** Complete ✅
 
 > As an Organization, I want to transfer funds to another organization so that donor funds or program budgets can be reallocated between partner organizations.
 
@@ -104,7 +104,7 @@
 - The receiving organization is notified that funds have been received and its balance is updated in real time.
 - The transfer appears in both organizations' transaction history and the platform audit log.
 
-*Sheet note: Original AC only said 'Send money' / 'Notified that the money is sent' — expanded to cover balance checks, confirmation, and both-side notification, since this moves real aid funds.*
+*Implementation notes: Delivered via `src/app/(lgu)/transfer-funds.tsx`, modular sub-components in `src/components/TransferFunds/`, and Supabase Edge Function `transfer-organization-fund`. Features destination wallet validation against Stellar Horizon, organization resolution, two-phase confirmation modal, on-chain RCPHP settlement, database persistence in `organization_transfers`, and platform audit logging via `append_audit_event`.*
 
 ### ORG-02 — Invite a team member
 **Priority:** High · **Role:** Organization Admin · **Developer:** — · **Status:** —
@@ -424,7 +424,7 @@
 | **SMS NOTIFICATIONS** | ⬜ No code. No SMS package or provider is chosen. Provider selection is a prerequisite, and BEN-07's SMS criterion depends on it. |
 | **BEN-05** 'Pending Sync' marker | Depends on OFFLINE SYNC. Cannot be completed independently. |
 | **MER-01** offline balance check | Depends on OFFLINE SYNC for the offline half. The online half is independently deliverable. |
-| **ORG-01** org-to-org transfer | Not verified as present. Confirm against code before estimating — do not assume either way. |
+| **ORG-01** org-to-org transfer | ✅ Delivered via dedicated Transfer Funds screen (`(lgu)/transfer-funds`), modular sub-components, and `transfer-organization-fund` Edge Function. Validated on Stellar testnet. |
 | **ORG-07 / ANALYTICS** export | Delivered via dedicated Audit & Compliance Reports page in profile/settings hub and dashboard quick action, supporting 7 report types, date/program filtering, Excel/PDF exports, and blockchain reconciliation. |
 | Stellar settlement in all stories | **Testnet only.** `shared/stellar-config.ts` throws `'Mainnet is hard-disabled for the pilot.'` Asset is `RCPHP`, declared *'Testnet only — no real monetary value.'* "Receives payment" in MER-02 means a testnet settlement, not money. |
 | Merchant cash-out | 🟡 Simulated. No story in this backlog covers real fiat settlement, and no licensed partner is engaged. |

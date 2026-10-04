@@ -73,9 +73,28 @@ const SettingsScreen = () => {
                 <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
               </Pressable>
             </FadeInView>
+            <FadeInView delay={200}>
+              <Pressable
+                accessibilityLabel="Transfer Organization Funds"
+                accessibilityRole="button"
+                onPress={() => router.push('/(lgu)/transfer-funds' as any)}
+                style={[styles.menuRow, styles.menuRowSpacing]}
+              >
+                <View style={styles.menuRowLeft}>
+                  <View style={styles.menuIconCircle}>
+                    <FontAwesome color={BrandColors.navy} name="exchange" size={16} />
+                  </View>
+                  <View>
+                    <ThemedText style={styles.menuRowTitle}>Transfer Organization Funds</ThemedText>
+                    <ThemedText style={styles.menuRowSubtitle}>Reallocate RCPHP treasury funds to another organization</ThemedText>
+                  </View>
+                </View>
+                <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+              </Pressable>
+            </FadeInView>
           </View>
 
-          <FadeInView delay={200}>
+          <FadeInView delay={240}>
             <LogoutButton />
           </FadeInView>
         </View>

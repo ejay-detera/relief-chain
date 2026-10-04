@@ -126,6 +126,13 @@ export default function LguLayout() {
             tabBarStyle: { display: 'none' },
           }}
         />
+        <Tabs.Screen
+          name="transfer-funds"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
       </Tabs>
     </CreateProgramProvider>
   );

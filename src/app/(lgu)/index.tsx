@@ -165,6 +165,12 @@ export default function HomeDashboard() {
       iconName: 'file-text',
       onPress: () => router.push('/(lgu)/reports' as any),
     },
+    {
+      id: '5',
+      label: 'Transfer Funds',
+      iconName: 'exchange',
+      onPress: () => router.push('/(lgu)/transfer-funds' as any),
+    },
   ];
 
   return (
