@@ -18,6 +18,8 @@ type EnrollmentRow = {
     purpose: string | null;
     status: string;
     voucher_type?: string | null;
+    organization_id?: string | null;
+    selected_merchants?: unknown;
     program_merchants?: {
       category: string;
     }[];
@@ -52,10 +54,12 @@ export function useBeneficiaryPrograms() {
           voucher_balance,
           program:programs (
             id,
+            organization_id,
             name,
             purpose,
             status,
             voucher_type,
+            selected_merchants,
             program_merchants (
               category
             )
@@ -72,16 +76,26 @@ export function useBeneficiaryPrograms() {
         .filter((e) => e.program != null)
         .map((e) => {
           const aidCategory = e.category || e.program?.voucher_type || 'General Assistance';
-          // `program_merchants` is the real, DB-enforced accreditation record
-          // (validated by `validate_program_merchant_change`). Previously, an
-          // empty result here silently fell back to a hardcoded
-          // DEFAULT_CATEGORY_MERCHANTS map with invented merchant names like
-          // "Groceries & Supermarkets" — showing redemption guidance for
-          // merchants that were never actually accredited for this program.
-          // Now an empty list is shown as empty, with the card itself
-          // choosing a clear "not yet listed" message instead of fabricating
-          // participants (US3).
-          const acceptedCategories = Array.from(
+
+          // Extract real accredited merchants set by admin (programs.selected_merchants)
+          // along with DB-enforced program_merchants accreditation categories.
+          const rawSelected = e.program?.selected_merchants;
+          const selectedList: string[] = Array.isArray(rawSelected)
+            ? rawSelected.filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+            : typeof rawSelected === 'string'
+              ? (() => {
+                  try {
+                    const parsed = JSON.parse(rawSelected);
+                    return Array.isArray(parsed)
+                      ? parsed.filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+                      : [rawSelected.trim()];
+                  } catch {
+                    return [rawSelected.trim()];
+                  }
+                })()
+              : [];
+
+          const pmCategories = Array.from(
             new Set(
               (e.program?.program_merchants ?? [])
                 .map((pm) => pm.category)
@@ -89,8 +103,12 @@ export function useBeneficiaryPrograms() {
             )
           );
 
+          const acceptedMerchants = Array.from(
+            new Set([...selectedList, ...pmCategories])
+          );
+
           const instructions =
-            acceptedCategories.length === 0
+            acceptedMerchants.length === 0
               ? null
               : aidCategory === 'Cash'
                 ? 'Present your digital QR voucher at authorized cash disbursement stations.'
@@ -107,6 +125,7 @@ export function useBeneficiaryPrograms() {
 
           return {
             id: e.program!.id,
+            organizationId: e.program?.organization_id ?? null,
             enrollmentId: e.id,
             name: e.program!.name,
             approvalStatus: e.approval_status,
@@ -114,7 +133,7 @@ export function useBeneficiaryPrograms() {
             expiresAt: e.expires_at ? new Date(e.expires_at).toLocaleDateString() : '—',
             createdAt: e.created_at,
             category: aidCategory,
-            acceptedMerchantCategories: acceptedCategories,
+            acceptedMerchantCategories: acceptedMerchants,
             redemptionInstructions: instructions,
             rejectionRemarks: e.rejection_remarks ?? null,
             // The approved allocation amount, independent of whether

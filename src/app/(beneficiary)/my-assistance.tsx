@@ -7,7 +7,6 @@ import { MyAssistanceSkeleton } from '@/components/beneficiary/MyAssistance/my-a
 import { ProgramVoucherCard } from '@/components/beneficiary/MyAssistance/program-voucher-card';
 import { TotalBalanceCard } from '@/components/beneficiary/MyAssistance/total-balance-card';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
-import { AbandonedBalanceSection } from '@/components/shared/abandoned-balance-section';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -16,13 +15,15 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { entitlementForProgram, useBeneficiaryEntitlements } from '@/hooks/use-beneficiary-entitlements';
 import { useBeneficiaryPrograms } from '@/hooks/use-beneficiary-programs';
+import { supabase } from '@/lib/supabase';
 
 export default function MyAssistanceScreen() {
   const router = useRouter();
   const { programs, isLoading, error, refetch } = useBeneficiaryPrograms();
-  const { entitlements, abandoned, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
+  const { entitlements, refresh: refreshEntitlements } = useBeneficiaryEntitlements();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [isReconciling, setIsReconciling] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,6 +37,27 @@ export default function MyAssistanceScreen() {
     await Promise.all([refetch(), refreshEntitlements()]);
     setRefreshing(false);
   }, [refetch, refreshEntitlements]);
+
+  const handleManualReconcile = useCallback(async () => {
+    setIsReconciling(true);
+    try {
+      const orgId = programs.find((p) => p.organizationId)?.organizationId;
+      if (orgId) {
+        try {
+          await supabase.functions.invoke('reconcile-stellar', {
+            body: { organizationId: orgId },
+          });
+        } catch {
+          // Fall back gracefully to direct table refresh
+        }
+      }
+      await Promise.all([refetch(), refreshEntitlements()]);
+    } catch {
+      await Promise.allSettled([refetch(), refreshEntitlements()]);
+    } finally {
+      setIsReconciling(false);
+    }
+  }, [programs, refetch, refreshEntitlements]);
 
   const hasNoAssistance = !isLoading && !error && programs.length === 0;
 
@@ -83,15 +105,17 @@ export default function MyAssistanceScreen() {
           {!isLoading && !error && programs.length > 0 && (
             <>
               <FadeInView delay={40}>
-                <TotalBalanceCard activeProgramCount={programs.length} state={entitlements} />
-              </FadeInView>
-
-              <FadeInView delay={60}>
-                <AbandonedBalanceSection abandoned={abandoned} />
+                <TotalBalanceCard
+                  activeProgramCount={programs.length}
+                  isReconciling={isReconciling}
+                  onReconcile={handleManualReconcile}
+                  programs={programs}
+                  state={entitlements}
+                />
               </FadeInView>
 
               {programs.map((program, index) => (
-                <FadeInView delay={80 + Math.min(index, 4) * 40} key={program.id}>
+                <FadeInView delay={60 + Math.min(index, 4) * 40} key={program.id}>
                   <ProgramVoucherCard
                     program={program}
                     entitlement={entitlementForProgram(entitlements, program.id)}

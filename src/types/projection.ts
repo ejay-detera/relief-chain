@@ -74,6 +74,7 @@ export type BeneficiaryProgramEntitlement = Readonly<{
   programId: string;
   programName: string;
   purpose: string | null;
+  voucherType?: string | null;
   aidType: BalanceAidType;
   availableStroops: StroopAmount;
   allocatedStroops: StroopAmount;

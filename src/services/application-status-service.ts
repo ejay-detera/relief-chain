@@ -15,13 +15,65 @@ interface RawEnrollmentQueryRow {
   program?: {
     id: string;
     name: string;
+    purpose?: string | null;
+    voucher_type?: string | null;
+    selected_merchants?: unknown;
     organization?: {
       name: string;
     } | null;
+    program_merchants?: {
+      category: string | null;
+    }[] | null;
   } | null;
   beneficiary_identity?: {
     verified_at: string | null;
   } | null;
+}
+
+function resolveAccreditedMerchants(
+  program?: RawEnrollmentQueryRow['program'],
+  enrollmentCategory?: string
+): {
+  accreditedMerchants: string[];
+  redemptionInstructions: string | null;
+} {
+  const rawSelected = program?.selected_merchants;
+  const selectedList: string[] = Array.isArray(rawSelected)
+    ? rawSelected.filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+    : typeof rawSelected === 'string'
+      ? (() => {
+          try {
+            const parsed = JSON.parse(rawSelected);
+            return Array.isArray(parsed)
+              ? parsed.filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+              : [rawSelected.trim()];
+          } catch {
+            return [rawSelected.trim()];
+          }
+        })()
+      : [];
+
+  const pmCategories = Array.from(
+    new Set(
+      (program?.program_merchants ?? [])
+        .map((pm) => pm.category)
+        .filter((cat): cat is string => Boolean(cat))
+    )
+  );
+
+  const accreditedMerchants = Array.from(
+    new Set([...selectedList, ...pmCategories])
+  );
+
+  const aidCategory = enrollmentCategory || program?.voucher_type || 'General Assistance';
+  const redemptionInstructions =
+    accreditedMerchants.length === 0
+      ? null
+      : aidCategory === 'Cash'
+        ? 'Present your digital QR voucher at authorized cash disbursement stations.'
+        : `Present your voucher QR to scan at accredited ${aidCategory.toLowerCase()} retail partners.`;
+
+  return { accreditedMerchants, redemptionInstructions };
 }
 
 /** Real timestamps gathered for stages that `enrollments` alone cannot answer. */
@@ -227,8 +279,14 @@ export const fetchApplicationStatusDetails = async (
       program:programs (
         id,
         name,
+        purpose,
+        voucher_type,
+        selected_merchants,
         organization:organizations (
           name
+        ),
+        program_merchants (
+          category
         )
       ),
       beneficiary_identity:beneficiary_identities (
@@ -267,6 +325,11 @@ export const fetchApplicationStatusDetails = async (
     isFullyConsumed
   );
 
+  const { accreditedMerchants, redemptionInstructions } = resolveAccreditedMerchants(
+    rawRow.program,
+    rawRow.category
+  );
+
   return {
     enrollmentId: rawRow.id,
     programId: rawRow.program_id,
@@ -281,6 +344,9 @@ export const fetchApplicationStatusDetails = async (
     timeline,
     createdAt: rawRow.created_at,
     updatedAt: rawRow.approved_at,
+    accreditedMerchants,
+    redemptionInstructions,
+    purpose: rawRow.program?.purpose ?? null,
   };
 };
 
@@ -310,8 +376,14 @@ export const fetchBeneficiaryApplicationHistory = async (
       program:programs (
         id,
         name,
+        purpose,
+        voucher_type,
+        selected_merchants,
         organization:organizations (
           name
+        ),
+        program_merchants (
+          category
         )
       ),
       beneficiary_identity:beneficiary_identities (
@@ -371,6 +443,12 @@ export const fetchBeneficiaryApplicationHistory = async (
       evidence.firstRedemptionAt,
       isFullyConsumed
     );
+
+    const { accreditedMerchants, redemptionInstructions } = resolveAccreditedMerchants(
+      rawRow.program,
+      rawRow.category
+    );
+
     results.push({
       enrollmentId: rawRow.id,
       programId: rawRow.program_id,
@@ -385,6 +463,9 @@ export const fetchBeneficiaryApplicationHistory = async (
       timeline,
       createdAt: rawRow.created_at,
       updatedAt: rawRow.approved_at,
+      accreditedMerchants,
+      redemptionInstructions,
+      purpose: rawRow.program?.purpose ?? null,
     });
   }
 
