@@ -31,4 +31,7 @@ export interface ApplicationStatusDetails {
   timeline: StatusHistoryEntry[];
   createdAt: string;
   updatedAt: string | null;
+  accreditedMerchants?: string[];
+  redemptionInstructions?: string | null;
+  purpose?: string | null;
 }

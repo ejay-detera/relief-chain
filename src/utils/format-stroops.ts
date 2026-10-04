@@ -1,4 +1,4 @@
-import { parseStroopAmount, type StroopAmount } from '@/types/blockchain';
+import { parseStroopAmount, type StroopAmount } from '../types/blockchain.ts';
 
 /** Stellar classic assets, including the RCPHP test asset, use 7 decimal places. */
 const STROOPS_PER_UNIT = 10_000_000n;

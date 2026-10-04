@@ -6,6 +6,7 @@
  */
 export type EnrolledProgram = {
   id: string;
+  organizationId?: string | null;
   enrollmentId?: string;
   name: string;               // "Typhoon Odette Relief"
   approvalStatus: 'Approved' | 'Pending' | 'Rejected';

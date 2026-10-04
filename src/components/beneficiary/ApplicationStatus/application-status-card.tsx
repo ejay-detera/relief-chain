@@ -108,6 +108,40 @@ export function ApplicationStatusCard({ details }: Props) {
           </View>
         )}
       </View>
+
+      {/* Accepted at: Accredited merchants section */}
+      <View style={styles.merchantsSection}>
+        <ThemedText style={styles.merchantsLabel}>Accepted at:</ThemedText>
+        {details.accreditedMerchants && details.accreditedMerchants.length > 0 ? (
+          <>
+            <View style={styles.categoriesWrap}>
+              {details.accreditedMerchants.map((merchant, idx) => (
+                <View key={idx} style={styles.categoryChip}>
+                  <FontAwesome name="shopping-bag" size={10} color={BrandColors.navy} />
+                  <ThemedText style={styles.categoryChipText}>{merchant}</ThemedText>
+                </View>
+              ))}
+            </View>
+            {details.redemptionInstructions && (
+              <ThemedText style={styles.instructionsText}>
+                {details.redemptionInstructions}
+              </ThemedText>
+            )}
+          </>
+        ) : (
+          <ThemedText style={styles.noMerchantsText}>
+            No accredited merchants listed yet for this program. Check back soon.
+          </ThemedText>
+        )}
+      </View>
+
+      {/* Program Purpose */}
+      {details.purpose ? (
+        <View style={styles.purposeSection}>
+          <ThemedText style={styles.purposeLabel}>Program Purpose</ThemedText>
+          <ThemedText style={styles.purposeText}>{details.purpose}</ThemedText>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -228,5 +262,69 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: BrandColors.navy,
+  },
+  merchantsSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.two,
+    marginTop: Spacing.three,
+  },
+  merchantsLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: BrandColors.grey,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  categoriesWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 4,
+    backgroundColor: 'white',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  categoryChipText: {
+    fontSize: 11,
+    color: BrandColors.navy,
+    fontWeight: '500',
+  },
+  instructionsText: {
+    fontSize: 11,
+    color: '#718096',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  noMerchantsText: {
+    fontSize: 11,
+    color: '#718096',
+    fontStyle: 'italic',
+  },
+  purposeSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  purposeLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: BrandColors.grey,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  purposeText: {
+    fontSize: 12,
+    color: BrandColors.navy,
+    lineHeight: 18,
   },
 });

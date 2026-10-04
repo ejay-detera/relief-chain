@@ -9,7 +9,7 @@ import type {
 } from '@/types/projection';
 import { buildProjectionState, type ProjectionRowMeta } from '@/utils/projection-state';
 
-type ProgramRef = Readonly<{ name: string | null; purpose: string | null }>;
+type ProgramRef = Readonly<{ name: string | null; purpose: string | null; voucher_type?: string | null }>;
 
 type EntitlementRow = ProjectionRowMeta &
   Readonly<{
@@ -35,7 +35,7 @@ const SELECT =
   'redeemed_stroops, refunded_stroops, confirmed_transaction_count, latest_transaction_hash, ' +
   'asset_code, reconciled_at, as_of_ledger, is_stale, is_quarantined, quarantine_issue_id, ' +
   'is_abandoned, abandonment_note, abandonment_evidence_ref, abandoned_at, ' +
-  'program:programs ( name, purpose )';
+  'program:programs ( name, purpose, voucher_type )';
 
 const isAbandonedRow = (row: EntitlementRow): boolean =>
   row.is_abandoned === true &&
@@ -43,8 +43,8 @@ const isAbandonedRow = (row: EntitlementRow): boolean =>
   row.abandonment_note.trim().length > 0;
 
 const programName = (program: EntitlementRow['program']): ProgramRef => {
-  if (Array.isArray(program)) return program[0] ?? { name: null, purpose: null };
-  return program ?? { name: null, purpose: null };
+  if (Array.isArray(program)) return program[0] ?? { name: null, purpose: null, voucher_type: null };
+  return program ?? { name: null, purpose: null, voucher_type: null };
 };
 
 const toEntitlement = (row: EntitlementRow): BeneficiaryProgramEntitlement => {
@@ -54,6 +54,7 @@ const toEntitlement = (row: EntitlementRow): BeneficiaryProgramEntitlement => {
     programId: row.program_id,
     programName: ref.name ?? 'Program',
     purpose: ref.purpose,
+    voucherType: ref.voucher_type ?? null,
     aidType: row.aid_type,
     availableStroops: parseStroopAmount(row.available_balance_stroops),
     allocatedStroops: parseStroopAmount(row.allocated_stroops),

@@ -1,44 +1,24 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { ReconciliationBadge } from '@/components/shared/reconciliation-badge';
 import { ThemedText } from '@/components/themed-text';
-import { PILOT_ASSET_CODE, PILOT_NETWORK_LABEL, PILOT_NO_VALUE_LABEL } from '@/constants/pilot-disclosure';
+import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
-import { type StroopAmount } from '@/types/blockchain';
 import type { BeneficiaryProgramEntitlement, ProjectionState } from '@/types/projection';
-import { addStroops, formatStroops, ZERO_STROOPS } from '@/utils/format-stroops';
+import type { EnrolledProgram } from '@/types/wallet';
+import { formatStroops } from '@/utils/format-stroops';
+import { computeVoucherBreakdownAndTotal, isNonCashVoucher } from '@/utils/voucher-balance-calculator';
+
+export { isNonCashVoucher, computeVoucherBreakdownAndTotal };
 
 type Props = {
   /** Reconciled voucher entitlements; the total is only ever derived from these. */
   state: ProjectionState<BeneficiaryProgramEntitlement[]>;
   activeProgramCount: number;
-};
-
-/** Sums the reconciled available voucher balance across spendable entitlement rows only. */
-const sumVoucherAvailable = (entitlements: readonly BeneficiaryProgramEntitlement[]): StroopAmount =>
-  entitlements
-    .filter((entitlement) => entitlement.aidType === 'voucher' && !entitlement.isAbandoned)
-    .reduce<StroopAmount>((acc, entitlement) => addStroops(acc, entitlement.availableStroops), ZERO_STROOPS);
-
-/** Groups spendable vouchers by program purpose or name to show per-voucher-type breakdown. */
-const computePerTypeBreakdown = (
-  entitlements: readonly BeneficiaryProgramEntitlement[]
-): { label: string; amountStroops: StroopAmount }[] => {
-  const map = new Map<string, StroopAmount>();
-
-  for (const ent of entitlements) {
-    if (ent.isAbandoned) continue;
-    const key = ent.purpose || ent.programName || (ent.aidType === 'cash' ? 'Cash Aid' : 'General Voucher');
-    const existing = map.get(key) ?? ZERO_STROOPS;
-    map.set(key, addStroops(existing, ent.availableStroops));
-  }
-
-  return Array.from(map.entries()).map(([label, amountStroops]) => ({
-    label,
-    amountStroops,
-  }));
+  programs?: readonly EnrolledProgram[];
+  onReconcile?: () => void;
+  isReconciling?: boolean;
 };
 
 const populatedRows = (
@@ -64,39 +44,26 @@ const placeholderLabel = (status: ProjectionState<unknown>['status']): string =>
     case 'quarantined':
       return 'Under review';
     default:
-      return 'No reconciled balance';
+      return 'No voucher balance';
   }
 };
 
-const formatSyncTimestamp = (isoDate?: string): string => {
-  if (!isoDate) return 'Sync time unavailable';
-  try {
-    const d = new Date(isoDate);
-    if (isNaN(d.getTime())) return 'Recently synced';
-    return `Last updated: ${d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    })} at ${d.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    })}`;
-  } catch {
-    return 'Recently synced';
-  }
-};
-
-export function TotalBalanceCard({ state, activeProgramCount }: Props) {
+export function TotalBalanceCard({
+  state,
+  activeProgramCount,
+  programs,
+  onReconcile,
+  isReconciling = false,
+}: Props) {
   const rows = populatedRows(state);
-  const balanceLabel = rows
-    ? `${formatStroops(sumVoucherAvailable(rows))} ${PILOT_ASSET_CODE}`
+  const { totalStroops, breakdown, voucherCount } = computeVoucherBreakdownAndTotal(rows, programs);
+
+  const hasProgramsOrRows = (programs && programs.length > 0) || rows !== null;
+  const balanceLabel = hasProgramsOrRows
+    ? `${formatStroops(totalStroops)} ${PILOT_ASSET_CODE}`
     : placeholderLabel(state.status);
 
-  const breakdown = rows ? computePerTypeBreakdown(rows) : [];
-
-  const syncTimestamp =
-    state.status === 'current' || state.status === 'stale'
-      ? state.metadata.reconciledAt
-      : undefined;
+  const displayVoucherCount = voucherCount > 0 ? voucherCount : activeProgramCount;
 
   return (
     <LinearGradient
@@ -106,30 +73,33 @@ export function TotalBalanceCard({ state, activeProgramCount }: Props) {
       end={{ x: 1, y: 1 }}
     >
       <View style={styles.topHeader}>
-        <ThemedText style={styles.title}>Total Reconciled Assistance</ThemedText>
-        {syncTimestamp && (
-          <View style={styles.syncBadge}>
-            <FontAwesome name="clock-o" size={10} color="rgba(255,255,255,0.85)" />
-            <ThemedText style={styles.syncText}>
-              {state.status === 'stale' ? 'Offline (Cached)' : 'Live'}
+        <ThemedText style={styles.title}>Total Voucher</ThemedText>
+        {onReconcile && (
+          <Pressable
+            accessibilityLabel="Reconcile voucher ledger"
+            accessibilityRole="button"
+            disabled={isReconciling}
+            onPress={onReconcile}
+            style={[styles.reconcileButton, isReconciling && styles.reconcileButtonDisabled]}
+          >
+            {isReconciling ? (
+              <ActivityIndicator color="#FFFFFF" size={9} />
+            ) : (
+              <FontAwesome color="#FFFFFF" name="refresh" size={10} />
+            )}
+            <ThemedText style={styles.reconcileText}>
+              {isReconciling ? 'Syncing…' : 'Reconcile'}
             </ThemedText>
-          </View>
+          </Pressable>
         )}
       </View>
 
       <ThemedText style={styles.balance}>{balanceLabel}</ThemedText>
 
-      {/* Sync timestamp for offline/connectivity resilience */}
-      {syncTimestamp && (
-        <ThemedText style={styles.lastUpdatedText}>
-          {formatSyncTimestamp(syncTimestamp)}
-        </ThemedText>
-      )}
-
-      {/* Per voucher/aid type breakdown (US4) */}
+      {/* Per non-cash voucher breakdown (Food, Gas, Medicine, etc.) */}
       {breakdown.length > 0 && (
         <View style={styles.breakdownContainer}>
-          <ThemedText style={styles.breakdownHeader}>Balance by Aid Type</ThemedText>
+          <ThemedText style={styles.breakdownHeader}>Balance by Voucher Type</ThemedText>
           <View style={styles.breakdownGrid}>
             {breakdown.map((item, idx) => (
               <View key={idx} style={styles.breakdownChip}>
@@ -147,15 +117,9 @@ export function TotalBalanceCard({ state, activeProgramCount }: Props) {
 
       <View style={styles.subtitleRow}>
         <ThemedText style={styles.subtitle}>
-          Across {activeProgramCount} active program{activeProgramCount === 1 ? '' : 's'}
+          Across {displayVoucherCount} active voucher program{displayVoucherCount === 1 ? '' : 's'}
         </ThemedText>
       </View>
-
-      <ReconciliationBadge state={state} tone="light" />
-
-      <ThemedText style={styles.disclosure}>
-        {PILOT_NETWORK_LABEL} · {PILOT_NO_VALUE_LABEL}
-      </ThemedText>
     </LinearGradient>
   );
 }
@@ -178,30 +142,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  syncBadge: {
+  reconcileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: 4,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
   },
-  syncText: {
+  reconcileButtonDisabled: {
+    opacity: 0.7,
+  },
+  reconcileText: {
     fontSize: 10,
-    color: 'white',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   balance: {
     color: 'white',
     fontSize: 30,
     fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  lastUpdatedText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 11,
-    marginBottom: Spacing.two,
+    marginBottom: Spacing.one,
   },
   breakdownContainer: {
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -244,16 +206,10 @@ const styles = StyleSheet.create({
   },
   subtitleRow: {
     flexDirection: 'row',
-    marginVertical: Spacing.one,
+    marginTop: Spacing.one,
   },
   subtitle: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
-  },
-  disclosure: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 10,
-    marginTop: Spacing.two,
-    fontWeight: '600',
   },
 });
