@@ -87,15 +87,17 @@ export function StatusTimeline({ timeline }: Props) {
                       style={[
                         styles.activeBadge,
                         isRejected && styles.activeBadgeRejected,
+                        entry.stage === 'completed' && styles.activeBadgeCompleted,
                       ]}
                     >
                       <ThemedText
                         style={[
                           styles.activeBadgeText,
                           isRejected && styles.activeBadgeTextRejected,
+                          entry.stage === 'completed' && styles.activeBadgeTextCompleted,
                         ]}
                       >
-                        {isRejected ? 'Declined' : 'Current'}
+                        {isRejected ? 'Declined' : entry.stage === 'completed' ? 'Completed' : 'Current'}
                       </ThemedText>
                     </View>
                   )}
@@ -207,6 +209,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 10,
   },
+  activeBadgeCompleted: {
+    backgroundColor: '#E8F5E9',
+  },
   activeBadgeRejected: {
     backgroundColor: '#FDE8E8',
   },
@@ -214,6 +219,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: BrandColors.navy,
+  },
+  activeBadgeTextCompleted: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: BrandColors.green,
   },
   activeBadgeTextRejected: {
     fontSize: 10,

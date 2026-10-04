@@ -91,13 +91,30 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
     });
   };
 
+  const isCompleted =
+    program.isCompleted ||
+    program.currentStage === 'completed' ||
+    (isApproved && program.voucherBalance != null && program.voucherBalance <= 0);
+  const isRedeemed = program.isRedeemed || program.currentStage === 'redeemed';
+  const stageLabel = isRejected
+    ? 'Rejected'
+    : !isApproved
+    ? 'Pending'
+    : isCompleted
+    ? 'Completed'
+    : isRedeemed
+    ? 'Redeemed'
+    : program.currentStageLabel ?? 'Aid Released';
+
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <View
           style={[
             styles.statusBadge,
-            isApproved && styles.statusApproved,
+            isCompleted && styles.statusCompleted,
+            isRedeemed && !isCompleted && styles.statusRedeemed,
+            isApproved && !isCompleted && !isRedeemed && styles.statusAidReleased,
             isRejected && styles.statusRejected,
             !isApproved && !isRejected && styles.statusPending,
           ]}
@@ -105,12 +122,14 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
           <ThemedText
             style={[
               styles.statusText,
-              isApproved && styles.statusTextApproved,
+              isCompleted && styles.statusTextCompleted,
+              isRedeemed && !isCompleted && styles.statusTextRedeemed,
+              isApproved && !isCompleted && !isRedeemed && styles.statusTextAidReleased,
               isRejected && styles.statusTextRejected,
               !isApproved && !isRejected && styles.statusTextPending,
             ]}
           >
-            {program.approvalStatus}
+            {stageLabel}
           </ThemedText>
         </View>
 
@@ -189,28 +208,38 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
 
       {isApproved ? (
         <Pressable
-          accessibilityLabel={hasBalance ? 'Show Voucher QR' : 'Voucher Depleted / No Balance'}
+          accessibilityLabel={
+            isCompleted
+              ? 'Voucher Completed / Lifecycle Finished'
+              : hasBalance
+              ? 'Show Voucher QR'
+              : 'Voucher Depleted / No Balance'
+          }
           accessibilityRole="button"
-          accessibilityState={{ disabled: !hasBalance }}
-          disabled={!hasBalance}
+          accessibilityState={{ disabled: !hasBalance || isCompleted }}
+          disabled={!hasBalance || isCompleted}
           onPress={() => setIsVoucherQrVisible(true)}
           style={[
             styles.redeemButton,
-            !hasBalance && styles.redeemButtonDisabled,
+            (!hasBalance || isCompleted) && styles.redeemButtonDisabled,
           ]}
         >
           <FontAwesome
-            name={hasBalance ? 'qrcode' : 'ban'}
+            name={isCompleted ? 'check-circle' : hasBalance ? 'qrcode' : 'ban'}
             size={16}
-            color={hasBalance ? 'white' : '#94A3B8'}
+            color={!isCompleted && hasBalance ? 'white' : '#94A3B8'}
           />
           <ThemedText
             style={[
               styles.redeemButtonText,
-              !hasBalance && styles.redeemButtonTextDisabled,
+              (!hasBalance || isCompleted) && styles.redeemButtonTextDisabled,
             ]}
           >
-            {hasBalance ? 'Show Voucher QR' : 'No Balance Available'}
+            {isCompleted
+              ? 'Voucher Completed'
+              : hasBalance
+              ? 'Show Voucher QR'
+              : 'No Balance Available'}
           </ThemedText>
         </Pressable>
       ) : (
@@ -255,6 +284,15 @@ const styles = StyleSheet.create({
   statusApproved: {
     backgroundColor: '#E8F5E9',
   },
+  statusCompleted: {
+    backgroundColor: '#E8F5E9',
+  },
+  statusRedeemed: {
+    backgroundColor: '#FFF3E0',
+  },
+  statusAidReleased: {
+    backgroundColor: '#E0F2FE',
+  },
   statusPending: {
     backgroundColor: '#FFF8E1',
   },
@@ -267,6 +305,15 @@ const styles = StyleSheet.create({
   },
   statusTextApproved: {
     color: BrandColors.green,
+  },
+  statusTextCompleted: {
+    color: BrandColors.green,
+  },
+  statusTextRedeemed: {
+    color: '#D97706',
+  },
+  statusTextAidReleased: {
+    color: '#0284C7',
   },
   statusTextPending: {
     color: '#B8860B',

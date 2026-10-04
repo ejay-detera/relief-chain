@@ -1,3 +1,5 @@
+import type { ApplicationStage } from './application-status';
+
 /**
  * A beneficiary's enrollment workflow state for one program. This carries only
  * eligibility and approval intent — never money. Reconciled cash and voucher
@@ -24,6 +26,11 @@ export type EnrolledProgram = {
   voucherBalance?: number | null;
   /** Live remaining voucher balance in stroops from enrollments.voucher_balance. */
   remainingVoucherStroops?: number | null;
+  /** Computed lifecycle stage for real-time progress syncing */
+  currentStage?: ApplicationStage;
+  currentStageLabel?: string;
+  isCompleted?: boolean;
+  isRedeemed?: boolean;
 };
 
 export type RedemptionRecord = {

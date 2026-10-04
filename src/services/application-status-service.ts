@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { isVoucherScannedLocally } from '@/services/voucher-sync-service';
 import { ApplicationStage, ApplicationStatusDetails, StatusHistoryEntry } from '@/types/application-status';
 
 interface RawEnrollmentQueryRow {
@@ -7,7 +8,10 @@ interface RawEnrollmentQueryRow {
   beneficiary_identity_id: string | null;
   approval_status: 'Approved' | 'Pending' | 'Rejected';
   voucher_balance: number | null;
+  allocation_amount_stroops?: number | string | null;
   category: string;
+  expires_at?: string | null;
+  scanned_at?: string | null;
   created_at: string;
   approved_at: string | null;
   rejected_at?: string | null;
@@ -18,6 +22,11 @@ interface RawEnrollmentQueryRow {
     purpose?: string | null;
     voucher_type?: string | null;
     selected_merchants?: unknown;
+    expires_at?: string | null;
+    voucher_expiration?: string | null;
+    distribution_end?: string | null;
+    amount_per_beneficiary?: number | null;
+    voucher_value?: number | null;
     organization?: {
       name: string;
     } | null;
@@ -76,10 +85,18 @@ function resolveAccreditedMerchants(
   return { accreditedMerchants, redemptionInstructions };
 }
 
-/** Real timestamps gathered for stages that `enrollments` alone cannot answer. */
+/** Real timestamps and lifecycle flags gathered across tables. */
 interface TimelineEvidence {
-  /** When this enrollment's distribution_recipients row (if any) reached `confirmed` — the actual aid-release event. */
+  /** When this enrollment's distribution_recipients row reached `confirmed`. */
   aidReleasedAt: string | null;
+  hasRedemptions: boolean;
+  firstRedemptionAt: string | null;
+  lastRedemptionAt: string | null;
+  isFullyConsumed: boolean;
+  isDeadlineDue: boolean;
+  isScanned: boolean;
+  scannedAt: string | null;
+  expiresAt: string | null;
 }
 
 const STAGES_ORDER: ApplicationStage[] = [
@@ -129,22 +146,11 @@ const STAGE_LABELS: Record<ApplicationStage, { label: string; description: strin
 
 /**
  * Builds the chronological stepper/timeline based on enrollment state, redemptions,
- * and distribution events.
- *
- * Timestamps are drawn from real, distinct columns where one exists —
- * `rejected_at` for a rejection, `beneficiary_identities.verified_at` for
- * verification, `distribution_recipients.confirmed_at` for aid release — so
- * adjacent stages no longer silently share one `approved_at` value. Only
- * `registered`/`pending_verification` still share `created_at`: the schema
- * genuinely has no earlier moment to point to, since registration and
- * program application are the same `enrollments` insert today.
+ * scans, and distribution events.
  */
 function buildTimeline(
   row: RawEnrollmentQueryRow,
-  evidence: TimelineEvidence,
-  hasRedemptions: boolean,
-  firstRedemptionAt: string | null,
-  isFullyConsumed: boolean
+  evidence: TimelineEvidence
 ): { currentStage: ApplicationStage; currentStageLabel: string; timeline: StatusHistoryEntry[] } {
   const approvalStatus = row.approval_status;
   const rejectionReason = row.rejection_remarks ?? null;
@@ -172,9 +178,6 @@ function buildTimeline(
         stage: 'rejected',
         label: STAGE_LABELS.rejected.label,
         description: rejectionReason ? `Reason: ${rejectionReason}` : STAGE_LABELS.rejected.description,
-        // rejected_at is the real moment of rejection (set by the
-        // enrollments_set_rejected_at trigger); approved_at/created_at are
-        // only fallbacks for rows written before that column existed.
         timestamp: row.rejected_at ?? row.approved_at ?? row.created_at,
         isCompleted: true,
         isCurrent: true,
@@ -192,10 +195,13 @@ function buildTimeline(
   if (approvalStatus === 'Pending') {
     activeStageIndex = 1; // 'pending_verification'
   } else if (approvalStatus === 'Approved') {
-    // If approved, check if aid released / redeemed / completed
-    if (isFullyConsumed) {
+    // Stage resolution hierarchy:
+    // 1. If all value is claimed or deadline is now due -> 'completed'
+    // 2. Else if voucher has redemptions or has been scanned -> 'redeemed'
+    // 3. Otherwise -> 'aid_released'
+    if (evidence.isFullyConsumed || evidence.isDeadlineDue) {
       activeStageIndex = 6; // 'completed'
-    } else if (hasRedemptions) {
+    } else if (evidence.hasRedemptions || evidence.isScanned) {
       activeStageIndex = 5; // 'redeemed'
     } else {
       activeStageIndex = 4; // 'aid_released'
@@ -207,19 +213,19 @@ function buildTimeline(
     if (stage === 'registered' || stage === 'pending_verification') {
       ts = row.created_at;
     } else if (stage === 'verified') {
-      // Real verification timestamp from beneficiary_identities when
-      // available; falls back to approved_at only for identities verified
-      // before this column was wired to the status screen.
       ts = idx <= activeStageIndex ? (verifiedAt ?? row.approved_at ?? row.created_at) : null;
     } else if (stage === 'approved') {
       ts = idx <= activeStageIndex ? (row.approved_at ?? row.created_at) : null;
     } else if (stage === 'aid_released') {
-      // Real aid-release timestamp from the confirmed distribution_recipients
-      // row when one exists; falls back to approved_at if the enrollment was
-      // approved outside the batch-distribution workflow.
       ts = idx <= activeStageIndex ? (evidence.aidReleasedAt ?? row.approved_at ?? row.created_at) : null;
-    } else if (stage === 'redeemed' || stage === 'completed') {
-      ts = idx <= activeStageIndex ? firstRedemptionAt : null;
+    } else if (stage === 'redeemed') {
+      ts = idx <= activeStageIndex
+        ? (evidence.firstRedemptionAt ?? evidence.scannedAt ?? evidence.aidReleasedAt ?? row.approved_at ?? row.created_at)
+        : null;
+    } else if (stage === 'completed') {
+      ts = idx <= activeStageIndex
+        ? (evidence.lastRedemptionAt ?? evidence.firstRedemptionAt ?? evidence.expiresAt ?? row.approved_at ?? row.created_at)
+        : null;
     }
 
     return {
@@ -228,7 +234,7 @@ function buildTimeline(
       description: STAGE_LABELS[stage].description,
       timestamp: ts,
       isCompleted: idx < activeStageIndex || (idx === activeStageIndex && stage === 'completed'),
-      isCurrent: idx === activeStageIndex && stage !== 'completed',
+      isCurrent: idx === activeStageIndex,
     };
   });
 
@@ -271,7 +277,10 @@ export const fetchApplicationStatusDetails = async (
       beneficiary_identity_id,
       approval_status,
       voucher_balance,
+      allocation_amount_stroops,
       category,
+      expires_at,
+      scanned_at,
       created_at,
       approved_at,
       rejected_at,
@@ -282,6 +291,11 @@ export const fetchApplicationStatusDetails = async (
         purpose,
         voucher_type,
         selected_merchants,
+        expires_at,
+        voucher_expiration,
+        distribution_end,
+        amount_per_beneficiary,
+        voucher_value,
         organization:organizations (
           name
         ),
@@ -300,29 +314,75 @@ export const fetchApplicationStatusDetails = async (
     throw enrollmentError ?? new Error('Application enrollment not found');
   }
 
+  const rawRow = enrollment as unknown as RawEnrollmentQueryRow;
+
   // Check redemptions and the real aid-release timestamp in parallel.
   const [{ data: redemptions }, aidReleasedAt] = await Promise.all([
     supabase
       .from('redemptions')
-      .select('id, created_at, amount, remaining_balance')
+      .select('id, redeemed_at, amount, remaining_balance')
       .eq('enrollment_id', enrollmentId)
-      .order('created_at', { ascending: true }),
+      .order('redeemed_at', { ascending: true }),
     fetchAidReleasedAt(enrollmentId),
   ]);
 
-  const redemptionList = redemptions ?? [];
-  const hasRedemptions = redemptionList.length > 0;
-  const firstRedemptionAt = hasRedemptions ? redemptionList[0].created_at : null;
-  const balance = Number(enrollment.voucher_balance ?? 0);
-  const isFullyConsumed = hasRedemptions && balance <= 0;
+  const redemptionList = (redemptions ?? []) as { id: string; redeemed_at: string | null; amount: number; remaining_balance: number | null }[];
+  let hasRedemptions = redemptionList.length > 0;
+  let firstRedemptionAt = hasRedemptions ? redemptionList[0].redeemed_at : null;
+  let lastRedemptionAt = hasRedemptions ? redemptionList[redemptionList.length - 1].redeemed_at : null;
 
-  const rawRow = enrollment as unknown as RawEnrollmentQueryRow;
+  // Fallback to projection if no redemptions rows found
+  if (!hasRedemptions) {
+    const { data: proj } = await supabase
+      .from('beneficiary_balance_projection')
+      .select('redeemed_stroops, reconciled_at, updated_at')
+      .eq('program_id', rawRow.program_id)
+      .maybeSingle();
+
+    if (proj && Number(proj.redeemed_stroops ?? 0) > 0) {
+      hasRedemptions = true;
+      firstRedemptionAt = proj.updated_at || proj.reconciled_at || null;
+      lastRedemptionAt = proj.updated_at || proj.reconciled_at || null;
+    }
+  }
+
+  const deadlineCandidate =
+    rawRow.expires_at ||
+    rawRow.program?.expires_at ||
+    rawRow.program?.voucher_expiration ||
+    rawRow.program?.distribution_end ||
+    null;
+
+  const isDeadlineDue = (() => {
+    if (!deadlineCandidate) return false;
+    const d = new Date(deadlineCandidate).getTime();
+    return !isNaN(d) && Date.now() >= d;
+  })();
+
+  const isLocallyScanned = isVoucherScannedLocally(rawRow.id);
+  const isScanned = Boolean(rawRow.scanned_at) || isLocallyScanned;
+  const scannedAt = rawRow.scanned_at ?? (isLocallyScanned ? new Date().toISOString() : null);
+
+  const balance = Number(rawRow.voucher_balance ?? 0);
+  const initialAllocationPhp = rawRow.allocation_amount_stroops
+    ? Number(rawRow.allocation_amount_stroops) / 10_000_000
+    : (rawRow.program?.voucher_value ?? rawRow.program?.amount_per_beneficiary ?? null);
+  const hasBalanceDrop = initialAllocationPhp != null && balance < initialAllocationPhp;
+  const isFullyConsumed = (hasRedemptions || hasBalanceDrop || isScanned) && balance <= 0;
+
   const { currentStage, currentStageLabel, timeline } = buildTimeline(
     rawRow,
-    { aidReleasedAt },
-    hasRedemptions,
-    firstRedemptionAt,
-    isFullyConsumed
+    {
+      aidReleasedAt,
+      hasRedemptions,
+      firstRedemptionAt,
+      lastRedemptionAt,
+      isFullyConsumed,
+      isDeadlineDue,
+      isScanned,
+      scannedAt,
+      expiresAt: deadlineCandidate,
+    }
   );
 
   const { accreditedMerchants, redemptionInstructions } = resolveAccreditedMerchants(
@@ -347,6 +407,8 @@ export const fetchApplicationStatusDetails = async (
     accreditedMerchants,
     redemptionInstructions,
     purpose: rawRow.program?.purpose ?? null,
+    expiresAt: deadlineCandidate,
+    isDeadlineDue,
   };
 };
 
@@ -368,7 +430,10 @@ export const fetchBeneficiaryApplicationHistory = async (
       beneficiary_identity_id,
       approval_status,
       voucher_balance,
+      allocation_amount_stroops,
       category,
+      expires_at,
+      scanned_at,
       created_at,
       approved_at,
       rejected_at,
@@ -379,6 +444,11 @@ export const fetchBeneficiaryApplicationHistory = async (
         purpose,
         voucher_type,
         selected_merchants,
+        expires_at,
+        voucher_expiration,
+        distribution_end,
+        amount_per_beneficiary,
+        voucher_value,
         organization:organizations (
           name
         ),
@@ -395,15 +465,14 @@ export const fetchBeneficiaryApplicationHistory = async (
 
   if (error || !enrollments) return [];
 
-  // Same per-enrollment redemption/aid-release lookup as the single-item
-  // detail fetch, run for every row in parallel rather than serially — this
-  // also fixes the previous inconsistency where the list view inferred
-  // "has this been redeemed" from `voucher_balance > 0` while the detail
-  // view actually queried `redemptions`, which could disagree for the same
-  // enrollment depending on which screen was open.
   const evidenceByEnrollmentId = new Map<
     string,
-    { hasRedemptions: boolean; firstRedemptionAt: string | null; aidReleasedAt: string | null }
+    {
+      hasRedemptions: boolean;
+      firstRedemptionAt: string | null;
+      lastRedemptionAt: string | null;
+      aidReleasedAt: string | null;
+    }
   >();
 
   await Promise.all(
@@ -411,15 +480,34 @@ export const fetchBeneficiaryApplicationHistory = async (
       const [{ data: redemptions }, aidReleasedAt] = await Promise.all([
         supabase
           .from('redemptions')
-          .select('id, created_at')
+          .select('id, redeemed_at, amount, remaining_balance')
           .eq('enrollment_id', item.id)
-          .order('created_at', { ascending: true }),
+          .order('redeemed_at', { ascending: true }),
         fetchAidReleasedAt(item.id),
       ]);
-      const redemptionList = redemptions ?? [];
+      const redemptionList = (redemptions ?? []) as { id: string; redeemed_at: string | null; amount: number; remaining_balance: number | null }[];
+      let hasRedemptions = redemptionList.length > 0;
+      let firstRedemptionAt = hasRedemptions ? redemptionList[0].redeemed_at : null;
+      let lastRedemptionAt = hasRedemptions ? redemptionList[redemptionList.length - 1].redeemed_at : null;
+
+      if (!hasRedemptions && item.program_id) {
+        const { data: proj } = await supabase
+          .from('beneficiary_balance_projection')
+          .select('redeemed_stroops, reconciled_at, updated_at')
+          .eq('program_id', item.program_id)
+          .maybeSingle();
+
+        if (proj && Number(proj.redeemed_stroops ?? 0) > 0) {
+          hasRedemptions = true;
+          firstRedemptionAt = proj.updated_at || proj.reconciled_at || null;
+          lastRedemptionAt = proj.updated_at || proj.reconciled_at || null;
+        }
+      }
+
       evidenceByEnrollmentId.set(item.id, {
-        hasRedemptions: redemptionList.length > 0,
-        firstRedemptionAt: redemptionList.length > 0 ? redemptionList[0].created_at : null,
+        hasRedemptions,
+        firstRedemptionAt,
+        lastRedemptionAt,
         aidReleasedAt,
       });
     })
@@ -432,16 +520,46 @@ export const fetchBeneficiaryApplicationHistory = async (
     const evidence = evidenceByEnrollmentId.get(rawRow.id) ?? {
       hasRedemptions: false,
       firstRedemptionAt: null,
+      lastRedemptionAt: null,
       aidReleasedAt: null,
     };
-    const isFullyConsumed = evidence.hasRedemptions && balance <= 0;
+
+    const deadlineCandidate =
+      rawRow.expires_at ||
+      rawRow.program?.expires_at ||
+      rawRow.program?.voucher_expiration ||
+      rawRow.program?.distribution_end ||
+      null;
+
+    const isDeadlineDue = (() => {
+      if (!deadlineCandidate) return false;
+      const d = new Date(deadlineCandidate).getTime();
+      return !isNaN(d) && Date.now() >= d;
+    })();
+
+    const isLocallyScanned = isVoucherScannedLocally(rawRow.id);
+    const isScanned = Boolean(rawRow.scanned_at) || isLocallyScanned;
+    const scannedAt = rawRow.scanned_at ?? (isLocallyScanned ? new Date().toISOString() : null);
+
+    const initialAllocationPhp = rawRow.allocation_amount_stroops
+      ? Number(rawRow.allocation_amount_stroops) / 10_000_000
+      : (rawRow.program?.voucher_value ?? rawRow.program?.amount_per_beneficiary ?? null);
+    const hasBalanceDrop = initialAllocationPhp != null && balance < initialAllocationPhp;
+    const isFullyConsumed = (evidence.hasRedemptions || hasBalanceDrop || isScanned) && balance <= 0;
 
     const { currentStage, currentStageLabel, timeline } = buildTimeline(
       rawRow,
-      { aidReleasedAt: evidence.aidReleasedAt },
-      evidence.hasRedemptions,
-      evidence.firstRedemptionAt,
-      isFullyConsumed
+      {
+        aidReleasedAt: evidence.aidReleasedAt,
+        hasRedemptions: evidence.hasRedemptions,
+        firstRedemptionAt: evidence.firstRedemptionAt,
+        lastRedemptionAt: evidence.lastRedemptionAt,
+        isFullyConsumed,
+        isDeadlineDue,
+        isScanned,
+        scannedAt,
+        expiresAt: deadlineCandidate,
+      }
     );
 
     const { accreditedMerchants, redemptionInstructions } = resolveAccreditedMerchants(
@@ -466,6 +584,8 @@ export const fetchBeneficiaryApplicationHistory = async (
       accreditedMerchants,
       redemptionInstructions,
       purpose: rawRow.program?.purpose ?? null,
+      expiresAt: deadlineCandidate,
+      isDeadlineDue,
     });
   }
 

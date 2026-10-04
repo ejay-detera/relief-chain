@@ -5,6 +5,11 @@ import {
   fetchApplicationStatusDetails,
   fetchBeneficiaryApplicationHistory,
 } from '@/services/application-status-service';
+import {
+  markVoucherScannedLocally,
+  subscribeToVoucherLifecycle,
+  VoucherSyncEvent,
+} from '@/services/voucher-sync-service';
 
 export function useApplicationStatus(enrollmentId?: string) {
   const { session } = useAuth();
@@ -44,6 +49,56 @@ export function useApplicationStatus(enrollmentId?: string) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
   }, [reload]);
+
+  // Realtime listener for merchant scans, redemptions, and enrollment changes
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const handleSync = (event: VoucherSyncEvent) => {
+      if (event.enrollmentId) {
+        markVoucherScannedLocally(event.enrollmentId);
+      }
+
+      // Optimistically move stage to 'redeemed' upon scan for instant UX feedback
+      if (event.type === 'scanned') {
+        setDetails((prev) => {
+          if (!prev) return prev;
+          if (!enrollmentId || prev.enrollmentId === event.enrollmentId) {
+            if (prev.currentStage === 'aid_released') {
+              return {
+                ...prev,
+                currentStage: 'redeemed',
+                currentStageLabel: 'Redeemed',
+                timeline: prev.timeline.map((item) => {
+                  if (item.stage === 'aid_released') {
+                    return { ...item, isCompleted: true, isCurrent: false };
+                  }
+                  if (item.stage === 'redeemed') {
+                    return { ...item, isCompleted: false, isCurrent: true, timestamp: event.timestamp };
+                  }
+                  return item;
+                }),
+              };
+            }
+          }
+          return prev;
+        });
+      }
+
+      // Authoritative reload from DB
+      void reload();
+    };
+
+    const unsubscribe = subscribeToVoucherLifecycle({
+      enrollmentId: enrollmentId ?? null,
+      beneficiaryId: session.user.id,
+      onSync: handleSync,
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [session?.user?.id, enrollmentId, reload]);
 
   return {
     details,

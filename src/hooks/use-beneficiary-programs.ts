@@ -1,5 +1,10 @@
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import {
+  isVoucherScannedLocally,
+  markVoucherScannedLocally,
+  subscribeToVoucherLifecycle,
+} from '@/services/voucher-sync-service';
 import { EnrolledProgram } from '@/types/wallet';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -7,6 +12,7 @@ type EnrollmentRow = {
   id: string;
   approval_status: EnrolledProgram['approvalStatus'];
   expires_at: string | null;
+  scanned_at?: string | null;
   created_at: string;
   category: string;
   rejection_remarks?: string | null;
@@ -19,6 +25,9 @@ type EnrollmentRow = {
     status: string;
     voucher_type?: string | null;
     organization_id?: string | null;
+    expires_at?: string | null;
+    voucher_expiration?: string | null;
+    distribution_end?: string | null;
     selected_merchants?: unknown;
     program_merchants?: {
       category: string;
@@ -47,6 +56,7 @@ export function useBeneficiaryPrograms() {
           id,
           approval_status,
           expires_at,
+          scanned_at,
           created_at,
           category,
           rejection_remarks,
@@ -59,6 +69,9 @@ export function useBeneficiaryPrograms() {
             purpose,
             status,
             voucher_type,
+            expires_at,
+            voucher_expiration,
+            distribution_end,
             selected_merchants,
             program_merchants (
               category
@@ -123,6 +136,58 @@ export function useBeneficiaryPrograms() {
               ? Math.max(0, Math.round(rawVoucherBalance * 10_000_000))
               : null;
 
+          const isApproved = e.approval_status === 'Approved';
+          const deadlineCandidate =
+            e.expires_at ||
+            e.program?.expires_at ||
+            e.program?.voucher_expiration ||
+            e.program?.distribution_end ||
+            null;
+          const isDeadlineDue = (() => {
+            if (!deadlineCandidate) return false;
+            const d = new Date(deadlineCandidate).getTime();
+            return !isNaN(d) && Date.now() >= d;
+          })();
+
+          const isLocallyScanned = isVoucherScannedLocally(e.id);
+          const isScanned = Boolean(e.scanned_at) || isLocallyScanned;
+
+          const hasBalanceDrop =
+            allocationAmountStroops != null &&
+            remainingVoucherStroops != null &&
+            remainingVoucherStroops < allocationAmountStroops;
+
+          const isFullyClaimed =
+            (hasBalanceDrop || isScanned) &&
+            ((remainingVoucherStroops != null && remainingVoucherStroops <= 0) ||
+              (rawVoucherBalance != null && rawVoucherBalance <= 0));
+
+          let currentStage: EnrolledProgram['currentStage'] = 'registered';
+          let currentStageLabel: string = 'Registered';
+          let isCompleted = false;
+          let isRedeemed = false;
+
+          if (e.approval_status === 'Rejected') {
+            currentStage = 'rejected';
+            currentStageLabel = 'Rejected';
+          } else if (e.approval_status === 'Pending') {
+            currentStage = 'pending_verification';
+            currentStageLabel = 'Pending Verification';
+          } else if (isApproved) {
+            if (isFullyClaimed || isDeadlineDue) {
+              currentStage = 'completed';
+              currentStageLabel = 'Completed';
+              isCompleted = true;
+            } else if (hasBalanceDrop || isScanned) {
+              currentStage = 'redeemed';
+              currentStageLabel = 'Redeemed';
+              isRedeemed = true;
+            } else {
+              currentStage = 'aid_released';
+              currentStageLabel = 'Aid Released';
+            }
+          }
+
           return {
             id: e.program!.id,
             organizationId: e.program?.organization_id ?? null,
@@ -136,16 +201,16 @@ export function useBeneficiaryPrograms() {
             acceptedMerchantCategories: acceptedMerchants,
             redemptionInstructions: instructions,
             rejectionRemarks: e.rejection_remarks ?? null,
-            // The approved allocation amount, independent of whether
-            // reconciliation has produced a balance projection row yet (US3:
-            // "amount... visible immediately after approval"). Only
-            // meaningful once approved; null for Pending/Rejected.
             allocatedAmountStroops:
               e.approval_status === 'Approved' && allocationAmountStroops && allocationAmountStroops > 0
                 ? allocationAmountStroops
                 : null,
             voucherBalance: rawVoucherBalance,
             remainingVoucherStroops,
+            currentStage,
+            currentStageLabel,
+            isCompleted,
+            isRedeemed,
           };
         });
 
@@ -163,6 +228,25 @@ export function useBeneficiaryPrograms() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchPrograms();
   }, [fetchPrograms]);
+
+  // Realtime subscription for merchant scan & redemption events
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const unsubscribe = subscribeToVoucherLifecycle({
+      beneficiaryId: session.user.id,
+      onSync: (event) => {
+        if (event.enrollmentId) {
+          markVoucherScannedLocally(event.enrollmentId);
+        }
+        void fetchPrograms();
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [session?.user?.id, fetchPrograms]);
 
   return { programs, isLoading, error, refetch: fetchPrograms };
 }
