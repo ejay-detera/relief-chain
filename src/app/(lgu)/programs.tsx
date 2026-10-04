@@ -2,7 +2,7 @@ import { ProgramItem } from '@/components/LguPrograms/ProgramCard';
 import { ProgramFilterTabs, ProgramFilterType } from '@/components/LguPrograms/ProgramFilterTabs';
 import { ProgramList } from '@/components/LguPrograms/ProgramList';
 import { FadeInView } from '@/components/shared/FadeInView';
-import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
+import { BrandColors, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -67,7 +67,7 @@ export default function LguProgramsScreen() {
       <TouchableOpacity
         style={[
           styles.fab,
-          { bottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.three },
+          { bottom: insets.bottom + FloatingTabBarHeight + Spacing.three },
         ]}
         onPress={() => {
           clearEditingState();

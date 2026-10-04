@@ -1,4 +1,4 @@
-import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight } from '@/constants/theme';
+import { BrandColors, FloatingTabBarHeight } from '@/constants/theme';
 import { Image } from 'expo-image';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
@@ -19,11 +19,12 @@ export default function BeneficiaryLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-    <Tabs
+    <View style={styles.rootContainer}>
+      <Tabs
       backBehavior="history"
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [styles.tabBar, { bottom: insets.bottom + FloatingTabBarGap }],
+        tabBarStyle: [styles.tabBar, { bottom: insets.bottom }],
         tabBarItemStyle: styles.tabBarItem,
         tabBarIconStyle: styles.tabBarIconWrapper,
         tabBarShowLabel: false,
@@ -116,15 +117,36 @@ export default function BeneficiaryLayout() {
         }}
       />
     </Tabs>
+    {insets.bottom > 0 && (
+      <View
+        pointerEvents="none"
+        style={[styles.bottomSystemFill, { height: insets.bottom }]}
+      />
+    )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  bottomSystemFill: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+  },
   tabBar: {
     backgroundColor: BrandColors.green,
-    borderRadius: 30,
-    left: 16,
-    right: 16,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    left: 0,
+    right: 0,
     height: FloatingTabBarHeight,
     paddingHorizontal: 6,
     paddingTop: 0,
@@ -133,8 +155,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
     borderTopWidth: 0,
-    elevation: 0,
-    shadowOpacity: 0,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     overflow: 'hidden',
   },
   tabBarItem: {

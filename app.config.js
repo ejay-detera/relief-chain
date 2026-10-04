@@ -15,6 +15,10 @@ module.exports = {
       icon: './assets/expo.icon',
     },
     android: {
+      navigationBar: {
+        backgroundColor: '#FFFFFF',
+        barStyle: 'dark-content',
+      },
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
         foregroundImage: './assets/images/android-icon-foreground.png',

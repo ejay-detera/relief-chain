@@ -1,4 +1,4 @@
-import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight } from '@/constants/theme';
+import { BrandColors, FloatingTabBarHeight } from '@/constants/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
@@ -10,11 +10,12 @@ export default function LguLayout() {
 
   return (
     <CreateProgramProvider>
-      <Tabs
+      <View style={styles.rootContainer}>
+        <Tabs
         backBehavior="history"
         screenOptions={{
           headerShown: false,
-          tabBarStyle: [styles.tabBar, { bottom: insets.bottom + FloatingTabBarGap }],
+          tabBarStyle: [styles.tabBar, { bottom: insets.bottom }],
           tabBarItemStyle: styles.tabBarItem,
           tabBarIconStyle: styles.tabBarIconWrapper,
           tabBarShowLabel: false,
@@ -134,16 +135,37 @@ export default function LguLayout() {
           }}
         />
       </Tabs>
+      {insets.bottom > 0 && (
+        <View
+          pointerEvents="none"
+          style={[styles.bottomSystemFill, { height: insets.bottom }]}
+        />
+      )}
+      </View>
     </CreateProgramProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  bottomSystemFill: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+  },
   tabBar: {
     backgroundColor: BrandColors.green,
-    borderRadius: 30,
-    left: 16,
-    right: 16,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    left: 0,
+    right: 0,
     height: FloatingTabBarHeight,
     paddingHorizontal: 6,
     paddingTop: 0,
@@ -152,8 +174,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
     borderTopWidth: 0,
-    elevation: 0,
-    shadowOpacity: 0,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     overflow: 'hidden',
   },
   tabBarItem: {
