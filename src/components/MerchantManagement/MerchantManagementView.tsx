@@ -43,7 +43,7 @@ export const MerchantManagementView = ({
         />
       </FadeInView>
 
-      {/* Status Filter Tabs */}
+      {/* Status Filter Dropdown */}
       <FadeInView delay={40}>
         <MerchantStatusFilterTabs
           selected={selectedStatus}

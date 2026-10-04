@@ -46,7 +46,7 @@ export const BeneficiaryManagementView = ({
         <VerificationSearch value={searchQuery} onChangeText={onSearchChange} />
       </FadeInView>
 
-      {/* Filter Tabs */}
+      {/* Status Filter Dropdown */}
       <FadeInView delay={80}>
         <StatusFilterTabs selected={selectedStatus} onSelect={onStatusChange} />
       </FadeInView>
