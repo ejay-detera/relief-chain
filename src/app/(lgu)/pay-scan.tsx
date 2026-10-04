@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BrandColors, FloatingTabBarGap, FloatingTabBarHeight, Spacing } from '@/constants/theme';
+import { BrandColors, FloatingTabBarHeight, Spacing } from '@/constants/theme';
 import { Disbursement, fetchDisbursements } from '@/services/disbursementService';
 
 export default function DistributeScreen() {
@@ -104,7 +104,7 @@ export default function DistributeScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.list,
-            { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.six },
+            { paddingBottom: insets.bottom + FloatingTabBarHeight + Spacing.six },
           ]}
           ListEmptyComponent={
             loading ? (
@@ -130,7 +130,7 @@ export default function DistributeScreen() {
           onPress={handleCreate}
           style={[
             styles.fab,
-            { bottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.three },
+            { bottom: insets.bottom + FloatingTabBarHeight + Spacing.three },
           ]}
         >
           <FontAwesome name="plus" size={20} color="white" />
