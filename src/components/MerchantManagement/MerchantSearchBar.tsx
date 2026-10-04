@@ -1,17 +1,20 @@
 import React from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 
-import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 
 type Props = {
   value: string;
   onChangeText: (text: string) => void;
-  onPressAdd: () => void;
+  placeholder?: string;
 };
 
-export const MerchantSearchBar = ({ value, onChangeText, onPressAdd }: Props) => {
+export const MerchantSearchBar = ({
+  value,
+  onChangeText,
+  placeholder = 'Search merchant, category, owner...',
+}: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.row}>
@@ -25,7 +28,7 @@ export const MerchantSearchBar = ({ value, onChangeText, onPressAdd }: Props) =>
           <TextInput
             value={value}
             onChangeText={onChangeText}
-            placeholder="Search merchant, category, owner..."
+            placeholder={placeholder}
             placeholderTextColor={BrandColors.grey}
             style={styles.input}
             autoCapitalize="none"
@@ -41,17 +44,6 @@ export const MerchantSearchBar = ({ value, onChangeText, onPressAdd }: Props) =>
             />
           )}
         </View>
-
-        <Pressable
-          onPress={onPressAdd}
-          style={({ pressed }) => [
-            styles.addButton,
-            pressed && styles.addButtonPressed,
-          ]}
-        >
-          <FontAwesome name="plus" size={13} color="white" />
-          <ThemedText style={styles.addButtonText}>Add</ThemedText>
-        </Pressable>
       </View>
     </View>
   );
@@ -89,22 +81,5 @@ const styles = StyleSheet.create({
   clearIcon: {
     padding: 4,
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: BrandColors.green,
-    paddingHorizontal: Spacing.three,
-    height: 42,
-    borderRadius: BorderRadius.md,
-    justifyContent: 'center',
-  },
-  addButtonPressed: {
-    opacity: 0.85,
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 13,
-    fontWeight: '700',
-  },
 });
+

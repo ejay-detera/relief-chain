@@ -22,18 +22,6 @@ import {
 } from 'react-native';
 import { useCreateProgram } from './_layout';
 
-const DEFAULT_MERCHANTS = [
-  'merchant@example.com',
-  'Merchant Owner',
-  'Merchant Demo User',
-  'SM Supermarket',
-  'Puregold',
-  '7-Eleven',
-  'Mercury Drug',
-  'Robinsons Supermarket',
-  'Metro Gaisano',
-];
-
 const VOUCHER_TYPES = [
   { value: 'food', label: 'Food Assistance' },
   { value: 'medicine', label: 'Medicine Assistance' },
@@ -43,7 +31,7 @@ const VOUCHER_TYPES = [
 export default function VoucherScreen() {
   const router = useRouter();
   const { profile } = useAuth();
-  const { draft, updateDraft } = useCreateProgram();
+  const { draft, updateDraft, editingProgramId } = useCreateProgram();
 
   const [dateError, setDateError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,23 +61,21 @@ export default function VoucherScreen() {
           orgId = mem?.organization_id;
         }
 
-        const names = await fetchRegisteredMerchants(orgId);
+        const names = await fetchRegisteredMerchants(orgId, editingProgramId || undefined);
         if (active) {
-          const availablePool = names.length > 0 ? names : DEFAULT_MERCHANTS;
-          const merged = Array.from(new Set([
-            ...draft.selectedMerchants.filter((m) => names.length === 0 || names.includes(m)),
-            ...availablePool,
-          ]));
-          setDbMerchants(merged);
+          setDbMerchants(names);
+          // Only keep merchants in draft who are actually in the accepted pool
+          if (draft.selectedMerchants.length > 0 && names.length > 0) {
+            const valid = draft.selectedMerchants.filter((m) => names.includes(m));
+            if (valid.length !== draft.selectedMerchants.length) {
+              updateDraft({ selectedMerchants: valid });
+            }
+          }
         }
       } catch (err) {
         console.error('Error fetching database merchants:', err);
         if (active) {
-          const merged = Array.from(new Set([
-            ...draft.selectedMerchants,
-            ...DEFAULT_MERCHANTS,
-          ]));
-          setDbMerchants(merged);
+          setDbMerchants([]);
         }
       } finally {
         if (active) {
@@ -102,7 +88,7 @@ export default function VoucherScreen() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id]);
+  }, [profile?.id, editingProgramId]);
 
   const getExpirationDateObject = () => {
     if (draft.voucherExpiration) {
@@ -211,34 +197,21 @@ export default function VoucherScreen() {
       });
       setDateError('');
     } else if (mode === 'food') {
-      const defaultFoodMerchants = dbMerchants.filter((m) =>
-        ['merchant@example.com', 'SM Supermarket', 'Puregold', '7-Eleven', 'Robinsons Supermarket', 'Metro Gaisano'].includes(m)
-      );
       updateDraft({
         voucherTypes: ['food'],
         redemptionType: 'merchant',
         voucherValue: draft.aidPerHousehold,
         voucherQuantity: 1,
-        selectedMerchants:
-          draft.selectedMerchants.length > 0
-            ? draft.selectedMerchants
-            : defaultFoodMerchants.length > 0
-            ? defaultFoodMerchants
-            : dbMerchants.slice(0, 3),
       });
       if (!draft.voucherExpiration) {
         setPresetDate(60);
       }
     } else if (mode === 'medicine') {
-      const defaultPharmacies = dbMerchants.filter((m) =>
-        m.toLowerCase().includes('drug') || m.toLowerCase().includes('pharmacy') || m.toLowerCase().includes('mercury')
-      );
       updateDraft({
         voucherTypes: ['medicine'],
         redemptionType: 'merchant',
         voucherValue: draft.aidPerHousehold,
         voucherQuantity: 1,
-        selectedMerchants: defaultPharmacies.length > 0 ? defaultPharmacies : dbMerchants.slice(0, 2),
       });
       if (!draft.voucherExpiration) {
         setPresetDate(60);
@@ -261,8 +234,7 @@ export default function VoucherScreen() {
       draft.voucherValue <= 0 ||
       draft.voucherQuantity <= 0 ||
       !draft.voucherExpiration ||
-      isBudgetExceeded ||
-      (draft.redemptionType === 'merchant' && draft.selectedMerchants.length === 0)
+      isBudgetExceeded
     ));
 
   return (
@@ -547,17 +519,29 @@ export default function VoucherScreen() {
             {/* Select Merchants section if redemption type is Merchant Voucher */}
             {draft.redemptionType === 'merchant' && (
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Allowed Merchants <Text style={styles.required}>*</Text></Text>
+                <Text style={styles.label}>Allowed Merchants (Accepted Only)</Text>
                 <TouchableOpacity
                   style={styles.dropdownTrigger}
                   onPress={() => setMerchantModalVisible(true)}>
                   <Text style={[styles.dropdownValue, draft.selectedMerchants.length === 0 && styles.placeholderText]}>
                     {draft.selectedMerchants.length > 0
-                      ? `${draft.selectedMerchants.length} merchant(s) selected`
-                      : 'Select Allowed Merchants'}
+                      ? `${draft.selectedMerchants.length} accepted merchant(s) selected`
+                      : dbMerchants.length > 0
+                      ? 'Select Accepted Merchants'
+                      : '0 merchants selected (merchants apply voluntarily)'}
                   </Text>
                   <Text style={styles.dropdownChevron}>▼</Text>
                 </TouchableOpacity>
+
+                <View style={styles.merchantGuidanceBox}>
+                  <FontAwesome name="info-circle" size={13} color={BrandColors.navy} />
+                  <Text style={styles.merchantGuidanceText}>
+                    {dbMerchants.length > 0
+                      ? 'Only merchants whose applications have been accepted are listed.'
+                      : 'No accepted merchants yet. Once this program is saved (as Draft or Published), registered merchants can discover and apply for it in their Programs tab. You can review and accept their applications anytime.'}
+                  </Text>
+                </View>
+
                 {draft.selectedMerchants.length > 0 && (
                   <Text style={styles.selectedListText}>
                     Selected: {draft.selectedMerchants.join(', ')}
@@ -613,7 +597,7 @@ export default function VoucherScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Allowed Merchants</Text>
+              <Text style={styles.modalTitle}>Accepted Merchants</Text>
               <TouchableOpacity onPress={() => setMerchantModalVisible(false)}>
                 <Text style={styles.closeButton}>Done</Text>
               </TouchableOpacity>
@@ -623,34 +607,12 @@ export default function VoucherScreen() {
             <View style={styles.searchContainer}>
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search or enter merchant name / email..."
+                placeholder="Search accepted merchants..."
                 placeholderTextColor={BrandColors.grey}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
             </View>
-
-            {/* Quick add custom merchant / email button if not already in list */}
-            {searchQuery.trim().length > 0 &&
-              !dbMerchants.some(
-                (m) => m.toLowerCase() === searchQuery.trim().toLowerCase()
-              ) && (
-                <TouchableOpacity
-                  style={styles.addCustomMerchantBtn}
-                  onPress={() => {
-                    const customMerchant = searchQuery.trim();
-                    setDbMerchants((prev) => [customMerchant, ...prev]);
-                    if (!draft.selectedMerchants.includes(customMerchant)) {
-                      toggleMerchant(customMerchant);
-                    }
-                    setSearchQuery('');
-                  }}
-                >
-                  <Text style={styles.addCustomMerchantText}>
-                    {`+ Add "${searchQuery.trim()}" as Accredited Merchant`}
-                  </Text>
-                </TouchableOpacity>
-              )}
 
             {/* Merchants List */}
             {isLoadingMerchants ? (
@@ -675,7 +637,13 @@ export default function VoucherScreen() {
                   );
                 }}
                 ListEmptyComponent={
-                  <Text style={styles.emptyText}>{`No merchants found matching "${searchQuery}"`}</Text>
+                  <View style={styles.emptyMerchantModalBox}>
+                    <Text style={styles.emptyText}>
+                      {dbMerchants.length === 0
+                        ? 'No accepted merchants for this program yet.\n\nRegistered merchants can discover this program once saved and voluntarily apply to accept vouchers.'
+                        : `No accepted merchants found matching "${searchQuery}"`}
+                    </Text>
+                  </View>
                 }
               />
             )}
@@ -1089,20 +1057,25 @@ const styles = StyleSheet.create({
     color: '#2E5A27',
     lineHeight: 16,
   },
-  addCustomMerchantBtn: {
-    backgroundColor: '#EBF5FB',
-    borderColor: BrandColors.navy,
-    borderWidth: 1,
+  merchantGuidanceBox: {
+    backgroundColor: '#F3F4F6',
     borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    marginHorizontal: Spacing.four,
-    marginBottom: Spacing.three,
-    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+    padding: Spacing.two,
   },
-  addCustomMerchantText: {
+  merchantGuidanceText: {
     color: BrandColors.navy,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontSize: 13,
+    flex: 1,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  emptyMerchantModalBox: {
+    padding: Spacing.four,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
+

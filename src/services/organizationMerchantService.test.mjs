@@ -396,5 +396,79 @@ test('Merchant card, review modal summary, transaction card, and KPI cards are i
   assert.equal(historyTabContent.includes('name="money"'), false, 'KPI summary cards must not render money icon');
 });
 
+test('organization merchant applications filters by status and searches across merchant, owner, program', () => {
+  const sampleApplications = [
+    {
+      application_id: 'app-1',
+      program_id: 'prog-1',
+      program_name: 'Testingf',
+      merchant_id: 'm-1',
+      display_name: 'Merchant Demo Store',
+      owner_name: 'Pedro Cruz',
+      status: 'pending',
+      notes: 'Interested in accepting vouchers',
+    },
+    {
+      application_id: 'app-2',
+      program_id: 'prog-2',
+      program_name: 'Food Aid Q4',
+      merchant_id: 'm-2',
+      display_name: 'City Pharmacy',
+      owner_name: 'Maria Santos',
+      status: 'approved',
+      notes: null,
+    },
+    {
+      application_id: 'app-3',
+      program_id: 'prog-1',
+      program_name: 'Testingf',
+      merchant_id: 'm-3',
+      display_name: 'Barangay Groceries',
+      owner_name: 'Jose Rizal',
+      status: 'rejected',
+      notes: 'Location out of delivery radius',
+    },
+  ];
+
+  const filterApps = (list, status, query) => {
+    return list.filter((app) => {
+      const matchesStatus =
+        status === 'All' || app.status.toLowerCase() === status.toLowerCase();
+      const q = query.toLowerCase().trim();
+      const matchesQuery =
+        !q ||
+        app.display_name.toLowerCase().includes(q) ||
+        (app.program_name && app.program_name.toLowerCase().includes(q)) ||
+        (app.owner_name && app.owner_name.toLowerCase().includes(q));
+      return matchesStatus && matchesQuery;
+    });
+  };
+
+  assert.equal(filterApps(sampleApplications, 'All', '').length, 3);
+  assert.equal(filterApps(sampleApplications, 'Pending', '').length, 1);
+  assert.equal(filterApps(sampleApplications, 'Pending', '')[0].display_name, 'Merchant Demo Store');
+  assert.equal(filterApps(sampleApplications, 'All', 'testingf').length, 2);
+  assert.equal(filterApps(sampleApplications, 'All', 'pharmacy').length, 1);
+  assert.equal(filterApps(sampleApplications, 'All', 'pedro').length, 1);
+});
+
+test('organization merchant search bar has no manual Add Merchant button', () => {
+  const searchBarContent = fs.readFileSync(
+    path.resolve('src/components/MerchantManagement/MerchantSearchBar.tsx'),
+    'utf8',
+  );
+  assert.equal(
+    searchBarContent.includes('onPressAdd'),
+    false,
+    'MerchantSearchBar must not include onPressAdd prop',
+  );
+  assert.equal(
+    searchBarContent.includes('addButton'),
+    false,
+    'MerchantSearchBar must not render an Add Merchant button',
+  );
+});
+
+
 
 

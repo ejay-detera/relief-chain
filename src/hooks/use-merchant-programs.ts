@@ -2,14 +2,25 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 
 import { useAuth } from '@/context/AuthContext';
-import { fetchMerchantPrograms } from '@/services/merchantProgramsService';
-import type { MerchantProgram } from '@/types/merchant-program';
+import {
+  applyForAidProgram,
+  fetchAvailableAidPrograms,
+  fetchMerchantPrograms,
+  withdrawAidProgramApplication,
+} from '@/services/merchantProgramsService';
+import type { AvailableAidProgram, MerchantProgram } from '@/types/merchant-program';
 
 type MerchantProgramsState = {
   programs: MerchantProgram[];
+  availablePrograms: AvailableAidProgram[];
   isLoading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  applyProgram: (
+    programId: string,
+    notes?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  withdrawApplication: (programId: string) => Promise<{ success: boolean; error?: string }>;
 };
 
 const toError = (error: unknown): Error =>
@@ -18,6 +29,7 @@ const toError = (error: unknown): Error =>
 export const useMerchantPrograms = (): MerchantProgramsState => {
   const { profile } = useAuth();
   const [programs, setPrograms] = useState<MerchantProgram[]>([]);
+  const [availablePrograms, setAvailablePrograms] = useState<AvailableAidProgram[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const requestId = useRef(0);
@@ -28,8 +40,14 @@ export const useMerchantPrograms = (): MerchantProgramsState => {
     setIsLoading(true);
     setError(null);
     try {
-      const nextPrograms = await fetchMerchantPrograms(merchantName);
-      if (request === requestId.current) setPrograms(nextPrograms);
+      const [nextAccepted, nextAvailable] = await Promise.all([
+        fetchMerchantPrograms(merchantName),
+        fetchAvailableAidPrograms(),
+      ]);
+      if (request === requestId.current) {
+        setPrograms(nextAccepted);
+        setAvailablePrograms(nextAvailable);
+      }
     } catch (caught: unknown) {
       if (request === requestId.current) setError(toError(caught));
     } finally {
@@ -37,10 +55,71 @@ export const useMerchantPrograms = (): MerchantProgramsState => {
     }
   }, [merchantName]);
 
-  useFocusEffect(useCallback(() => {
-    void refresh();
-    return () => { requestId.current += 1; };
-  }, [refresh]));
+  const applyProgram = useCallback(
+    async (
+      programId: string,
+      notes?: string,
+    ): Promise<{ success: boolean; error?: string }> => {
+      const result = await applyForAidProgram(programId, notes);
+      if (result.success) {
+        // Optimistically update availablePrograms applicationStatus
+        setAvailablePrograms((prev) =>
+          prev.map((prog) =>
+            prog.id === programId
+              ? {
+                  ...prog,
+                  applicationStatus: 'pending',
+                  notes: notes || null,
+                  appliedAt: new Date().toISOString(),
+                }
+              : prog,
+          ),
+        );
+        void refresh();
+      }
+      return result;
+    },
+    [refresh],
+  );
 
-  return { programs, isLoading, error, refresh };
+  const withdrawApplication = useCallback(
+    async (programId: string): Promise<{ success: boolean; error?: string }> => {
+      const result = await withdrawAidProgramApplication(programId);
+      if (result.success) {
+        setAvailablePrograms((prev) =>
+          prev.map((prog) =>
+            prog.id === programId
+              ? {
+                  ...prog,
+                  applicationStatus: 'none',
+                  notes: null,
+                }
+              : prog,
+          ),
+        );
+        void refresh();
+      }
+      return result;
+    },
+    [refresh],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+      return () => {
+        requestId.current += 1;
+      };
+    }, [refresh]),
+  );
+
+  return {
+    programs,
+    availablePrograms,
+    isLoading,
+    error,
+    refresh,
+    applyProgram,
+    withdrawApplication,
+  };
 };

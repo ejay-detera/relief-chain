@@ -5,7 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BeneficiaryDetailModal } from '@/components/BeneficiaryVerification/BeneficiaryDetailModal';
 import { BeneficiaryManagementView } from '@/components/BeneficiaryVerification/BeneficiaryManagementView';
 import type { FilterStatus } from '@/components/BeneficiaryVerification/StatusFilterTabs';
-import { AddMerchantModal } from '@/components/MerchantManagement/AddMerchantModal';
+import {
+  ApplicationFilterStatus,
+  MerchantApplicationsView,
+} from '@/components/MerchantManagement/MerchantApplicationsView';
 import { MerchantDetailModal } from '@/components/MerchantManagement/MerchantDetailModal';
 import { MerchantManagementView } from '@/components/MerchantManagement/MerchantManagementView';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -15,17 +18,18 @@ import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
-  accreditMerchant,
+  fetchOrganizationMerchantApplications,
   fetchOrganizationMerchants,
   removeMerchantAccreditation,
+  reviewMerchantApplication,
   updateMerchantStatus,
 } from '@/services/organizationMerchantService';
 import type { UserProfile } from '@/types/auth';
 import type {
   AccreditationFilterStatus,
   AccreditedMerchant,
-  AddMerchantPayload,
   MerchantAccreditationStatus,
+  MerchantProgramApplicant,
 } from '@/types/merchant-management';
 
 export default function BeneficiariesVerificationScreen() {
@@ -33,6 +37,11 @@ export default function BeneficiariesVerificationScreen() {
   const [managementTab, setManagementTab] = useState<
     'beneficiaries' | 'merchants'
   >('beneficiaries');
+
+  // Sub-tab inside Merchant Management
+  const [merchantSubTab, setMerchantSubTab] = useState<
+    'applications' | 'accredited'
+  >('applications');
 
   // Beneficiary state
   const [beneficiaries, setBeneficiaries] = useState<UserProfile[]>([]);
@@ -44,7 +53,7 @@ export default function BeneficiariesVerificationScreen() {
   const [activeBeneficiary, setActiveBeneficiary] =
     useState<UserProfile | null>(null);
 
-  // Merchant state
+  // Merchant accreditations state
   const [merchants, setMerchants] = useState<AccreditedMerchant[]>([]);
   const [loadingMerchants, setLoadingMerchants] = useState(true);
   const [refreshingMerchants, setRefreshingMerchants] = useState(false);
@@ -53,7 +62,14 @@ export default function BeneficiariesVerificationScreen() {
     useState<AccreditationFilterStatus>('All');
   const [activeMerchant, setActiveMerchant] =
     useState<AccreditedMerchant | null>(null);
-  const [addMerchantModalVisible, setAddMerchantModalVisible] = useState(false);
+
+  // Merchant program applications state
+  const [applications, setApplications] = useState<MerchantProgramApplicant[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(true);
+  const [refreshingApplications, setRefreshingApplications] = useState(false);
+  const [applicationSearch, setApplicationSearch] = useState('');
+  const [selectedApplicationStatus, setSelectedApplicationStatus] =
+    useState<ApplicationFilterStatus>('All');
 
   // Fetch beneficiaries
   const fetchBeneficiaries = async (showLoading = true) => {
@@ -78,7 +94,7 @@ export default function BeneficiariesVerificationScreen() {
     }
   };
 
-  // Fetch merchants
+  // Fetch accredited merchants
   const fetchMerchants = async (showLoading = true) => {
     if (showLoading) {
       Promise.resolve().then(() => setLoadingMerchants(true));
@@ -95,12 +111,30 @@ export default function BeneficiariesVerificationScreen() {
     }
   };
 
+  // Fetch incoming merchant program applications
+  const fetchApplications = async (showLoading = true) => {
+    if (showLoading) {
+      Promise.resolve().then(() => setLoadingApplications(true));
+    }
+    try {
+      const list = await fetchOrganizationMerchantApplications();
+      setApplications(list);
+    } catch (err) {
+      console.error('Error fetching merchant applications:', err);
+      Alert.alert('Error', 'Unable to retrieve merchant applications.');
+    } finally {
+      setLoadingApplications(false);
+      setRefreshingApplications(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     Promise.resolve().then(() => {
       if (isMounted) {
         void fetchBeneficiaries(false);
         void fetchMerchants(false);
+        void fetchApplications(false);
       }
     });
     return () => {
@@ -133,7 +167,7 @@ export default function BeneficiariesVerificationScreen() {
     }
   };
 
-  // Merchant actions
+  // Merchant accreditation actions
   const handleUpdateMerchantStatus = async (
     accreditationId: string,
     status: MerchantAccreditationStatus,
@@ -199,16 +233,43 @@ export default function BeneficiariesVerificationScreen() {
     }
   };
 
-  const handleAccreditMerchant = async (payload: AddMerchantPayload) => {
+  // Application actions (review: approve or decline)
+  const handleApproveApplication = async (applicant: MerchantProgramApplicant) => {
     try {
-      const res = await accreditMerchant(payload);
-      if (!res.success) throw new Error(res.error);
-
-      await fetchMerchants(false);
-      Alert.alert('Success', 'Merchant successfully accredited to organization!');
+      const res = await reviewMerchantApplication(applicant.application_id, 'approved');
+      if (!res.success) {
+        Alert.alert('Error', res.error || 'Failed to approve application.');
+        return;
+      }
+      Alert.alert(
+        'Merchant Accredited',
+        `"${applicant.display_name}" is now accredited for ${applicant.program_name || 'the aid program'}.`,
+      );
+      await Promise.all([fetchApplications(false), fetchMerchants(false)]);
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to accredit merchant.');
-      throw err;
+      console.error('Error approving merchant application:', err);
+      Alert.alert('Error', err?.message || 'Failed to approve application.');
+    }
+  };
+
+  const handleRejectApplication = async (
+    applicant: MerchantProgramApplicant,
+    reason: string,
+  ) => {
+    try {
+      const res = await reviewMerchantApplication(applicant.application_id, 'rejected', reason);
+      if (!res.success) {
+        Alert.alert('Error', res.error || 'Failed to decline application.');
+        return;
+      }
+      Alert.alert(
+        'Application Declined',
+        `Application for "${applicant.display_name}" has been declined.`,
+      );
+      await fetchApplications(false);
+    } catch (err: any) {
+      console.error('Error declining merchant application:', err);
+      Alert.alert('Error', err?.message || 'Failed to decline application.');
     }
   };
 
@@ -228,7 +289,7 @@ export default function BeneficiariesVerificationScreen() {
     return matchesStatus && matchesSearch;
   });
 
-  // Filter merchants
+  // Filter accredited merchants
   const filteredMerchants = merchants.filter((m) => {
     const matchesStatus =
       selectedMerchantStatus === 'All' ||
@@ -244,6 +305,25 @@ export default function BeneficiariesVerificationScreen() {
     return matchesStatus && matchesSearch;
   });
 
+  // Filter merchant applications
+  const filteredApplications = applications.filter((app) => {
+    const matchesStatus =
+      selectedApplicationStatus === 'All' ||
+      app.status.toLowerCase() === selectedApplicationStatus.toLowerCase();
+
+    const query = applicationSearch.toLowerCase().trim();
+    const matchesSearch =
+      !query ||
+      app.display_name.toLowerCase().includes(query) ||
+      (app.program_name && app.program_name.toLowerCase().includes(query)) ||
+      (app.owner_name && app.owner_name.toLowerCase().includes(query)) ||
+      (app.notes && app.notes.toLowerCase().includes(query));
+
+    return matchesStatus && matchesSearch;
+  });
+
+  const pendingAppsCount = applications.filter((a) => a.status === 'pending').length;
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -258,7 +338,7 @@ export default function BeneficiariesVerificationScreen() {
             <ThemedText style={styles.subtitle}>
               {managementTab === 'beneficiaries'
                 ? 'Review registration submissions and verify citizen identities.'
-                : 'Accredit, monitor, and manage partner stores for your aid programs.'}
+                : 'Review voluntary merchant applications and monitor accredited partner stores.'}
             </ThemedText>
 
             {/* Segment Switcher Tabs */}
@@ -287,16 +367,89 @@ export default function BeneficiariesVerificationScreen() {
                   managementTab === 'merchants' && styles.segmentBtnActive,
                 ]}
               >
-                <ThemedText
-                  style={[
-                    styles.segmentText,
-                    managementTab === 'merchants' && styles.segmentTextActive,
-                  ]}
-                >
-                  Merchants
-                </ThemedText>
+                <View style={styles.segmentTextWithBadge}>
+                  <ThemedText
+                    style={[
+                      styles.segmentText,
+                      managementTab === 'merchants' && styles.segmentTextActive,
+                    ]}
+                  >
+                    Merchants
+                  </ThemedText>
+                  {pendingAppsCount > 0 && (
+                    <View style={styles.headerCountBadge}>
+                      <ThemedText style={styles.headerCountBadgeText}>
+                        {pendingAppsCount}
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
               </Pressable>
             </View>
+
+            {/* Sub-Segment Switcher for Merchants */}
+            {managementTab === 'merchants' && (
+              <View style={styles.subSegmentWrapper}>
+                <View style={styles.subSegmentContainer}>
+                  <Pressable
+                    onPress={() => setMerchantSubTab('applications')}
+                    style={[
+                      styles.subSegmentBtn,
+                      merchantSubTab === 'applications' && styles.subSegmentBtnActive,
+                    ]}
+                  >
+                    <View style={styles.subSegmentBtnRow}>
+                      <ThemedText
+                        style={[
+                          styles.subSegmentText,
+                          merchantSubTab === 'applications' && styles.subSegmentTextActive,
+                        ]}
+                      >
+                        Applications
+                      </ThemedText>
+                      {pendingAppsCount > 0 && (
+                        <View
+                          style={[
+                            styles.subCountBadge,
+                            merchantSubTab === 'applications'
+                              ? styles.subCountBadgeActive
+                              : styles.subCountBadgeInactive,
+                          ]}
+                        >
+                          <ThemedText
+                            style={[
+                              styles.subCountBadgeText,
+                              merchantSubTab === 'applications'
+                                ? styles.subCountBadgeTextActive
+                                : styles.subCountBadgeTextInactive,
+                            ]}
+                          >
+                            {pendingAppsCount}
+                          </ThemedText>
+                        </View>
+                      )}
+                    </View>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setMerchantSubTab('accredited')}
+                    style={[
+                      styles.subSegmentBtn,
+                      merchantSubTab === 'accredited' && styles.subSegmentBtnActive,
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.subSegmentText,
+                        merchantSubTab === 'accredited' && styles.subSegmentTextActive,
+                      ]}
+                    >
+                      Accredited Stores ({merchants.length})
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            )}
           </View>
         </FadeInView>
 
@@ -319,11 +472,28 @@ export default function BeneficiariesVerificationScreen() {
         )}
 
         {/* Tab 2: Merchant Management */}
-        {managementTab === 'merchants' && (
+        {managementTab === 'merchants' && merchantSubTab === 'applications' && (
+          <MerchantApplicationsView
+            searchQuery={applicationSearch}
+            onSearchChange={setApplicationSearch}
+            selectedStatus={selectedApplicationStatus}
+            onStatusChange={setSelectedApplicationStatus}
+            data={filteredApplications}
+            loading={loadingApplications}
+            refreshing={refreshingApplications}
+            onRefresh={() => {
+              setRefreshingApplications(true);
+              fetchApplications(false);
+            }}
+            onApprove={handleApproveApplication}
+            onReject={handleRejectApplication}
+          />
+        )}
+
+        {managementTab === 'merchants' && merchantSubTab === 'accredited' && (
           <MerchantManagementView
             searchQuery={merchantSearch}
             onSearchChange={setMerchantSearch}
-            onPressAdd={() => setAddMerchantModalVisible(true)}
             selectedStatus={selectedMerchantStatus}
             onStatusChange={setSelectedMerchantStatus}
             data={filteredMerchants}
@@ -350,13 +520,6 @@ export default function BeneficiariesVerificationScreen() {
           onClose={() => setActiveMerchant(null)}
           onUpdateStatus={handleUpdateMerchantStatus}
           onRemove={handleRemoveMerchant}
-        />
-
-        {/* Add / Accredit Merchant Modal */}
-        <AddMerchantModal
-          visible={addMerchantModalVisible}
-          onClose={() => setAddMerchantModalVisible(false)}
-          onAccredit={handleAccreditMerchant}
         />
       </SafeAreaView>
     </ThemedView>
@@ -404,6 +567,25 @@ const styles = StyleSheet.create({
   segmentBtnActive: {
     backgroundColor: BrandColors.navy,
   },
+  segmentTextWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerCountBadge: {
+    backgroundColor: BrandColors.green,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   segmentText: {
     fontSize: 13,
     fontWeight: '600',
@@ -412,5 +594,70 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     color: 'white',
     fontWeight: '700',
+  },
+  subSegmentWrapper: {
+    marginTop: Spacing.two,
+    paddingTop: Spacing.two,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E7EB',
+  },
+  subSegmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: BorderRadius.md,
+    padding: 3,
+  },
+  subSegmentBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subSegmentBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  subSegmentBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  subSegmentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BrandColors.grey,
+  },
+  subSegmentTextActive: {
+    color: BrandColors.navy,
+    fontWeight: '700',
+  },
+  subCountBadge: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subCountBadgeActive: {
+    backgroundColor: BrandColors.green,
+  },
+  subCountBadgeInactive: {
+    backgroundColor: '#E5E7EB',
+  },
+  subCountBadgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  subCountBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  subCountBadgeTextInactive: {
+    color: BrandColors.navy,
   },
 });

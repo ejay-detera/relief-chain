@@ -13,7 +13,6 @@ import { MerchantStatusFilterTabs } from './MerchantStatusFilterTabs';
 type Props = {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onPressAdd: () => void;
   selectedStatus: AccreditationFilterStatus;
   onStatusChange: (status: AccreditationFilterStatus) => void;
   data: AccreditedMerchant[];
@@ -26,7 +25,6 @@ type Props = {
 export const MerchantManagementView = ({
   searchQuery,
   onSearchChange,
-  onPressAdd,
   selectedStatus,
   onStatusChange,
   data,
@@ -37,12 +35,11 @@ export const MerchantManagementView = ({
 }: Props) => {
   return (
     <View style={{ flex: 1 }}>
-      {/* Search Bar + Add Button */}
+      {/* Search Bar */}
       <FadeInView delay={20}>
         <MerchantSearchBar
           value={searchQuery}
           onChangeText={onSearchChange}
-          onPressAdd={onPressAdd}
         />
       </FadeInView>
 
