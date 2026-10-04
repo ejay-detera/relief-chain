@@ -1,10 +1,34 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { BrandColors, Spacing } from '@/constants/theme';
+import {
+  type StatusDropdownOption,
+  StatusFilterDropdown,
+} from '@/components/shared/StatusFilterDropdown';
 
 export type FilterStatus = 'All' | 'Pending' | 'Verified' | 'Rejected';
+
+const BENEFICIARY_STATUS_OPTIONS: StatusDropdownOption<FilterStatus>[] = [
+  {
+    label: 'All Statuses',
+    value: 'All',
+    subtitle: 'Show all beneficiary records',
+  },
+  {
+    label: 'Pending',
+    value: 'Pending',
+    subtitle: 'Awaiting verification review',
+  },
+  {
+    label: 'Verified',
+    value: 'Verified',
+    subtitle: 'Identity confirmed and approved',
+  },
+  {
+    label: 'Rejected',
+    value: 'Rejected',
+    subtitle: 'Verification declined',
+  },
+];
 
 type Props = {
   selected: FilterStatus;
@@ -12,56 +36,14 @@ type Props = {
 };
 
 export const StatusFilterTabs = ({ selected, onSelect }: Props) => {
-  const statuses: FilterStatus[] = ['All', 'Pending', 'Verified', 'Rejected'];
-
   return (
-    <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {statuses.map((status) => {
-          const isSelected = selected === status;
-          return (
-            <Pressable
-              key={status}
-              onPress={() => onSelect(status)}
-              style={[styles.tab, isSelected && styles.tabActive]}
-            >
-              <ThemedText style={[styles.tabText, isSelected && styles.tabTextActive]}>
-                {status}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
+    <StatusFilterDropdown<FilterStatus>
+      selected={selected}
+      onSelect={onSelect}
+      options={BENEFICIARY_STATUS_OPTIONS}
+      title="Filter Beneficiaries by Status"
+    />
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    paddingVertical: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BrandColors.lightGray,
-    backgroundColor: 'white',
-  },
-  scroll: {
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.two,
-  },
-  tab: {
-    paddingHorizontal: Spacing.four,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  tabActive: {
-    backgroundColor: BrandColors.navy,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BrandColors.grey,
-  },
-  tabTextActive: {
-    color: 'white',
-  },
-});
+export const StatusFilterDropdownMenu = StatusFilterTabs;

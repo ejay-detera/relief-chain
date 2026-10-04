@@ -12,6 +12,10 @@ import {
 } from 'react-native';
 
 import { FadeInView } from '@/components/shared/FadeInView';
+import {
+  type StatusDropdownOption,
+  StatusFilterDropdown,
+} from '@/components/shared/StatusFilterDropdown';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import type { MerchantProgramApplicant } from '@/types/merchant-management';
@@ -19,7 +23,28 @@ import { MerchantSearchBar } from './MerchantSearchBar';
 
 export type ApplicationFilterStatus = 'All' | 'Pending' | 'Approved' | 'Rejected';
 
-const STATUS_FILTERS: ApplicationFilterStatus[] = ['All', 'Pending', 'Approved', 'Rejected'];
+const APPLICATION_STATUS_OPTIONS: StatusDropdownOption<ApplicationFilterStatus>[] = [
+  {
+    label: 'All Statuses',
+    value: 'All',
+    subtitle: 'Show all program applications',
+  },
+  {
+    label: 'Pending',
+    value: 'Pending',
+    subtitle: 'Awaiting approval decision',
+  },
+  {
+    label: 'Approved',
+    value: 'Approved',
+    subtitle: 'Accepted to relief program',
+  },
+  {
+    label: 'Rejected',
+    value: 'Rejected',
+    subtitle: 'Application declined',
+  },
+];
 
 type Props = {
   searchQuery: string;
@@ -236,26 +261,14 @@ export const MerchantApplicationsView = ({
         />
       </FadeInView>
 
-      {/* Filter Tabs */}
+      {/* Status Filter Dropdown */}
       <FadeInView delay={40}>
-        <View style={styles.tabsContainer}>
-          <View style={styles.tabsScroll}>
-            {STATUS_FILTERS.map((status) => {
-              const isSelected = selectedStatus === status;
-              return (
-                <TouchableOpacity
-                  key={status}
-                  onPress={() => onStatusChange(status)}
-                  style={[styles.tab, isSelected && styles.tabActive]}
-                >
-                  <ThemedText style={[styles.tabText, isSelected && styles.tabTextActive]}>
-                    {status}
-                  </ThemedText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+        <StatusFilterDropdown<ApplicationFilterStatus>
+          selected={selectedStatus}
+          onSelect={onStatusChange}
+          options={APPLICATION_STATUS_OPTIONS}
+          title="Filter Applications by Status"
+        />
       </FadeInView>
 
       {/* Applications List */}
@@ -299,34 +312,6 @@ export const MerchantApplicationsView = ({
 };
 
 const styles = StyleSheet.create({
-  tabsContainer: {
-    paddingVertical: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BrandColors.lightGray,
-    backgroundColor: 'white',
-  },
-  tabsScroll: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.two,
-  },
-  tab: {
-    paddingHorizontal: Spacing.four,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  tabActive: {
-    backgroundColor: BrandColors.navy,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: BrandColors.grey,
-  },
-  tabTextActive: {
-    color: 'white',
-  },
   listContent: {
     padding: Spacing.four,
     gap: Spacing.three,
