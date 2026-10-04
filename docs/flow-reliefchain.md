@@ -47,7 +47,7 @@ flowchart TB
   LG --> LG1["✅ Dashboard — budget · programs · activity"]
   LG --> LG2["✅ Programs + program/[id]"]
   LG --> LG3["✅ Disbursements (route pay-scan)"]
-  LG --> LG4["✅ Beneficiaries — verify · re-verify"]
+  LG --> LG4["✅ Management — Beneficiary verification & Merchant management · Redemption history (ORG-11, ORG-12)"]
   LG --> LG5["✅ Settings · edit-profile · security"]
   LG --> LG6["✅ create-program — 7 steps"]
   LG --> LG7["⬜ analytics / report export UI"]

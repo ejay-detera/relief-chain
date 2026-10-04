@@ -201,7 +201,7 @@
 - The merchant is notified of the decision, including the reason if rejected.
 
 ### ORG-11 — View a merchant's redemption history
-**Priority:** Medium · **Role:** Organization Admin · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Organization Admin · **Developer:** — · **Status:** Done
 
 > As an Organization Administrator, I want to view a merchant's redemption history so that I can monitor financial aid transactions processed by that merchant.
 
@@ -210,7 +210,7 @@
 - I can filter a merchant's history by date range and program.
 
 ### ORG-12 — Manage accredited merchants
-**Priority:** Medium · **Role:** Organization Admin · **Developer:** — · **Status:** —
+**Priority:** Medium · **Role:** Organization Admin · **Developer:** — · **Status:** Done
 
 > As an Organization Administrator, I want to manage accredited merchants so that I can maintain an up-to-date list of participating businesses.
 

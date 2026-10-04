@@ -57,7 +57,7 @@ export default function LguLayout() {
         <Tabs.Screen
           name="beneficiaries"
           options={{
-            title: 'Beneficiaries',
+            title: 'Management',
             tabBarIcon: ({ color, focused }) => (
               <View style={focused ? styles.activeIconContainer : styles.iconContainer}>
                 <FontAwesome name="users" size={24} color={color} />
