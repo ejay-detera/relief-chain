@@ -72,6 +72,24 @@ export const getOrCreateMerchantMetrics = async (
     }
   }
 
+  // Try RPC which aggregates real redemptions and projections
+  try {
+    const { data: rpcMetrics, error: rpcErr } = await supabase.rpc(
+      'get_or_create_merchant_metrics' as never
+    );
+    if (!rpcErr && rpcMetrics) {
+      const row = rpcMetrics as Record<string, unknown>;
+      return {
+        merchantId: (row.merchant_id as string) || merchantId || '',
+        vouchersProcessed: Number(row.vouchers_processed || 0),
+        totalSales: Number(row.total_sales || 0),
+        updatedAt: (row.updated_at as string) || new Date().toISOString(),
+      };
+    }
+  } catch {
+    // Fall back to direct settlements query
+  }
+
   if (!merchantId) {
     return {
       merchantId: '',

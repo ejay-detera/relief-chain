@@ -11,6 +11,7 @@ type EnrollmentRow = {
   category: string;
   rejection_remarks?: string | null;
   allocation_amount_stroops: number | string | null;
+  voucher_balance?: number | string | null;
   program: {
     id: string;
     name: string;
@@ -48,6 +49,7 @@ export function useBeneficiaryPrograms() {
           category,
           rejection_remarks,
           allocation_amount_stroops,
+          voucher_balance,
           program:programs (
             id,
             name,
@@ -96,6 +98,12 @@ export function useBeneficiaryPrograms() {
 
           const allocationAmountStroops =
             e.allocation_amount_stroops != null ? Number(e.allocation_amount_stroops) : null;
+          const rawVoucherBalance =
+            e.voucher_balance != null ? Number(e.voucher_balance) : null;
+          const remainingVoucherStroops =
+            rawVoucherBalance != null
+              ? Math.max(0, Math.round(rawVoucherBalance * 10_000_000))
+              : null;
 
           return {
             id: e.program!.id,
@@ -117,6 +125,8 @@ export function useBeneficiaryPrograms() {
               e.approval_status === 'Approved' && allocationAmountStroops && allocationAmountStroops > 0
                 ? allocationAmountStroops
                 : null,
+            voucherBalance: rawVoucherBalance,
+            remainingVoucherStroops,
           };
         });
 

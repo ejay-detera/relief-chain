@@ -202,13 +202,32 @@ export const createLguProgram = async (
 };
 
 export const fetchRegisteredMerchants = async (): Promise<string[]> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('role', 'merchant');
+  const names = new Set<string>();
 
-  if (error) throw error;
-  return (data || []).map((item) => item.full_name).filter(Boolean) as string[];
+  try {
+    const { data: meData } = await supabase
+      .from('merchant_entities')
+      .select('display_name');
+    if (meData) {
+      meData.forEach((row) => row.display_name && names.add(row.display_name));
+    }
+  } catch {
+    // Ignore scoping RLS error
+  }
+
+  try {
+    const { data: profData } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('role', 'merchant');
+    if (profData) {
+      profData.forEach((row) => row.full_name && names.add(row.full_name));
+    }
+  } catch {
+    // Ignore scoping RLS error
+  }
+
+  return Array.from(names);
 };
 
 export const updateLguProgram = async (
@@ -216,6 +235,29 @@ export const updateLguProgram = async (
   draft: ProgramDraft,
   status: 'draft' | 'published'
 ): Promise<{ success: boolean; programId?: string; organizationId?: string }> => {
+  // 1. Try authorized update_lgu_program_details RPC first
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('update_lgu_program_details', {
+      p_program_id: id,
+      p_draft: draft as any,
+    });
+    if (!rpcError && rpcData && (rpcData as any).program_id) {
+      await replaceProgramGeography(
+        (rpcData as any).program_id,
+        draft.affectedAreaIds,
+        draft.affectedBarangayIds
+      );
+      return {
+        success: true,
+        programId: (rpcData as any).program_id,
+        organizationId: (rpcData as any).organization_id,
+      };
+    }
+  } catch (rpcErr) {
+    console.warn('[updateLguProgram] RPC error, falling back to direct table update:', rpcErr);
+  }
+
+  // 2. Direct table update fallback
   const { data: programData, error: programError } = await supabase
     .from('programs')
     .update({

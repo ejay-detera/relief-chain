@@ -302,7 +302,7 @@
 ## 5. Merchant
 
 ### MER-01 — Balance check before redemption
-**Priority:** High · **Role:** Merchant · **Developer:** — · **Status:** —
+**Priority:** High · **Role:** Merchant · **Developer:** Agent Team · **Status:** Done
 
 > As a Merchant, I want the system to check the beneficiary's available balance before I process a redemption so that I don't process a transaction exceeding what's available.
 
@@ -311,7 +311,7 @@
 - The same check runs against the last-synced local balance when offline, and is re-verified once the transaction syncs online.
 
 ### MER-02 — Scan QR and process redemption
-**Priority:** High · **Role:** Merchant · **Developer:** — · **Status:** —
+**Priority:** High · **Role:** Merchant · **Developer:** Agent Team · **Status:** Done
 
 > As a Merchant, I want to scan a beneficiary's QR code and process a Stellar blockchain transaction to redeem assistance so that I receive payment for goods or services provided.
 
@@ -446,6 +446,7 @@ Record every scope change here: added or removed stories, priority changes, renu
 | 2026-09-26 | Added LGU "Check distribution status" authorized reconcile action on the distribution observation screen (ORG-06): LGU-session `reconcile-stellar` job-branch call plus reconciled-state refresh, mirroring the merchant settlement check; no acceptance criteria changed. | Stranded `submitted` distribution recipients with valid on-chain hashes had no working authorized reconcile trigger while submit returned 200; the LGU-self path unblocks them without widening auth. |
 | 2026-09-26 | Scoped abandonment disposition for stranded program cash (maps to BEN-04 wallet balance honesty, BEN-03 aid-details clarity, MER-01 balance-check correctness; no story added/removed/reprioritised): new explicit `is_abandoned` disposition on `beneficiary_balance_projection` via service-owned operator action (never beneficiary self-service), spendable sums exclude abandoned rows with a separate greyed history section, and deterministic oldest-distributed-cash-first spend attribution (abandoned never attributed; truly ambiguous still skips fail-closed). Testnet only; ~1% fee framing unchanged; no monetary value. | Dashboard summed all rows (2,820) vs chain truth (1,795) because the 1,000 stranded to lost wallet GBDR plus its mis-booked 180 real spend had no honest mechanism (quarantine needs fabricated mismatch and still sums; zeroing falsifies the invariant; DELETE destroys history). Defines the honest additive-metadata mechanism without weakening triggers/RLS. |
 | 2026-10-01 | Implemented BEN-01 through BEN-07, ORG-08, and US8 (Beneficiary CSV Import, Dynamic Requirements, Private Programs): Added `rejection_remarks` to enrollments, vertical application status timeline, merchant category chips on aid vouchers, per-voucher-type balance breakdown with sync timestamp, transaction category & pending sync pill, appeal filing and resolution flow with automatic application re-opening, in-app notification inbox (`aid_released`, `appeal_submitted`, `appeal_decision`), dynamic program requirements schema and form, LGU beneficiary CSV import and pending SMS invite queue stub. Zero `any` casts; 100% type-checked. | Satisfy all beneficiary user stories and acceptance criteria for hackathon demonstration while preserving financial and security boundaries (testnet-only, device signing, append-only audit, fail-closed numerics). |
+| 2026-10-03 | Implemented MER-01 and MER-02 (Merchant balance check before redemption, non-cash voucher support, QR scanner & redemption workflow): Added canonical voucher category matcher matrix (`Food`, `Medicine`, `Shelter`, `Supplies`, etc.), `check_beneficiary_balance_for_merchant` secure RPC, updated `prepare-payment` edge function to support `funding_source = 'voucher'`, device-level balance cache and offline pending sync queue in `SecureStore`, dual-mode redemption hub on Merchant QR Scan tab, real-time balance validation, digital receipt modal with clipboard/share actions, and in-app receipt notifications. 100% type-checked. | Deliver full merchant redemption workflow supporting non-cash aid vouchers with offline-first balance caching and fail-closed category and balance gating. |
 
 ---
 

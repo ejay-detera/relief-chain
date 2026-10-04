@@ -21,6 +21,9 @@ import {
 import { useCreateProgram } from './_layout';
 
 const DEFAULT_MERCHANTS = [
+  'merchant@example.com',
+  'Merchant Owner',
+  'Merchant Demo User',
   'SM Supermarket',
   'Puregold',
   '7-Eleven',
@@ -57,13 +60,21 @@ export default function VoucherScreen() {
       try {
         const names = await fetchRegisteredMerchants();
         if (active) {
-          const merged = Array.from(new Set([...names, ...DEFAULT_MERCHANTS]));
+          const merged = Array.from(new Set([
+            ...draft.selectedMerchants,
+            ...names,
+            ...DEFAULT_MERCHANTS,
+          ]));
           setDbMerchants(merged);
         }
       } catch (err) {
         console.error('Error fetching database merchants:', err);
         if (active) {
-          setDbMerchants(DEFAULT_MERCHANTS);
+          const merged = Array.from(new Set([
+            ...draft.selectedMerchants,
+            ...DEFAULT_MERCHANTS,
+          ]));
+          setDbMerchants(merged);
         }
       } finally {
         if (active) {
@@ -185,14 +196,19 @@ export default function VoucherScreen() {
       setDateError('');
     } else if (mode === 'food') {
       const defaultFoodMerchants = dbMerchants.filter((m) =>
-        ['SM Supermarket', 'Puregold', '7-Eleven', 'Robinsons Supermarket', 'Metro Gaisano'].includes(m)
+        ['merchant@example.com', 'SM Supermarket', 'Puregold', '7-Eleven', 'Robinsons Supermarket', 'Metro Gaisano'].includes(m)
       );
       updateDraft({
         voucherTypes: ['food'],
         redemptionType: 'merchant',
         voucherValue: draft.aidPerHousehold,
         voucherQuantity: 1,
-        selectedMerchants: defaultFoodMerchants.length > 0 ? defaultFoodMerchants : ['SM Supermarket', 'Puregold'],
+        selectedMerchants:
+          draft.selectedMerchants.length > 0
+            ? draft.selectedMerchants
+            : defaultFoodMerchants.length > 0
+            ? defaultFoodMerchants
+            : ['merchant@example.com', 'SM Supermarket', 'Puregold'],
       });
       if (!draft.voucherExpiration) {
         setPresetDate(60);
@@ -591,12 +607,34 @@ export default function VoucherScreen() {
             <View style={styles.searchContainer}>
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search Merchant..."
+                placeholder="Search or enter merchant name / email..."
                 placeholderTextColor={BrandColors.grey}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
             </View>
+
+            {/* Quick add custom merchant / email button if not already in list */}
+            {searchQuery.trim().length > 0 &&
+              !dbMerchants.some(
+                (m) => m.toLowerCase() === searchQuery.trim().toLowerCase()
+              ) && (
+                <TouchableOpacity
+                  style={styles.addCustomMerchantBtn}
+                  onPress={() => {
+                    const customMerchant = searchQuery.trim();
+                    setDbMerchants((prev) => [customMerchant, ...prev]);
+                    if (!draft.selectedMerchants.includes(customMerchant)) {
+                      toggleMerchant(customMerchant);
+                    }
+                    setSearchQuery('');
+                  }}
+                >
+                  <Text style={styles.addCustomMerchantText}>
+                    + Add "{searchQuery.trim()}" as Accredited Merchant
+                  </Text>
+                </TouchableOpacity>
+              )}
 
             {/* Merchants List */}
             {isLoadingMerchants ? (
@@ -1034,5 +1072,21 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_400Regular',
     color: '#2E5A27',
     lineHeight: 16,
+  },
+  addCustomMerchantBtn: {
+    backgroundColor: '#EBF5FB',
+    borderColor: BrandColors.navy,
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    marginHorizontal: Spacing.four,
+    marginBottom: Spacing.three,
+    alignItems: 'center',
+  },
+  addCustomMerchantText: {
+    color: BrandColors.navy,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 13,
   },
 });

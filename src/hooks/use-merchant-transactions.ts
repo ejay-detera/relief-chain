@@ -162,7 +162,24 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
 
       const settlementRows = (settlementData ?? []) as unknown as SettlementRow[];
 
-      // 2. Fetch local invoices to link nonces or check for locally known settled items
+      // 2. Fetch remote voucher redemptions for this merchant
+      const { data: redemptionData } = await supabase
+        .from('redemptions')
+        .select(`
+          id,
+          amount,
+          category,
+          status,
+          tx_hash,
+          redeemed_at,
+          program_id,
+          program:programs ( id, name )
+        `)
+        .order('redeemed_at', { ascending: false });
+
+      if (request !== requestRef.current) return;
+
+      // 3. Fetch local invoices to link nonces or check for locally known settled items
       let storedInvoices: Awaited<ReturnType<typeof getStoredInvoices>> = [];
       try {
         storedInvoices = await getStoredInvoices(merchantEntityId);
@@ -178,7 +195,7 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
         }
       }
 
-      // 3. Map settlements to clean domain MerchantTransaction records
+      // 4. Map settlements to clean domain MerchantTransaction records
       const mappedTransactions: MerchantTransaction[] = settlementRows.map((row) => {
         const programObj = Array.isArray(row.program) ? row.program[0] : row.program;
         const programName = programObj?.name ?? null;
@@ -209,7 +226,44 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
         };
       });
 
-      setTransactions(Object.freeze(mappedTransactions));
+      // 5. Map voucher redemptions to domain MerchantTransaction records
+      const mappedRedemptions: MerchantTransaction[] = ((redemptionData ?? []) as Array<Record<string, unknown>>).map((row) => {
+        const programObj = Array.isArray(row.program) ? row.program[0] : row.program;
+        const prog = programObj as { id?: string; name?: string } | null;
+        const programName = prog?.name ?? (row.category ? `${row.category} Voucher` : 'Voucher Redemption');
+        const payerName = programName;
+        const rawDate = (row.redeemed_at as string) || new Date().toISOString();
+        const amountNumber = Number(row.amount);
+        let amountStroops = ZERO_STROOPS;
+        try {
+          amountStroops = parseStroopAmount(BigInt(Math.round(amountNumber * 10_000_000)).toString());
+        } catch {
+          amountStroops = ZERO_STROOPS;
+        }
+
+        return {
+          id: row.id as string,
+          settlementId: row.id as string,
+          payerName,
+          programName,
+          programId: (row.program_id as string) || null,
+          occurredAt: formatTransactionDate(rawDate),
+          rawDate,
+          amount: amountNumber,
+          amountStroops,
+          status: 'confirmed' as const,
+          kind: 'voucher_redemption' as const,
+          transactionHash: (row.tx_hash as string) || null,
+          ledger: null,
+          correlationId: (row.id as string) || null,
+        };
+      });
+
+      const allTransactions = [...mappedTransactions, ...mappedRedemptions].sort(
+        (a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()
+      );
+
+      setTransactions(Object.freeze(allTransactions));
     } catch (caught: unknown) {
       if (request !== requestRef.current) return;
       setError(caught instanceof Error ? caught.message : 'Unable to load past transactions.');

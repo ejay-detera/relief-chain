@@ -5,6 +5,7 @@ import { ReconciliationBadge } from '@/components/shared/reconciliation-badge';
 import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { parseStroopAmount, type StroopAmount } from '@/types/blockchain';
 import type { BeneficiaryProgramEntitlement, ProjectionState } from '@/types/projection';
 import { EnrolledProgram } from '@/types/wallet';
 import { formatStroops } from '@/utils/format-stroops';
@@ -32,8 +33,22 @@ const balancePlaceholder = (status: ProjectionState<unknown>['status']): string 
 };
 
 export function ActiveProgramCard({ program, entitlement, balanceState, onPress }: Props) {
-  const balanceLabel = entitlement
-    ? `${formatStroops(entitlement.availableStroops)} ${PILOT_ASSET_CODE}`
+  const isApproved = program.approvalStatus === 'Approved';
+  const currentStroops: StroopAmount | null = entitlement
+    ? entitlement.availableStroops
+    : isApproved && (program.remainingVoucherStroops != null || program.allocatedAmountStroops != null)
+    ? (() => {
+        try {
+          const val = program.remainingVoucherStroops ?? program.allocatedAmountStroops;
+          return parseStroopAmount(val);
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  const balanceLabel = currentStroops != null
+    ? `${formatStroops(currentStroops)} ${PILOT_ASSET_CODE}`
     : balancePlaceholder(balanceState.status);
 
   return (

@@ -80,9 +80,11 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     throw FinancialErrorException.of('validation_failed', 'fundingSourceId and fundingSourceKind are required.', { correlationId });
   }
 
-  if (fundingSourceKind !== 'cash') {
-    throw FinancialErrorException.of('validation_failed', 'Only cash funding source is supported in MVP.', { correlationId });
+  if (fundingSourceKind !== 'cash' && fundingSourceKind !== 'voucher') {
+    throw FinancialErrorException.of('validation_failed', 'Only cash and voucher funding sources are supported.', { correlationId });
   }
+
+  const isVoucher = fundingSourceKind === 'voucher';
 
   // 1. Decode & verify invoice
   let parsedInvoice: InvoiceV1;
@@ -112,13 +114,17 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
   }
 
   // Batch fetch enrollment + program + beneficiary wallet in parallel
+  const enrollmentQuery = service
+    .from('enrollments')
+    .select('id, program_id, programs!inner(id, organization_id, name, category, voucher_type, aid_type, voucher_contract_address)')
+    .eq('beneficiary_identity_id', identity.id);
+
+  if (isVoucher) {
+    enrollmentQuery.eq('program_id', fundingSourceId);
+  }
+
   const [enrollmentResult, walletResult] = await Promise.all([
-    service
-      .from('enrollments')
-      .select('program_id, programs!inner(organization_id)')
-      .eq('beneficiary_identity_id', identity.id)
-      .limit(1)
-      .maybeSingle(),
+    enrollmentQuery.limit(1).maybeSingle(),
     service
       .from('wallets')
       .select('id, address')
@@ -138,7 +144,37 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
     throw FinancialErrorException.of('validation_failed', `Enrollment error: ${enrollmentError.message}`, { correlationId });
   }
   if (!enrollment) {
-    throw FinancialErrorException.of('validation_failed', 'Beneficiary is not enrolled in any program.', { correlationId });
+    throw FinancialErrorException.of(
+      'validation_failed',
+      isVoucher
+        ? 'Beneficiary is not enrolled in this voucher program.'
+        : 'Beneficiary is not enrolled in any program.',
+      { correlationId }
+    );
+  }
+
+  if (isVoucher) {
+    const { data: projection, error: projectionError } = await service
+      .from('beneficiary_balance_projection')
+      .select('allocated_stroops, redeemed_stroops, refunded_stroops, is_abandoned')
+      .eq('beneficiary_identity_id', identity.id)
+      .eq('program_id', fundingSourceId)
+      .maybeSingle();
+
+    if (projectionError) {
+      throw FinancialErrorException.of('dependency_unavailable', `Balance check error: ${projectionError.message}`, { correlationId });
+    }
+    if (!projection) {
+      throw FinancialErrorException.of('validation_failed', 'No voucher allocation found for this program.', { correlationId });
+    }
+    if (projection.is_abandoned) {
+      throw FinancialErrorException.of('validation_failed', 'This voucher balance has been marked as abandoned and cannot be redeemed.', { correlationId });
+    }
+    const amountNum = Number(parsedInvoice.amountStroops);
+    const availableStroops = BigInt(projection.allocated_stroops) + BigInt(projection.refunded_stroops) - BigInt(projection.redeemed_stroops);
+    if (availableStroops < BigInt(amountNum)) {
+      throw FinancialErrorException.of('validation_failed', `Insufficient voucher balance. Available: ${Number(availableStroops) / 10000000} RCPHP.`, { correlationId });
+    }
   }
 
   if (walletError) {
@@ -240,7 +276,7 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
         id: generatedId,
         organization_id: organizationId,
         merchant_id: parsedInvoice.merchantId,
-        program_id: null,
+        program_id: isVoucher ? fundingSourceId : null,
         settlement_wallet_id: merchantWallet.id,
         kind: parsedInvoice.kind,
         network: 'stellar_testnet',
@@ -283,7 +319,7 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
 
   const prepared = await paymentOrchestrator.prepare({
     organizationId,
-    programId: null,
+    programId: isVoucher ? fundingSourceId : null,
     invoiceId: computeInvoiceId(parsedInvoice),
     beneficiaryIdentityId: identity.id,
     beneficiaryWallet: beneficiaryWallet.address,
@@ -310,13 +346,13 @@ const preparePayment = async (scope: EdgeRequestScope): Promise<Response> => {
           financial_intent_id: prepared.intent.id,
           organization_id: organizationId,
           invoice_id: dbInvoiceId,
-          program_id: null,
+          program_id: isVoucher ? fundingSourceId : null,
           beneficiary_identity_id: identity.id,
           beneficiary_wallet_id: beneficiaryWallet.id,
           merchant_id: parsedInvoice.merchantId,
           settlement_wallet_id: merchantWallet.id,
-          enrollment_id: null,
-          funding_source: 'cash',
+          enrollment_id: isVoucher ? enrollment.id : null,
+          funding_source: fundingSourceKind,
           amount_stroops: amountStroopsNumber,
           idempotency_key: idempotencyKey,
           payload_hash: prepared.intent.payload_hash,
