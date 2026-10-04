@@ -23,12 +23,62 @@ export const ProgramCard = ({ program }: ProgramCardProps) => {
       </View>
       
       <View style={styles.progressRow}>
-        <ThemedText style={styles.progressLabel}>Program Completion</ThemedText>
+        <ThemedText style={styles.progressLabel}>Program Progress</ThemedText>
         <ThemedText style={styles.progressPercent}>{program.completion} %</ThemedText>
       </View>
       
       <View style={styles.progressBarContainer}>
         <View style={[styles.progressFill, { width: `${program.completion}%` }]} />
+      </View>
+
+      {/* Stepper timeline tracker (ORG-06: monitoring program stages) */}
+      <View style={styles.trackerRow}>
+        {(['Created', 'Funded', 'Enrolling', 'Distributing', 'Completed'] as const).map((stage, idx) => {
+          const isDone = program.completion >= (idx + 1) * 20 || program.status === 'Completed';
+          const isCurrent = !isDone && (program.completion >= idx * 20 || idx === 0);
+          return (
+            <React.Fragment key={stage}>
+              <View style={styles.stepCol}>
+                <View
+                  style={[
+                    styles.stepDot,
+                    isDone && styles.stepDotDone,
+                    isCurrent && styles.stepDotCurrent,
+                  ]}
+                >
+                  {isDone ? (
+                    <FontAwesome name="check" size={7} color="white" />
+                  ) : (
+                    <View
+                      style={[
+                        styles.stepInnerDot,
+                        isCurrent && styles.stepInnerDotCurrent,
+                      ]}
+                    />
+                  )}
+                </View>
+                <ThemedText
+                  style={[
+                    styles.stepLabel,
+                    isCurrent && styles.stepLabelCurrent,
+                    isDone && styles.stepLabelDone,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {stage}
+                </ThemedText>
+              </View>
+              {idx < 4 && (
+                <View
+                  style={[
+                    styles.stepLine,
+                    isDone && styles.stepLineDone,
+                  ]}
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
       </View>
       
       <View style={styles.statsContainer}>
@@ -153,6 +203,67 @@ const styles = StyleSheet.create({
   statValue: {
     color: BrandColors.navy,
     fontSize: 10,
+    fontWeight: '600',
+  },
+  trackerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.four,
+    paddingHorizontal: 2,
+  },
+  stepCol: {
+    alignItems: 'center',
+    width: 48,
+  },
+  stepDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  stepDotDone: {
+    backgroundColor: BrandColors.green,
+  },
+  stepDotCurrent: {
+    backgroundColor: BrandColors.navy,
+    borderWidth: 2,
+    borderColor: '#D4E2F4',
+  },
+  stepInnerDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#94A3B8',
+  },
+  stepInnerDotCurrent: {
+    backgroundColor: 'white',
+  },
+  stepLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 2,
+    marginBottom: 16,
+  },
+  stepLineDone: {
+    backgroundColor: BrandColors.green,
+  },
+  stepLabel: {
+    fontSize: 9,
+    color: '#94A3B8',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  stepLabelCurrent: {
+    color: BrandColors.navy,
+    fontWeight: '700',
+  },
+  stepLabelDone: {
+    color: BrandColors.green,
     fontWeight: '600',
   },
 });
