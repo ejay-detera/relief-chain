@@ -98,7 +98,8 @@
     "test:total-voucher-card": "node --experimental-strip-types --test src/components/beneficiary/MyAssistance/total-balance-card.test.mjs",
     "test:organization-merchants": "node --test src/services/organizationMerchantService.test.mjs",
     "test:merchant-program-application": "node --test src/services/merchantProgramApplication.test.mjs",
-    "test:audit-reports": "node --experimental-strip-types --test src/services/reportService.test.mjs src/services/reportExportService.test.mjs"
+    "test:audit-reports": "node --experimental-strip-types --test src/services/reportService.test.mjs src/services/reportExportService.test.mjs",
+    "test:program-progress": "node --experimental-strip-types --test src/utils/program-progress.test.mjs"
   },
   "private": true
 }

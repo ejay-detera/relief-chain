@@ -2,6 +2,7 @@ import { AppealsReviewSection } from '@/components/LguPrograms/AppealsReviewSect
 import { MerchantApplicantsSection } from '@/components/LguPrograms/MerchantApplicantsSection';
 import { ProgramApplicantsSection } from '@/components/LguPrograms/ProgramApplicantsSection';
 import { resolveProgramStatus } from '@/components/LguPrograms/ProgramCard';
+import { ProgramProgress } from '@/components/LguPrograms/ProgramProgress';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { useActivateCashProgram } from '@/hooks/use-activate-cash-program';
@@ -244,6 +245,11 @@ export default function ProgramDetailsScreen() {
             <Text style={styles.programName}>{program.name}</Text>
             <Text style={styles.programDesc}>{program.description || 'No description provided.'}</Text>
           </View>
+        </FadeInView>
+
+        {/* Program Progress (ORG-06: real-time distribution progress monitoring) */}
+        <FadeInView delay={20}>
+          <ProgramProgress program={program} initiallyExpanded={true} />
         </FadeInView>
 
         {/* General Metadata Info */}

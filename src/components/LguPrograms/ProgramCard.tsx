@@ -202,16 +202,6 @@ export const ProgramCard = ({ program, onPress, onOpenMenu }: ProgramCardProps) 
         </View>
       </View>
 
-      <View style={styles.progressContainer}>
-        <View style={styles.progressLabelRow}>
-          <Text style={styles.progressLabel}>Distribution Progress</Text>
-          <Text style={styles.progressValue}>{progress}%</Text>
-        </View>
-        <View style={styles.progressBarBg}>
-          <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
-        </View>
-      </View>
-
       <View style={styles.cardFooter}>
         {calculatedStatus === 'scheduled' ? (
           <View style={styles.scheduledContainer}>
@@ -303,36 +293,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_700Bold',
     color: BrandColors.navy,
-  },
-  progressContainer: {
-    marginBottom: Spacing.three,
-  },
-  progressLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  progressLabel: {
-    fontSize: 13,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#8E9AA8',
-  },
-  progressValue: {
-    fontSize: 13,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: BrandColors.navy,
-  },
-  progressBarBg: {
-    height: 12,
-    backgroundColor: '#EEEDED',
-    borderRadius: BorderRadius.full,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#6FCA4B', // Brand Green
-    borderRadius: BorderRadius.full,
   },
   cardFooter: {
     marginTop: Spacing.two,
