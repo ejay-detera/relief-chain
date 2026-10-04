@@ -34,4 +34,6 @@ export interface ApplicationStatusDetails {
   accreditedMerchants?: string[];
   redemptionInstructions?: string | null;
   purpose?: string | null;
+  expiresAt?: string | null;
+  isDeadlineDue?: boolean;
 }

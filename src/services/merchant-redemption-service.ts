@@ -5,11 +5,11 @@ import { parseStroopAmount, type StroopAmount } from '../types/blockchain';
 import { formatStroops, ZERO_STROOPS } from '../utils/format-stroops';
 import {
   canMerchantRedeemVoucher,
-  getVoucherTypeDetails,
   resolveCanonicalVoucherType,
   type CanonicalVoucherType,
 } from '../utils/voucher-category-matcher';
 import { normalizeMerchantName } from './merchantProgramsService';
+import { notifyVoucherRedeemed, notifyVoucherScanned } from './voucher-sync-service';
 
 const toStroopAmount = (val: unknown): StroopAmount => {
   if (val === null || val === undefined) return ZERO_STROOPS;
@@ -347,7 +347,7 @@ export async function lookupBeneficiaryBalances(params: {
           benName = (first.beneficiary_name as string) || benName;
           benIdentityId = (first.beneficiary_identity_id as string) || benIdentityId;
           resolvedWallet = (first.beneficiary_wallet as string) || resolvedWallet;
-          rpcBalances = (rpcRows as Array<Record<string, unknown>>).map((row) => {
+          rpcBalances = (rpcRows as Record<string, unknown>[]).map((row) => {
             const rAidType = (row.aid_type as 'cash' | 'voucher') || 'voucher';
             const rVType = (row.voucher_type as string) || (rAidType === 'cash' ? 'Cash' : 'General');
             const rCat = (row.category as string) || rVType;
@@ -421,6 +421,12 @@ export async function lookupBeneficiaryBalances(params: {
         };
 
         void setCachedBeneficiaryLookup(result);
+        void notifyVoucherScanned({
+          merchantEntityId: params.merchantEntityId,
+          beneficiaryIdentifier: address,
+          programId: prog.id,
+          enrollmentId: voucherTarget.enrollmentId,
+        });
         return { ok: true, data: result };
       }
     }
@@ -451,7 +457,7 @@ export async function lookupBeneficiaryBalances(params: {
 
       if (!rpcError && Array.isArray(rpcRows) && rpcRows.length > 0) {
         const first = rpcRows[0] as Record<string, unknown>;
-        const balances: BeneficiaryVoucherBalanceItem[] = (rpcRows as Array<Record<string, unknown>>).map((row) => {
+        const balances: BeneficiaryVoucherBalanceItem[] = (rpcRows as Record<string, unknown>[]).map((row) => {
           const aidType = (row.aid_type as 'cash' | 'voucher') || 'voucher';
           const vType = (row.voucher_type as string) || (aidType === 'cash' ? 'Cash' : 'General');
           const cat = (row.category as string) || vType;
@@ -489,6 +495,12 @@ export async function lookupBeneficiaryBalances(params: {
         };
 
         void setCachedBeneficiaryLookup(result);
+        void notifyVoucherScanned({
+          merchantEntityId: params.merchantEntityId,
+          beneficiaryIdentifier: address,
+          programId: voucherTarget?.programId,
+          enrollmentId: voucherTarget?.enrollmentId,
+        });
         return { ok: true, data: result };
       }
     }
@@ -637,6 +649,12 @@ export async function lookupBeneficiaryBalances(params: {
     };
 
     void setCachedBeneficiaryLookup(result);
+    void notifyVoucherScanned({
+      merchantEntityId: params.merchantEntityId,
+      beneficiaryIdentifier: address,
+      programId: voucherTarget?.programId,
+      enrollmentId: voucherTarget?.enrollmentId,
+    });
     return { ok: true, data: result };
   } catch (err) {
     // Network failure or offline: attempt to read cached entry (MER-01 Offline support)
@@ -782,6 +800,13 @@ export async function executeVoucherRedemption(params: {
         error: (res?.error as string) || 'Voucher redemption failed on the network.',
       };
     }
+
+    void notifyVoucherRedeemed({
+      programId: params.programId,
+      beneficiaryIdentifier: params.beneficiaryIdentifier,
+      amountPhp: params.amountPhp,
+      remainingBalancePhp: res.remaining_balance_php as string | number,
+    });
 
     return {
       ok: true,

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { subscribeToVoucherLifecycle } from '@/services/voucher-sync-service';
 import { parseStroopAmount } from '@/types/blockchain';
 import type {
     BalanceAidType,
@@ -86,6 +88,7 @@ export type BeneficiaryEntitlementsHook = Readonly<{
  * rather than a fabricated balance (Requirements 18.1, 18.2, 21.1, 21.2, 21.3).
  */
 export function useBeneficiaryEntitlements(): BeneficiaryEntitlementsHook {
+  const { session } = useAuth();
   const [entitlements, setEntitlements] = useState<
     ProjectionState<BeneficiaryProgramEntitlement[]>
   >({ status: 'loading' });
@@ -127,6 +130,20 @@ export function useBeneficiaryEntitlements(): BeneficiaryEntitlementsHook {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  // Realtime subscription for merchant scan & redemption events
+  useEffect(() => {
+    const unsubscribe = subscribeToVoucherLifecycle({
+      beneficiaryId: session?.user?.id ?? null,
+      onSync: () => {
+        void load();
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [session?.user?.id, load]);
 
   return { entitlements, abandoned, refresh: load };
 }
