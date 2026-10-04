@@ -2,6 +2,8 @@ import { StepIndicator } from '@/components/CreateProgram/StepIndicator';
 import { WizardNavigation } from '@/components/CreateProgram/WizardNavigation';
 import { FadeInView } from '@/components/shared/FadeInView';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { fetchRegisteredMerchants } from '@/services/programService';
 import { FontAwesome } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -40,6 +42,7 @@ const VOUCHER_TYPES = [
 
 export default function VoucherScreen() {
   const router = useRouter();
+  const { profile } = useAuth();
   const { draft, updateDraft } = useCreateProgram();
 
   const [dateError, setDateError] = useState('');
@@ -58,12 +61,24 @@ export default function VoucherScreen() {
     let active = true;
     const fetchMerchants = async () => {
       try {
-        const names = await fetchRegisteredMerchants();
+        let orgId: string | undefined;
+        if (profile?.id) {
+          const { data: mem } = await supabase
+            .from('organization_memberships')
+            .select('organization_id')
+            .eq('user_id', profile.id)
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle();
+          orgId = mem?.organization_id;
+        }
+
+        const names = await fetchRegisteredMerchants(orgId);
         if (active) {
+          const availablePool = names.length > 0 ? names : DEFAULT_MERCHANTS;
           const merged = Array.from(new Set([
-            ...draft.selectedMerchants,
-            ...names,
-            ...DEFAULT_MERCHANTS,
+            ...draft.selectedMerchants.filter((m) => names.length === 0 || names.includes(m)),
+            ...availablePool,
           ]));
           setDbMerchants(merged);
         }
@@ -86,7 +101,8 @@ export default function VoucherScreen() {
     return () => {
       active = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
   const getExpirationDateObject = () => {
     if (draft.voucherExpiration) {
@@ -208,7 +224,7 @@ export default function VoucherScreen() {
             ? draft.selectedMerchants
             : defaultFoodMerchants.length > 0
             ? defaultFoodMerchants
-            : ['merchant@example.com', 'SM Supermarket', 'Puregold'],
+            : dbMerchants.slice(0, 3),
       });
       if (!draft.voucherExpiration) {
         setPresetDate(60);
@@ -222,7 +238,7 @@ export default function VoucherScreen() {
         redemptionType: 'merchant',
         voucherValue: draft.aidPerHousehold,
         voucherQuantity: 1,
-        selectedMerchants: defaultPharmacies.length > 0 ? defaultPharmacies : ['Mercury Drug'],
+        selectedMerchants: defaultPharmacies.length > 0 ? defaultPharmacies : dbMerchants.slice(0, 2),
       });
       if (!draft.voucherExpiration) {
         setPresetDate(60);
@@ -631,7 +647,7 @@ export default function VoucherScreen() {
                   }}
                 >
                   <Text style={styles.addCustomMerchantText}>
-                    + Add "{searchQuery.trim()}" as Accredited Merchant
+                    {`+ Add "${searchQuery.trim()}" as Accredited Merchant`}
                   </Text>
                 </TouchableOpacity>
               )}

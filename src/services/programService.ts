@@ -201,7 +201,15 @@ export const createLguProgram = async (
   return { success: true, programId: programData?.id, organizationId: programData?.organization_id };
 };
 
-export const fetchRegisteredMerchants = async (): Promise<string[]> => {
+export const fetchRegisteredMerchants = async (organizationId?: string): Promise<string[]> => {
+  if (organizationId) {
+    const { fetchActiveOrgMerchantNames } = await import('./organizationMerchantService');
+    const orgNames = await fetchActiveOrgMerchantNames(organizationId);
+    if (orgNames.length > 0) {
+      return orgNames;
+    }
+  }
+
   const names = new Set<string>();
 
   try {
