@@ -53,9 +53,29 @@ const SettingsScreen = () => {
                 <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
               </Pressable>
             </FadeInView>
+
+            <FadeInView delay={160}>
+              <Pressable
+                accessibilityLabel="Audit & Compliance Reports"
+                accessibilityRole="button"
+                onPress={() => router.push('/(lgu)/reports' as any)}
+                style={[styles.menuRow, styles.menuRowSpacing]}
+              >
+                <View style={styles.menuRowLeft}>
+                  <View style={styles.menuIconCircle}>
+                    <FontAwesome color={BrandColors.navy} name="file-text" size={16} />
+                  </View>
+                  <View>
+                    <ThemedText style={styles.menuRowTitle}>Audit & Compliance Reports</ThemedText>
+                    <ThemedText style={styles.menuRowSubtitle}>Generate program, financial, beneficiary & audit reports</ThemedText>
+                  </View>
+                </View>
+                <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
+              </Pressable>
+            </FadeInView>
           </View>
 
-          <FadeInView delay={160}>
+          <FadeInView delay={200}>
             <LogoutButton />
           </FadeInView>
         </View>

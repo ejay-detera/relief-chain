@@ -162,7 +162,7 @@
 - I can drill down from a summary metric into the underlying list of transactions.
 
 ### ORG-07 — Generate reports
-**Priority:** Low · **Role:** Organization Admin · **Developer:** — · **Status:** —
+**Priority:** Low · **Role:** Organization Admin · **Developer:** — · **Status:** Done
 
 > As an Organization Administrator, I want to generate program, distribution, beneficiary, merchant, financial, transaction, and audit reports so that I can report to stakeholders and donors.
 
@@ -425,7 +425,7 @@
 | **BEN-05** 'Pending Sync' marker | Depends on OFFLINE SYNC. Cannot be completed independently. |
 | **MER-01** offline balance check | Depends on OFFLINE SYNC for the offline half. The online half is independently deliverable. |
 | **ORG-01** org-to-org transfer | Not verified as present. Confirm against code before estimating — do not assume either way. |
-| **ORG-07 / ANALYTICS** export | Projection tables and auditor RPCs exist; no charting or export interface does. |
+| **ORG-07 / ANALYTICS** export | Delivered via dedicated Audit & Compliance Reports page in profile/settings hub and dashboard quick action, supporting 7 report types, date/program filtering, Excel/PDF exports, and blockchain reconciliation. |
 | Stellar settlement in all stories | **Testnet only.** `shared/stellar-config.ts` throws `'Mainnet is hard-disabled for the pilot.'` Asset is `RCPHP`, declared *'Testnet only — no real monetary value.'* "Receives payment" in MER-02 means a testnet settlement, not money. |
 | Merchant cash-out | 🟡 Simulated. No story in this backlog covers real fiat settlement, and no licensed partner is engaged. |
 
