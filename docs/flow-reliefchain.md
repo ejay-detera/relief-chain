@@ -52,6 +52,7 @@ flowchart TB
   LG --> LG6["✅ create-program — 7 steps"]
   LG --> LG7["⬜ analytics / report export UI"]
   LG --> LG8["✅ Beneficiaries CSV Import + SMS Invite Queue"]
+  LG --> LG9["✅ Transfer Funds (ORG-01) — inter-organization Stellar transfer"]
 
   BN --> BN1["✅ Dashboard"]
   BN --> BN2["✅ My Assistance — entitlements · balance"]

@@ -72,6 +72,9 @@ const RootLayoutNav = () => {
         router.replace(getRoleHome('lgu'));
         return;
       }
+      if (decision === 'stay' && profile.registration.status !== 'Approved') {
+        return;
+      }
     }
 
     if (!isRoleGroupForRole(group, profile.role) && !hasRedirectedRef.current) {
