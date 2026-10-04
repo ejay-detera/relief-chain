@@ -1,4 +1,5 @@
 import { AppealsReviewSection } from '@/components/LguPrograms/AppealsReviewSection';
+import { MerchantApplicantsSection } from '@/components/LguPrograms/MerchantApplicantsSection';
 import { ProgramApplicantsSection } from '@/components/LguPrograms/ProgramApplicantsSection';
 import { resolveProgramStatus } from '@/components/LguPrograms/ProgramCard';
 import { FadeInView } from '@/components/shared/FadeInView';
@@ -419,6 +420,14 @@ export default function ProgramDetailsScreen() {
         {/* Applicants (pending/approved/rejected Enrollments for this Program) */}
         <FadeInView delay={240}>
           <ProgramApplicantsSection programId={program.id} />
+        </FadeInView>
+
+        {/* Merchant Applications (voluntary applications from accredited/interested merchants) */}
+        <FadeInView delay={250}>
+          <MerchantApplicantsSection
+            programId={program.id}
+            onUpdated={() => void fetchProgramsList()}
+          />
         </FadeInView>
 
         {/* Appeals (BEN-06 / ORG-08): review and resolve rejected applicants'

@@ -4,7 +4,9 @@ import type {
   AddMerchantPayload,
   AvailableMerchant,
   MerchantAccreditationStatus,
+  MerchantProgramApplicant,
   MerchantRedemptionTransaction,
+  ProgramMerchantOption,
 } from '@/types/merchant-management';
 
 /**
@@ -609,6 +611,335 @@ export const fetchMerchantPrograms = async (
       name: p.name || 'Unnamed Program',
     }));
   } catch {
+    return [];
+  }
+};
+
+/**
+ * Fetch merchant applicants for a specific program.
+ */
+export const fetchProgramMerchantApplications = async (
+  programId: string,
+): Promise<MerchantProgramApplicant[]> => {
+  try {
+    const { data, error } = await supabase.rpc('get_program_merchant_applications', {
+      p_program_id: programId,
+    });
+
+    if (!error && Array.isArray(data)) {
+      return data as MerchantProgramApplicant[];
+    }
+  } catch (rpcErr) {
+    console.warn('RPC get_program_merchant_applications fallback:', rpcErr);
+  }
+
+  // Fallback query
+  try {
+    const { data, error } = await supabase
+      .from('merchant_program_applications')
+      .select(`
+        id,
+        program_id,
+        merchant_id,
+        status,
+        notes,
+        rejection_reason,
+        applied_at,
+        reviewed_at,
+        merchant_entities (
+          id,
+          display_name,
+          profile_id
+        )
+      `)
+      .eq('program_id', programId)
+      .order('applied_at', { ascending: false });
+
+    if (error) throw error;
+
+    const profileIds = (data || [])
+      .map((row: any) => row.merchant_entities?.profile_id)
+      .filter((id: any): id is string => typeof id === 'string');
+
+    const profileMap = new Map<string, any>();
+    if (profileIds.length > 0) {
+      const { data: profData } = await supabase
+        .from('profiles')
+        .select('id, full_name, mobile_number, stellar_pubkey')
+        .in('id', profileIds);
+      (profData || []).forEach((p: any) => profileMap.set(p.id, p));
+    }
+
+    return (data || []).map((row: any) => {
+      const me = row.merchant_entities || {};
+      const prof = (me.profile_id && profileMap.get(me.profile_id)) || {};
+      return {
+        application_id: row.id,
+        program_id: row.program_id,
+        merchant_id: row.merchant_id,
+        display_name: me.display_name || prof.full_name || 'Merchant Store',
+        owner_name: prof.full_name || null,
+        mobile_number: prof.mobile_number || null,
+        stellar_pubkey: prof.stellar_pubkey || null,
+        status: row.status,
+        notes: row.notes || null,
+        rejection_reason: row.rejection_reason || null,
+        applied_at: row.applied_at,
+        reviewed_at: row.reviewed_at || null,
+      };
+    });
+  } catch (err) {
+    console.error('Error fetching program merchant applications:', err);
+    return [];
+  }
+};
+
+/**
+ * Fetch all merchant applications across all programs for the organization.
+ */
+export const fetchOrganizationMerchantApplications = async (
+  orgId?: string,
+): Promise<MerchantProgramApplicant[]> => {
+  try {
+    const { data, error } = await supabase.rpc('get_organization_merchant_applications', {
+      p_org_id: orgId || null,
+    });
+
+    if (!error && Array.isArray(data)) {
+      return data as MerchantProgramApplicant[];
+    }
+  } catch (rpcErr) {
+    console.warn('RPC get_organization_merchant_applications fallback:', rpcErr);
+  }
+
+  // Fallback direct query
+  try {
+    let effectiveOrgId = orgId;
+    if (!effectiveOrgId) {
+      effectiveOrgId = (await resolveCallerOrganizationId()) || undefined;
+    }
+
+    if (!effectiveOrgId) return [];
+
+    const { data: progs, error: pErr } = await supabase
+      .from('programs')
+      .select('id, name')
+      .eq('organization_id', effectiveOrgId);
+
+    if (pErr || !progs || progs.length === 0) return [];
+
+    const progMap = new Map<string, string>();
+    progs.forEach((p: any) => progMap.set(p.id, p.name));
+    const targetProgramIds = progs.map((p: any) => p.id);
+
+    const { data, error } = await supabase
+      .from('merchant_program_applications')
+      .select(`
+        id,
+        program_id,
+        merchant_id,
+        status,
+        notes,
+        rejection_reason,
+        applied_at,
+        reviewed_at,
+        merchant_entities (
+          id,
+          display_name,
+          profile_id
+        )
+      `)
+      .in('program_id', targetProgramIds)
+      .order('applied_at', { ascending: false });
+
+    if (error) throw error;
+
+    const profileIds = (data || [])
+      .map((row: any) => row.merchant_entities?.profile_id)
+      .filter((id: any): id is string => typeof id === 'string');
+
+    const profileMap = new Map<string, any>();
+    if (profileIds.length > 0) {
+      const { data: profData } = await supabase
+        .from('profiles')
+        .select('id, full_name, mobile_number, stellar_pubkey')
+        .in('id', profileIds);
+      (profData || []).forEach((p: any) => profileMap.set(p.id, p));
+    }
+
+    return (data || []).map((row: any) => {
+      const me = row.merchant_entities || {};
+      const prof = (me.profile_id && profileMap.get(me.profile_id)) || {};
+      return {
+        application_id: row.id,
+        program_id: row.program_id,
+        program_name: progMap.get(row.program_id) || 'Aid Program',
+        merchant_id: row.merchant_id,
+        display_name: me.display_name || prof.full_name || 'Merchant Store',
+        owner_name: prof.full_name || null,
+        mobile_number: prof.mobile_number || null,
+        stellar_pubkey: prof.stellar_pubkey || null,
+        status: row.status,
+        notes: row.notes || null,
+        rejection_reason: row.rejection_reason || null,
+        applied_at: row.applied_at,
+        reviewed_at: row.reviewed_at || null,
+      };
+    });
+  } catch (err) {
+    console.error('Error fetching organization merchant applications:', err);
+    return [];
+  }
+};
+
+/**
+ * Review a merchant's application for a program (Approve or Reject).
+ */
+export const reviewMerchantApplication = async (
+  applicationId: string,
+  status: 'approved' | 'rejected',
+  rejectionReason?: string,
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await supabase.rpc('review_merchant_program_application', {
+      p_application_id: applicationId,
+      p_status: status,
+      p_rejection_reason: rejectionReason || null,
+    });
+
+    if (error) throw error;
+    return { success: true };
+  } catch (rpcErr: any) {
+    console.warn('RPC review_merchant_program_application error, running fallback:', rpcErr);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const { data: appRow, error: fetchErr } = await supabase
+        .from('merchant_program_applications')
+        .select('id, program_id, merchant_id')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchErr || !appRow) throw fetchErr || new Error('Application not found');
+
+      const { error: updateErr } = await supabase
+        .from('merchant_program_applications')
+        .update({
+          status,
+          rejection_reason: status === 'rejected' ? rejectionReason || 'Declined' : null,
+          reviewed_by: user?.id || null,
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', applicationId);
+
+      if (updateErr) throw updateErr;
+
+      // Also sync programs.selected_merchants
+      const { data: me } = await supabase
+        .from('merchant_entities')
+        .select('display_name')
+        .eq('id', appRow.merchant_id)
+        .single();
+
+      if (me?.display_name) {
+        const { data: prog } = await supabase
+          .from('programs')
+          .select('id, selected_merchants')
+          .eq('id', appRow.program_id)
+          .single();
+
+        if (prog) {
+          const current: string[] = Array.isArray(prog.selected_merchants)
+            ? (prog.selected_merchants as string[])
+            : [];
+
+          let updated: string[];
+          if (status === 'approved') {
+            updated = current.includes(me.display_name)
+              ? current
+              : [...current, me.display_name];
+          } else {
+            updated = current.filter((m) => m !== me.display_name);
+          }
+
+          await supabase
+            .from('programs')
+            .update({ selected_merchants: updated })
+            .eq('id', appRow.program_id);
+        }
+      }
+
+      return { success: true };
+    } catch (fallbackErr: any) {
+      console.error('Error reviewing merchant application fallback:', fallbackErr);
+      return {
+        success: false,
+        error: fallbackErr?.message || 'Failed to review application',
+      };
+    }
+  }
+};
+
+/**
+ * Fetch merchants who have been accepted / approved for a program or organization.
+ * Used exclusively for selecting merchants when creating or editing programs.
+ */
+export const fetchProgramAcceptedMerchants = async (
+  programId?: string,
+  orgId?: string,
+): Promise<ProgramMerchantOption[]> => {
+  try {
+    const { data, error } = await supabase.rpc('get_program_accepted_merchants', {
+      p_program_id: programId || null,
+      p_org_id: orgId || null,
+    });
+
+    if (!error && Array.isArray(data)) {
+      return data as ProgramMerchantOption[];
+    }
+  } catch (rpcErr) {
+    console.warn('RPC get_program_accepted_merchants fallback:', rpcErr);
+  }
+
+  // Fallback: check program applications if programId given
+  try {
+    if (programId) {
+      const { data: appData } = await supabase
+        .from('merchant_program_applications')
+        .select(`
+          merchant_id,
+          merchant_entities (
+            id,
+            display_name
+          )
+        `)
+        .eq('program_id', programId)
+        .eq('status', 'approved');
+
+      if (Array.isArray(appData) && appData.length > 0) {
+        return appData
+          .map((a: any) => ({
+            merchant_id: a.merchant_id,
+            display_name: a.merchant_entities?.display_name || 'Merchant Store',
+          }))
+          .filter((m) => Boolean(m.display_name));
+      }
+    }
+
+    // Otherwise fall back to organization-accredited active merchants
+    const accredited = await fetchOrganizationMerchants(orgId);
+    return accredited
+      .filter((m) => m.status === 'active')
+      .map((m) => ({
+        merchant_id: m.merchant_id,
+        display_name: m.display_name,
+      }));
+  } catch (err) {
+    console.error('Error in fetchProgramAcceptedMerchants fallback:', err);
     return [];
   }
 };

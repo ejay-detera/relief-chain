@@ -75,3 +75,24 @@ export interface MerchantRedemptionSummary {
   totalCount: number;
   totalAmount: number;
 }
+
+export interface MerchantProgramApplicant {
+  application_id: string;
+  program_id: string;
+  program_name?: string | null;
+  merchant_id: string;
+  display_name: string;
+  owner_name: string | null;
+  mobile_number: string | null;
+  stellar_pubkey: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
+  notes: string | null;
+  rejection_reason: string | null;
+  applied_at: string;
+  reviewed_at: string | null;
+}
+
+export interface ProgramMerchantOption {
+  merchant_id: string;
+  display_name: string;
+}

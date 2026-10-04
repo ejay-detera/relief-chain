@@ -201,41 +201,33 @@ export const createLguProgram = async (
   return { success: true, programId: programData?.id, organizationId: programData?.organization_id };
 };
 
-export const fetchRegisteredMerchants = async (organizationId?: string): Promise<string[]> => {
+export const fetchRegisteredMerchants = async (
+  organizationId?: string,
+  programId?: string,
+): Promise<string[]> => {
+  try {
+    const { fetchProgramAcceptedMerchants } = await import('./organizationMerchantService');
+    const accepted = await fetchProgramAcceptedMerchants(programId, organizationId);
+    if (accepted.length > 0) {
+      return accepted.map((m) => m.display_name);
+    }
+  } catch {
+    // Continue fallback
+  }
+
   if (organizationId) {
-    const { fetchActiveOrgMerchantNames } = await import('./organizationMerchantService');
-    const orgNames = await fetchActiveOrgMerchantNames(organizationId);
-    if (orgNames.length > 0) {
-      return orgNames;
+    try {
+      const { fetchActiveOrgMerchantNames } = await import('./organizationMerchantService');
+      const orgNames = await fetchActiveOrgMerchantNames(organizationId);
+      if (orgNames.length > 0) {
+        return orgNames;
+      }
+    } catch {
+      // Continue fallback
     }
   }
 
-  const names = new Set<string>();
-
-  try {
-    const { data: meData } = await supabase
-      .from('merchant_entities')
-      .select('display_name');
-    if (meData) {
-      meData.forEach((row) => row.display_name && names.add(row.display_name));
-    }
-  } catch {
-    // Ignore scoping RLS error
-  }
-
-  try {
-    const { data: profData } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('role', 'merchant');
-    if (profData) {
-      profData.forEach((row) => row.full_name && names.add(row.full_name));
-    }
-  } catch {
-    // Ignore scoping RLS error
-  }
-
-  return Array.from(names);
+  return [];
 };
 
 export const updateLguProgram = async (
