@@ -74,27 +74,42 @@ export function useBeneficiaryBalanceCheck(
           return false;
         }
 
-        setBeneficiary(result.data);
-
-        // If a specific voucher program was targeted by the scanned QR, prioritize it
+        // If a specific voucher program was targeted by the scanned QR, prioritize it and isolate it
         const voucherTarget = extractVoucherTarget(scannedData);
-        let targetVoucher: BeneficiaryVoucherBalanceItem | undefined;
+        let finalBalances = result.data.balances;
+
         if (voucherTarget?.programId) {
-          targetVoucher = result.data.balances.find((b) => b.programId === voucherTarget.programId);
-        }
-        if (!targetVoucher && voucherTarget?.category) {
-          targetVoucher = result.data.balances.find(
+          const matched = result.data.balances.filter(
+            (b) => b.programId === voucherTarget.programId
+          );
+          if (matched.length > 0) {
+            finalBalances = matched;
+          }
+        } else if (voucherTarget?.category) {
+          const matched = result.data.balances.filter(
             (b) => b.category.toLowerCase() === voucherTarget.category?.toLowerCase()
           );
+          if (matched.length > 0) {
+            finalBalances = matched;
+          }
         }
+
+        const beneficiaryData: BeneficiaryLookupResult = {
+          ...result.data,
+          balances: finalBalances,
+        };
+
+        setBeneficiary(beneficiaryData);
+
+        const targetVoucher =
+          finalBalances.find((b) => b.isAllowedForMerchant) ??
+          finalBalances[0] ??
+          null;
 
         if (targetVoucher) {
           setSelectedVoucher(targetVoucher);
-        } else {
-          // Fallback: auto-select first eligible voucher
-          const firstEligible = result.data.balances.find((b) => b.isAllowedForMerchant);
-          if (firstEligible) {
-            setSelectedVoucher(firstEligible);
+          if (targetVoucher.availablePhp && targetVoucher.availablePhp !== '0.00') {
+            setAmount(targetVoucher.availablePhp.replace(/,/g, ''));
           }
         }
 

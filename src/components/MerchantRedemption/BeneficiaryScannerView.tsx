@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -23,15 +23,19 @@ export function BeneficiaryScannerView({ onScan, onClose, isProcessing = false }
   const [manualError, setManualError] = useState<string | null>(null);
 
   const scannedLock = useRef(false);
+  const lockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isProcessing) {
-      const timer = setTimeout(() => {
-        scannedLock.current = false;
-      }, 2500);
-      return () => clearTimeout(timer);
+      scannedLock.current = false;
     }
   }, [isProcessing]);
+
+  useEffect(() => {
+    return () => {
+      if (lockTimeoutRef.current) clearTimeout(lockTimeoutRef.current);
+    };
+  }, []);
 
   const handleBarcodeScanned = useCallback(
     (result: BarcodeScanningResult) => {
@@ -40,6 +44,11 @@ export function BeneficiaryScannerView({ onScan, onClose, isProcessing = false }
       if (!data) return;
 
       scannedLock.current = true;
+      if (lockTimeoutRef.current) clearTimeout(lockTimeoutRef.current);
+      lockTimeoutRef.current = setTimeout(() => {
+        scannedLock.current = false;
+      }, 3000);
+
       try {
         onScan(data);
       } catch (err) {
@@ -57,12 +66,12 @@ export function BeneficiaryScannerView({ onScan, onClose, isProcessing = false }
     }
     const extracted = extractBeneficiaryAddress(clean);
     if (!extracted) {
-      setManualError('Invalid format. Expected a Stellar wallet address (starts with G...).');
+      setManualError('Invalid format. Expected a Stellar wallet address (starts with G...) or voucher code.');
       return;
     }
     setManualError(null);
     setManualModalVisible(false);
-    onScan(extracted);
+    onScan(clean);
   };
 
   if (!permission) {
@@ -97,9 +106,10 @@ export function BeneficiaryScannerView({ onScan, onClose, isProcessing = false }
   return (
     <View style={styles.container}>
       <CameraView
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         enableTorch={torch}
         facing={facing}
-        onBarcodeScanned={handleBarcodeScanned}
+        onBarcodeScanned={isProcessing ? undefined : handleBarcodeScanned}
         style={StyleSheet.absoluteFill}
       />
 
@@ -139,9 +149,17 @@ export function BeneficiaryScannerView({ onScan, onClose, isProcessing = false }
             <View style={[styles.corner, styles.cornerTR]} />
             <View style={[styles.corner, styles.cornerBL]} />
             <View style={[styles.corner, styles.cornerBR]} />
+            {isProcessing && (
+              <View style={styles.processingOverlay}>
+                <ActivityIndicator color={BrandColors.green} size="large" />
+                <ThemedText style={styles.processingText}>Verifying Voucher…</ThemedText>
+              </View>
+            )}
           </View>
           <ThemedText style={styles.instructionText}>
-            Align the beneficiary's QR code within the frame
+            {isProcessing
+              ? 'Checking beneficiary & voucher balance…'
+              : "Align the beneficiary's QR code within the frame"}
           </ThemedText>
         </View>
 
@@ -250,6 +268,26 @@ const styles = StyleSheet.create({
     height: 260,
     position: 'relative',
     backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  processingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    zIndex: 10,
+  },
+  processingText: {
+    color: '#FFFFFF',
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 13,
   },
   corner: {
     position: 'absolute',

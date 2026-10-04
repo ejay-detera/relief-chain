@@ -19,6 +19,10 @@ export type EnrolledProgram = {
   rejectionRemarks?: string | null;
   /** The approved per-beneficiary allocation in stroops, independent of reconciliation. Null unless Approved with a positive allocation on file (US3). */
   allocatedAmountStroops?: number | null;
+  /** Live voucher balance in PHP from enrollments.voucher_balance. */
+  voucherBalance?: number | null;
+  /** Live remaining voucher balance in stroops from enrollments.voucher_balance. */
+  remainingVoucherStroops?: number | null;
 };
 
 export type RedemptionRecord = {

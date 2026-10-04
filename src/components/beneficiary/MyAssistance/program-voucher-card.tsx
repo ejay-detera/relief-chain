@@ -1,6 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ReconciliationBadge } from '@/components/shared/reconciliation-badge';
@@ -8,10 +8,10 @@ import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 import { pilotWalletPublicKey, usePilotWallet } from '@/hooks/use-pilot-wallet';
-import { parseStroopAmount } from '@/types/blockchain';
+import { parseStroopAmount, type StroopAmount } from '@/types/blockchain';
 import type { BeneficiaryProgramEntitlement, ProjectionState } from '@/types/projection';
 import { EnrolledProgram } from '@/types/wallet';
-import { formatStroops } from '@/utils/format-stroops';
+import { formatStroops, ZERO_STROOPS } from '@/utils/format-stroops';
 import { VoucherQrModal } from './voucher-qr-modal';
 
 type Props = {
@@ -35,6 +35,15 @@ const balancePlaceholder = (status: ProjectionState<unknown>['status']): string 
   }
 };
 
+const getStroopAmountSafe = (value: unknown): StroopAmount => {
+  if (value == null) return ZERO_STROOPS;
+  try {
+    return parseStroopAmount(value);
+  } catch {
+    return ZERO_STROOPS;
+  }
+};
+
 export function ProgramVoucherCard({ program, entitlement, balanceState }: Props) {
   const router = useRouter();
   const { state: walletState } = usePilotWallet();
@@ -43,9 +52,38 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
 
   const isApproved = program.approvalStatus === 'Approved';
   const isRejected = program.approvalStatus === 'Rejected';
-  const balanceLabel = entitlement
-    ? `${formatStroops(entitlement.availableStroops)} ${PILOT_ASSET_CODE}`
-    : balancePlaceholder(balanceState.status);
+
+  // Compute current spendable balance: prioritize reconciled projection row;
+  // fall back to live voucher balance, or DB approved allocation if reconciliation hasn't indexed yet.
+  const currentStroops: StroopAmount = useMemo(() => {
+    if (entitlement) {
+      return entitlement.availableStroops;
+    }
+    if (isApproved) {
+      if (program.remainingVoucherStroops != null) {
+        return getStroopAmountSafe(program.remainingVoucherStroops);
+      }
+      if (program.allocatedAmountStroops != null) {
+        return getStroopAmountSafe(program.allocatedAmountStroops);
+      }
+    }
+    return ZERO_STROOPS;
+  }, [entitlement, isApproved, program.remainingVoucherStroops, program.allocatedAmountStroops]);
+
+  const allocatedStroops: StroopAmount | null = useMemo(() => {
+    if (entitlement?.allocatedStroops) {
+      return entitlement.allocatedStroops;
+    }
+    if (program.allocatedAmountStroops != null) {
+      return getStroopAmountSafe(program.allocatedAmountStroops);
+    }
+    return null;
+  }, [entitlement, program.allocatedAmountStroops]);
+
+  const hasBalance = isApproved && BigInt(currentStroops) > 0n;
+
+  const currentBalanceText = `₱${formatStroops(currentStroops)} ${PILOT_ASSET_CODE}`;
+  const statusBalanceText = balancePlaceholder(balanceState.status);
 
   const goToStatus = () => {
     router.push({
@@ -115,35 +153,52 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
         </View>
       )}
 
-      {/* Approved allocation amount — visible immediately on approval,
-          independent of whether reconciliation has produced a balance
-          projection row yet (US3: "amount... visible immediately after
-          Organization approval"). Previously only the reconciled balance
-          below was shown, which could read "No reconciled balance" for a
-          window after approval even though the approved amount was already
-          on file. */}
-      {isApproved && program.allocatedAmountStroops != null && (
-        <View style={styles.allocatedRow}>
-          <ThemedText style={styles.allocatedLabel}>Approved Amount</ThemedText>
-          <ThemedText style={styles.allocatedValue}>
-            {formatStroops(parseStroopAmount(program.allocatedAmountStroops))} {PILOT_ASSET_CODE}
-          </ThemedText>
-        </View>
-      )}
-
       <View style={styles.bodyRow}>
         <View style={styles.balanceColumn}>
-          <ThemedText style={styles.balanceLabel}>Reconciled Balance</ThemedText>
-          <ThemedText style={styles.balanceValue}>{balanceLabel}</ThemedText>
-          <ReconciliationBadge
-            state={balanceState}
-            transactionHash={entitlement?.latestTransactionHash}
-          />
+          <View style={styles.balanceHeaderRow}>
+            <ThemedText style={styles.balanceLabel}>
+              {isApproved ? 'Available Balance' : 'Reconciled Balance'}
+            </ThemedText>
+            {isApproved && !hasBalance && (
+              <View style={styles.depletedBadge}>
+                <ThemedText style={styles.depletedBadgeText}>No Balance</ThemedText>
+              </View>
+            )}
+          </View>
+
+          <ThemedText
+            style={[
+              styles.balanceValue,
+              isApproved && !hasBalance && styles.balanceValueDepleted,
+            ]}
+          >
+            {isApproved ? currentBalanceText : statusBalanceText}
+          </ThemedText>
+
+          {isApproved && allocatedStroops != null && allocatedStroops !== currentStroops && (
+            <ThemedText style={styles.allocatedSubText}>
+              Initial Grant: ₱{formatStroops(allocatedStroops)} {PILOT_ASSET_CODE}
+            </ThemedText>
+          )}
+
+          {entitlement ? (
+            <ReconciliationBadge
+              state={balanceState}
+              transactionHash={entitlement.latestTransactionHash}
+            />
+          ) : isApproved ? (
+            <View style={styles.pendingSyncPill}>
+              <FontAwesome name="check-circle" size={10} color="#059669" />
+              <ThemedText style={styles.pendingSyncText}>Allocation Confirmed</ThemedText>
+            </View>
+          ) : null}
+
           <View style={styles.expiryRow}>
             <FontAwesome name="calendar" size={11} color={BrandColors.grey} />
             <ThemedText style={styles.expiryText}>Expires: {program.expiresAt}</ThemedText>
           </View>
         </View>
+
         <View style={styles.purposeColumn}>
           <ThemedText style={styles.purposeLabel}>Aid Type / Purpose</ThemedText>
           <ThemedText style={styles.purposeValue}>
@@ -153,10 +208,7 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
         </View>
       </View>
 
-      {/* Merchant Categories & Redemption Instructions (US3). Only real,
-          DB-accredited `program_merchants` rows are ever shown here — an
-          empty list means "no accredited merchants listed yet" and says so
-          plainly, rather than fabricating participant names. */}
+      {/* Merchant Categories & Redemption Instructions (US3). */}
       <View style={styles.merchantsSection}>
         <ThemedText style={styles.merchantsLabel}>Accepted at:</ThemedText>
         {program.acceptedMerchantCategories && program.acceptedMerchantCategories.length > 0 ? (
@@ -182,15 +234,41 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
         )}
       </View>
 
+      {/* Depleted helper message when voucher has 0 balance */}
+      {isApproved && !hasBalance && (
+        <View style={styles.depletedNotice}>
+          <FontAwesome name="info-circle" size={13} color="#64748B" />
+          <ThemedText style={styles.depletedNoticeText}>
+            This voucher has no remaining balance and cannot be presented for redemption.
+          </ThemedText>
+        </View>
+      )}
+
       {isApproved ? (
         <Pressable
-          accessibilityLabel="Show Voucher QR"
+          accessibilityLabel={hasBalance ? 'Show Voucher QR' : 'Voucher Depleted / No Balance'}
           accessibilityRole="button"
+          accessibilityState={{ disabled: !hasBalance }}
+          disabled={!hasBalance}
           onPress={() => setIsVoucherQrVisible(true)}
-          style={styles.redeemButton}
+          style={[
+            styles.redeemButton,
+            !hasBalance && styles.redeemButtonDisabled,
+          ]}
         >
-          <FontAwesome name="qrcode" size={16} color="white" />
-          <ThemedText style={styles.redeemButtonText}>Show Voucher QR</ThemedText>
+          <FontAwesome
+            name={hasBalance ? 'qrcode' : 'ban'}
+            size={16}
+            color={hasBalance ? 'white' : '#94A3B8'}
+          />
+          <ThemedText
+            style={[
+              styles.redeemButtonText,
+              !hasBalance && styles.redeemButtonTextDisabled,
+            ]}
+          >
+            {hasBalance ? 'Show Voucher QR' : 'No Balance Available'}
+          </ThemedText>
         </Pressable>
       ) : (
         <Pressable onPress={goToStatus} style={styles.statusDetailButton}>
@@ -198,7 +276,7 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
         </Pressable>
       )}
 
-      {isApproved && (
+      {isApproved && hasBalance && (
         <VoucherQrModal
           beneficiaryWallet={walletAddress}
           entitlement={entitlement}
@@ -301,21 +379,66 @@ const styles = StyleSheet.create({
   balanceColumn: {
     flex: 1,
   },
+  balanceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 6,
+    marginBottom: 2,
+  },
   balanceLabel: {
     fontSize: 11,
     color: BrandColors.grey,
-    marginBottom: 2,
+  },
+  depletedBadge: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  depletedBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
   },
   balanceValue: {
     fontSize: 20,
     fontWeight: 'bold',
     color: BrandColors.navy,
-    marginBottom: Spacing.two,
+    marginBottom: 2,
+  },
+  balanceValueDepleted: {
+    color: '#94A3B8',
+  },
+  allocatedSubText: {
+    fontSize: 11,
+    color: BrandColors.grey,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  pendingSyncPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 4,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  pendingSyncText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#059669',
   },
   expiryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: 4,
+    marginTop: 2,
   },
   expiryText: {
     fontSize: 11,
@@ -382,25 +505,21 @@ const styles = StyleSheet.create({
     color: '#718096',
     fontStyle: 'italic',
   },
-  allocatedRow: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    marginBottom: Spacing.three,
+  depletedNotice: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    columnGap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: Spacing.two,
+    marginBottom: Spacing.three,
   },
-  allocatedLabel: {
-    fontSize: 12,
-    color: '#166534',
-    fontWeight: '600',
-  },
-  allocatedValue: {
-    fontSize: 14,
-    color: '#166534',
-    fontWeight: '700',
+  depletedNoticeText: {
+    fontSize: 11,
+    color: '#64748B',
+    flex: 1,
   },
   redeemButton: {
     flexDirection: 'row',
@@ -411,10 +530,18 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     paddingVertical: 12,
   },
+  redeemButtonDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
   redeemButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  redeemButtonTextDisabled: {
+    color: '#94A3B8',
   },
   statusDetailButton: {
     alignItems: 'center',

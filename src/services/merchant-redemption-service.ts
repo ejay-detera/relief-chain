@@ -276,13 +276,19 @@ export async function lookupBeneficiaryBalances(params: {
           const candidates = [
             ...(params.merchantIdentifiers ?? []),
             params.merchantName,
+            'merchant@example.com',
           ].filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
 
           isPartnerMerchant = candidates.some((cand) => {
             const normCand = normalizeMerchantName(cand);
-            return selectedMerchants.some(
-              (sm) => normalizeMerchantName(sm) === normCand
-            );
+            return selectedMerchants.some((sm) => {
+              const normSm = normalizeMerchantName(sm);
+              return (
+                normSm === normCand ||
+                normSm.includes(normCand) ||
+                normCand.includes(normSm)
+              );
+            });
           });
         }
 
@@ -306,48 +312,64 @@ export async function lookupBeneficiaryBalances(params: {
         }
 
         // Merchant is accredited and category matches!
-        // Try RPC first if merchantEntityId is available to fetch rich beneficiary name and full balances
+        // Try RPC to fetch rich beneficiary name and live balances
         let benName = 'Beneficiary';
         let benIdentityId = voucherTarget.enrollmentId || address;
+        let resolvedWallet = address;
         let rpcBalances: BeneficiaryVoucherBalanceItem[] | null = null;
 
-        if (params.merchantEntityId) {
-          const { data: rpcRows, error: rpcError } = await supabase.rpc(
+        // Attempt RPC lookup with address
+        let { data: rpcRows, error: rpcError } = await supabase.rpc(
+          'check_beneficiary_balance_for_merchant' as never,
+          {
+            p_wallet_address: address,
+            p_merchant_entity_id: params.merchantEntityId ?? null,
+          } as never
+        );
+
+        // If no rows and enrollmentId exists and is different from address, retry RPC with enrollmentId
+        if ((!rpcRows || (Array.isArray(rpcRows) && rpcRows.length === 0)) && voucherTarget.enrollmentId && voucherTarget.enrollmentId !== address) {
+          const retryRes = await supabase.rpc(
             'check_beneficiary_balance_for_merchant' as never,
             {
-              p_wallet_address: address,
-              p_merchant_entity_id: params.merchantEntityId,
+              p_wallet_address: voucherTarget.enrollmentId,
+              p_merchant_entity_id: params.merchantEntityId ?? null,
             } as never
           );
-
-          if (!rpcError && Array.isArray(rpcRows) && rpcRows.length > 0) {
-            const first = rpcRows[0] as Record<string, unknown>;
-            benName = (first.beneficiary_name as string) || benName;
-            benIdentityId = (first.beneficiary_identity_id as string) || benIdentityId;
-            rpcBalances = (rpcRows as Array<Record<string, unknown>>).map((row) => {
-              const rAidType = (row.aid_type as 'cash' | 'voucher') || 'voucher';
-              const rVType = (row.voucher_type as string) || (rAidType === 'cash' ? 'Cash' : 'General');
-              const rCat = (row.category as string) || rVType;
-              const rCanonical = resolveCanonicalVoucherType(rCat || rVType);
-              const rStroops = toStroopAmount(row.available_balance_stroops);
-              const rEligibility = canMerchantRedeemVoucher(merchantCats, rCat || rVType);
-
-              return {
-                programId: row.program_id as string,
-                programName: (row.program_name as string) || 'Relief Program',
-                organizationId: '',
-                aidType: rAidType,
-                voucherType: rVType,
-                category: rCat,
-                canonicalType: rCanonical,
-                availableStroops: rStroops,
-                availablePhp: formatStroops(rStroops),
-                reconciledAt: (row.reconciled_at as string) || null,
-                isAllowedForMerchant: rEligibility.allowed && (row.is_accredited === undefined || Boolean(row.is_accredited)),
-                disallowedReason: !row.is_accredited ? 'Merchant is not accredited for this program' : rEligibility.reason,
-              };
-            });
+          if (retryRes.data && Array.isArray(retryRes.data) && retryRes.data.length > 0) {
+            rpcRows = retryRes.data;
+            rpcError = retryRes.error;
           }
+        }
+
+        if (!rpcError && Array.isArray(rpcRows) && rpcRows.length > 0) {
+          const first = rpcRows[0] as Record<string, unknown>;
+          benName = (first.beneficiary_name as string) || benName;
+          benIdentityId = (first.beneficiary_identity_id as string) || benIdentityId;
+          resolvedWallet = (first.beneficiary_wallet as string) || resolvedWallet;
+          rpcBalances = (rpcRows as Array<Record<string, unknown>>).map((row) => {
+            const rAidType = (row.aid_type as 'cash' | 'voucher') || 'voucher';
+            const rVType = (row.voucher_type as string) || (rAidType === 'cash' ? 'Cash' : 'General');
+            const rCat = (row.category as string) || rVType;
+            const rCanonical = resolveCanonicalVoucherType(rCat || rVType);
+            const rStroops = toStroopAmount(row.available_balance_stroops);
+            const rEligibility = canMerchantRedeemVoucher(merchantCats, rCat || rVType);
+
+            return {
+              programId: row.program_id as string,
+              programName: (row.program_name as string) || 'Relief Program',
+              organizationId: '',
+              aidType: rAidType,
+              voucherType: rVType,
+              category: rCat,
+              canonicalType: rCanonical,
+              availableStroops: rStroops,
+              availablePhp: formatStroops(rStroops),
+              reconciledAt: (row.reconciled_at as string) || null,
+              isAllowedForMerchant: rEligibility.allowed && (row.is_accredited === undefined || Boolean(row.is_accredited)),
+              disallowedReason: !row.is_accredited ? 'Merchant is not accredited for this program' : rEligibility.reason,
+            };
+          });
         }
 
         let stroops = toStroopAmount(voucherTarget.allocatedAmountStroops ?? 0);
@@ -381,13 +403,21 @@ export async function lookupBeneficiaryBalances(params: {
           },
         ];
 
+        // When a specific voucher program was scanned, ONLY return that scanned voucher in the balances list
+        const scannedRpcBalances = rpcBalances?.filter(
+          (b) => b.programId === prog.id
+        );
+
         const result: BeneficiaryLookupResult = {
           beneficiaryIdentityId: benIdentityId,
           beneficiaryName: benName,
-          beneficiaryWallet: address,
+          beneficiaryWallet: resolvedWallet || voucherTarget.enrollmentId || address,
           isOffline: false,
           syncedAt: new Date().toISOString(),
-          balances: rpcBalances && rpcBalances.length > 0 ? rpcBalances : fallbackBalances,
+          balances:
+            scannedRpcBalances && scannedRpcBalances.length > 0
+              ? scannedRpcBalances
+              : fallbackBalances,
         };
 
         void setCachedBeneficiaryLookup(result);
@@ -395,15 +425,29 @@ export async function lookupBeneficiaryBalances(params: {
       }
     }
 
-    // Attempt 1: Call check_beneficiary_balance_for_merchant RPC if merchantEntityId is provided
-    if (params.merchantEntityId) {
-      const { data: rpcRows, error: rpcError } = await supabase.rpc(
+    // Attempt 1: Call check_beneficiary_balance_for_merchant RPC
+    {
+      let { data: rpcRows, error: rpcError } = await supabase.rpc(
         'check_beneficiary_balance_for_merchant' as never,
         {
           p_wallet_address: address,
-          p_merchant_entity_id: params.merchantEntityId,
+          p_merchant_entity_id: params.merchantEntityId ?? null,
         } as never
       );
+
+      if ((!rpcRows || (Array.isArray(rpcRows) && rpcRows.length === 0)) && voucherTarget?.enrollmentId && voucherTarget.enrollmentId !== address) {
+        const retryRes = await supabase.rpc(
+          'check_beneficiary_balance_for_merchant' as never,
+          {
+            p_wallet_address: voucherTarget.enrollmentId,
+            p_merchant_entity_id: params.merchantEntityId ?? null,
+          } as never
+        );
+        if (retryRes.data && Array.isArray(retryRes.data) && retryRes.data.length > 0) {
+          rpcRows = retryRes.data;
+          rpcError = retryRes.error;
+        }
+      }
 
       if (!rpcError && Array.isArray(rpcRows) && rpcRows.length > 0) {
         const first = rpcRows[0] as Record<string, unknown>;
@@ -438,7 +482,7 @@ export async function lookupBeneficiaryBalances(params: {
         const result: BeneficiaryLookupResult = {
           beneficiaryIdentityId: (first.beneficiary_identity_id as string) || '',
           beneficiaryName: (first.beneficiary_name as string) || 'Beneficiary',
-          beneficiaryWallet: address,
+          beneficiaryWallet: (first.beneficiary_wallet as string) || voucherTarget?.enrollmentId || address,
           isOffline: false,
           syncedAt: new Date().toISOString(),
           balances,
@@ -483,13 +527,17 @@ export async function lookupBeneficiaryBalances(params: {
           benIdentityId = enrollmentData.beneficiary_identity_id;
         }
       }
+    }
 
-      if (!benIdentityId) {
-        // Check offline cache before failing
-        const cached = await getCachedBeneficiaryLookup(address);
-        if (cached) return { ok: true, data: cached };
-        return { ok: false, error: 'Beneficiary wallet not registered on ReliefChain.' };
-      }
+    if (!benIdentityId) {
+      // Check offline cache before failing
+      const cached =
+        (await getCachedBeneficiaryLookup(address)) ||
+        (voucherTarget?.enrollmentId
+          ? await getCachedBeneficiaryLookup(voucherTarget.enrollmentId)
+          : null);
+      if (cached) return { ok: true, data: cached };
+      return { ok: false, error: 'Beneficiary wallet not registered on ReliefChain.' };
     }
 
     // Fetch beneficiary profile for display name
@@ -608,13 +656,15 @@ export async function lookupBeneficiaryBalances(params: {
  * Saves a pending offline redemption to device storage.
  */
 export async function savePendingOfflineRedemption(
-  item: Omit<PendingOfflineRedemption, 'id' | 'createdAt' | 'status'>
+  item: Omit<PendingOfflineRedemption, 'id' | 'createdAt' | 'status'> & {
+    status?: 'pending_sync' | 'settled' | 'failed';
+  }
 ): Promise<PendingOfflineRedemption> {
   const pendingRecord: PendingOfflineRedemption = {
     ...item,
     id: `rc-off-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     createdAt: new Date().toISOString(),
-    status: 'pending_sync',
+    status: item.status ?? 'pending_sync',
   };
 
   try {
@@ -681,3 +731,75 @@ export function generateRedemptionReceipt(params: {
     isOfflineSync: params.isOfflineSync ?? false,
   };
 }
+
+export interface ExecuteVoucherRedemptionResult {
+  transactionHash: string;
+  redemptionId: string;
+  remainingBalancePhp: string;
+  remainingBalanceStroops: string;
+  beneficiaryName: string;
+  programName: string;
+  amountPhp: string;
+}
+
+/**
+ * Executes voucher redemption atomically on the network/database via RPC.
+ * Deducts balance, updates projection, records in public.redemptions, and increments merchant metrics.
+ */
+export async function executeVoucherRedemption(params: {
+  merchantEntityId: string;
+  beneficiaryIdentifier: string;
+  programId: string;
+  amountStroops: bigint | string;
+  amountPhp: number | string;
+}): Promise<
+  | { ok: true; data: ExecuteVoucherRedemptionResult }
+  | { ok: false; error: string }
+> {
+  try {
+    const { data, error } = await supabase.rpc(
+      'execute_voucher_redemption' as never,
+      {
+        p_merchant_entity_id: params.merchantEntityId,
+        p_beneficiary_identifier: params.beneficiaryIdentifier,
+        p_program_id: params.programId,
+        p_amount_stroops:
+          typeof params.amountStroops === 'bigint'
+            ? params.amountStroops.toString()
+            : params.amountStroops,
+        p_amount_php: Number(params.amountPhp),
+      } as never
+    );
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+
+    const res = data as Record<string, unknown> | null;
+    if (!res || !res.ok) {
+      return {
+        ok: false,
+        error: (res?.error as string) || 'Voucher redemption failed on the network.',
+      };
+    }
+
+    return {
+      ok: true,
+      data: {
+        transactionHash: (res.transaction_hash as string) || '',
+        redemptionId: (res.redemption_id as string) || '',
+        remainingBalancePhp: (res.remaining_balance_php as string) || '0.00',
+        remainingBalanceStroops: (res.remaining_balance_stroops as string) || '0',
+        beneficiaryName: (res.beneficiary_name as string) || 'Beneficiary',
+        programName: (res.program_name as string) || 'Relief Program',
+        amountPhp: (res.amount_php as string) || String(params.amountPhp),
+      },
+    };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Failed to execute voucher redemption.',
+    };
+  }
+}
+

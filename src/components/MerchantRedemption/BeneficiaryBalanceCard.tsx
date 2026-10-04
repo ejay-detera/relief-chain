@@ -58,7 +58,9 @@ export function BeneficiaryBalanceCard({
       </View>
 
       {/* Program Vouchers Header */}
-      <ThemedText style={styles.sectionTitle}>Available Assistance & Vouchers</ThemedText>
+      <ThemedText style={styles.sectionTitle}>
+        {beneficiary.balances.length === 1 ? 'Scanned Voucher' : 'Available Assistance & Vouchers'}
+      </ThemedText>
 
       {/* Vouchers List */}
       <View style={styles.voucherList}>
@@ -107,21 +109,27 @@ export function BeneficiaryBalanceCard({
                     </View>
                   </View>
 
-                  {/* Radio Indicator */}
-                  <View
-                    style={[
-                      styles.radio,
-                      isSelected && styles.radioSelected,
-                      !item.isAllowedForMerchant && styles.radioDisabled,
-                    ]}
-                  >
-                    {isSelected && <View style={styles.radioInner} />}
-                  </View>
+                  {/* Indicator: Radio if multiple vouchers, Check badge if single scanned voucher */}
+                  {beneficiary.balances.length > 1 ? (
+                    <View
+                      style={[
+                        styles.radio,
+                        isSelected && styles.radioSelected,
+                        !item.isAllowedForMerchant && styles.radioDisabled,
+                      ]}
+                    >
+                      {isSelected && <View style={styles.radioInner} />}
+                    </View>
+                  ) : (
+                    <View style={styles.verifiedCheckBadge}>
+                      <MaterialCommunityIcons name="check-circle" size={20} color={BrandColors.green} />
+                    </View>
+                  )}
                 </View>
 
                 {/* Balance and Accreditation Match Row */}
                 <View style={styles.voucherBottomRow}>
-                  <View>
+                  <View style={styles.balanceCol}>
                     <ThemedText style={styles.balanceLabel}>Available</ThemedText>
                     <ThemedText style={styles.balanceValue}>
                       ₱{item.availablePhp}{' '}
@@ -130,14 +138,20 @@ export function BeneficiaryBalanceCard({
                   </View>
 
                   {item.isAllowedForMerchant ? (
-                    <View style={styles.matchBadge}>
-                      <MaterialCommunityIcons name="check-circle" size={12} color={BrandColors.green} />
-                      <ThemedText style={styles.matchText}>Accredited for redemption</ThemedText>
-                    </View>
+                    item.availableStroops === '0' || item.availablePhp === '0.00' ? (
+                      <View style={styles.zeroBalanceBadge}>
+                        <ThemedText style={styles.zeroBalanceText}>Zero balance</ThemedText>
+                      </View>
+                    ) : (
+                      <View style={styles.matchBadge}>
+                        <MaterialCommunityIcons name="check-circle" size={13} color={BrandColors.green} />
+                        <ThemedText numberOfLines={1} style={styles.matchText}>Accredited</ThemedText>
+                      </View>
+                    )
                   ) : (
                     <View style={styles.mismatchBadge}>
-                      <MaterialCommunityIcons name="alert-circle-outline" size={12} color="#DC2626" />
-                      <ThemedText style={styles.mismatchText}>Category restricted</ThemedText>
+                      <MaterialCommunityIcons name="alert-circle-outline" size={13} color="#DC2626" />
+                      <ThemedText numberOfLines={1} style={styles.mismatchText}>Restricted</ThemedText>
                     </View>
                   )}
                 </View>
@@ -158,7 +172,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.xl,
-    padding: Spacing.four,
+    padding: Spacing.three,
     gap: Spacing.three,
     boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
   },
@@ -252,6 +266,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.three,
     gap: Spacing.two,
+    overflow: 'hidden',
   },
   voucherItemSelected: {
     borderColor: BrandColors.green,
@@ -323,11 +338,16 @@ const styles = StyleSheet.create({
   },
   voucherBottomRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 4,
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    paddingTop: Spacing.two,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
+  },
+  balanceCol: {
+    flexShrink: 0,
   },
   balanceLabel: {
     color: BrandColors.grey,
@@ -350,13 +370,14 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: '#ECFDF5',
     paddingHorizontal: Spacing.two,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: BorderRadius.full,
+    flexShrink: 0,
   },
   matchText: {
     color: BrandColors.green,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontSize: 10,
+    fontSize: 11,
   },
   mismatchBadge: {
     flexDirection: 'row',
@@ -364,18 +385,38 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: '#FEF2F2',
     paddingHorizontal: Spacing.two,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: BorderRadius.full,
+    flexShrink: 0,
   },
   mismatchText: {
     color: '#DC2626',
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontSize: 10,
+    fontSize: 11,
   },
   disallowedReasonText: {
     color: '#DC2626',
     fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 10,
     marginTop: 2,
+  },
+  verifiedCheckBadge: {
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zeroBalanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  zeroBalanceText: {
+    color: BrandColors.grey,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontSize: 10,
   },
 });

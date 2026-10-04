@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.xl,
-    padding: Spacing.four,
+    padding: Spacing.three,
     gap: Spacing.three,
     boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
   },
@@ -169,6 +169,7 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 24,
     height: '100%',
+    paddingVertical: 0,
   },
   quickAmountRow: {
     flexDirection: 'row',

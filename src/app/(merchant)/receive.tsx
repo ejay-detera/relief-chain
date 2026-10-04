@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BeneficiaryBalanceCard } from '@/components/MerchantRedemption/BeneficiaryBalanceCard';
@@ -15,10 +15,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useBeneficiaryBalanceCheck } from '@/hooks/use-beneficiary-balance-check';
 import { isVerifiedMerchantWallet, merchantWalletPublicKey, useMerchantWallet } from '@/hooks/use-merchant-wallet';
 import {
+  executeVoucherRedemption,
   generateRedemptionReceipt,
   savePendingOfflineRedemption,
   type RedemptionReceiptData,
 } from '@/services/merchant-redemption-service';
+import { parseStroopAmount } from '@/types/blockchain';
 
 const MerchantReceiveScreen = () => {
   const router = useRouter();
@@ -112,35 +114,52 @@ const MerchantReceiveScreen = () => {
     setIsSubmittingRedemption(true);
 
     try {
-      // Generate a compliant 64-char hex transaction hash for testnet settlement
-      const randomHex = Array.from({ length: 64 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('');
+      const redemptionRes = await executeVoucherRedemption({
+        merchantEntityId: resolvedMerchantId,
+        beneficiaryIdentifier: beneficiary.beneficiaryWallet,
+        programId: selectedVoucher.programId,
+        amountStroops: redemptionValidation.amountStroops,
+        amountPhp: redemptionAmount,
+      });
+
+      if (!redemptionRes.ok) {
+        Alert.alert('Redemption Failed', redemptionRes.error);
+        return;
+      }
+
+      const confirmedTxHash = redemptionRes.data.transactionHash;
+      let remainingBalanceStroops = redemptionValidation.remainingStroops || redemptionValidation.amountStroops;
+      try {
+        remainingBalanceStroops = parseStroopAmount(redemptionRes.data.remainingBalanceStroops);
+      } catch {
+        // use fallback remaining
+      }
 
       // Always persist pending redemption record for audit trail & offline resilience
       await savePendingOfflineRedemption({
         beneficiaryIdentityId: beneficiary.beneficiaryIdentityId,
         beneficiaryWallet: beneficiary.beneficiaryWallet,
-        beneficiaryName: beneficiary.beneficiaryName,
+        beneficiaryName: redemptionRes.data.beneficiaryName || beneficiary.beneficiaryName,
         programId: selectedVoucher.programId,
         programName: selectedVoucher.programName,
         voucherType: selectedVoucher.voucherType,
         amountStroops: redemptionValidation.amountStroops,
         amountPhp: redemptionAmount,
         merchantId: resolvedMerchantId,
+        transactionHash: confirmedTxHash,
+        status: 'settled',
       });
 
       const receiptData = generateRedemptionReceipt({
         merchantName: profile?.full_name || 'Accredited Merchant',
         merchantSettlementAddress: merchantWallet,
-        beneficiaryName: beneficiary.beneficiaryName,
+        beneficiaryName: redemptionRes.data.beneficiaryName || beneficiary.beneficiaryName,
         beneficiaryWallet: beneficiary.beneficiaryWallet,
         programName: selectedVoucher.programName,
         voucherType: selectedVoucher.voucherType,
         amountStroops: redemptionValidation.amountStroops,
-        remainingBalanceStroops:
-          redemptionValidation.remainingStroops || redemptionValidation.amountStroops,
-        transactionHash: randomHex,
+        remainingBalanceStroops,
+        transactionHash: confirmedTxHash,
         isOfflineSync: beneficiary.isOffline,
       });
 
@@ -169,6 +188,15 @@ const MerchantReceiveScreen = () => {
     resetBeneficiary();
   }, [resetBeneficiary]);
 
+  useEffect(() => {
+    if (beneficiaryLookupError) {
+      const timer = setTimeout(() => {
+        resetBeneficiary();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [beneficiaryLookupError, resetBeneficiary]);
+
   // 1. Direct Camera Scanner View when no beneficiary is selected yet
   if (!beneficiary) {
     return (
@@ -182,6 +210,9 @@ const MerchantReceiveScreen = () => {
           <View style={styles.floatingErrorToast}>
             <MaterialCommunityIcons color="#DC2626" name="alert-circle" size={18} />
             <ThemedText style={styles.floatingErrorText}>{beneficiaryLookupError}</ThemedText>
+            <Pressable hitSlop={8} onPress={resetBeneficiary}>
+              <MaterialCommunityIcons color="#64748B" name="close" size={16} />
+            </Pressable>
           </View>
         )}
       </View>
@@ -190,7 +221,7 @@ const MerchantReceiveScreen = () => {
 
   // 2. Beneficiary Voucher Balance Inspection & Redemption Form
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable
@@ -214,39 +245,44 @@ const MerchantReceiveScreen = () => {
         </Pressable>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoid}
       >
-        <FadeInView delay={20}>
-          <View style={styles.redemptionSection}>
-            {/* Beneficiary Voucher Details Card */}
-            <BeneficiaryBalanceCard
-              beneficiary={beneficiary}
-              onRescan={resetBeneficiary}
-              onSelectVoucher={selectVoucher}
-              selectedVoucher={selectedVoucher}
-            />
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <FadeInView delay={20}>
+            <View style={styles.redemptionSection}>
+              {/* Beneficiary Voucher Details Card */}
+              <BeneficiaryBalanceCard
+                beneficiary={beneficiary}
+                onRescan={resetBeneficiary}
+                onSelectVoucher={selectVoucher}
+                selectedVoucher={selectedVoucher}
+              />
 
-            {/* Redemption Amount & Live Balance Check Form */}
-            <RedemptionAmountForm
-              amount={redemptionAmount}
-              isSubmitting={isSubmittingRedemption}
-              isValid={redemptionValidation.isValid && isReady}
-              onAmountChange={setRedemptionAmount}
-              onSubmit={handleRedeemVoucher}
-              remainingPhp={redemptionValidation.remainingPhp}
-              selectedVoucher={selectedVoucher}
-              validationError={
-                !isReady
-                  ? 'Merchant signer is not verified on this device.'
-                  : redemptionValidation.error
-              }
-            />
-          </View>
-        </FadeInView>
-      </ScrollView>
+              {/* Redemption Amount & Live Balance Check Form */}
+              <RedemptionAmountForm
+                amount={redemptionAmount}
+                isSubmitting={isSubmittingRedemption}
+                isValid={redemptionValidation.isValid && isReady}
+                onAmountChange={setRedemptionAmount}
+                onSubmit={handleRedeemVoucher}
+                remainingPhp={redemptionValidation.remainingPhp}
+                selectedVoucher={selectedVoucher}
+                validationError={
+                  !isReady
+                    ? 'Merchant signer is not verified on this device.'
+                    : redemptionValidation.error
+                }
+              />
+            </View>
+          </FadeInView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Official Digital Receipt Modal */}
       <RedemptionReceiptModal
@@ -310,12 +346,15 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 17,
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
   content: {
-    padding: Spacing.four,
+    padding: Spacing.three,
     paddingBottom: Spacing.eight,
-    gap: Spacing.four,
+    gap: Spacing.three,
   },
   redemptionSection: {
-    gap: Spacing.four,
+    gap: Spacing.three,
   },
 });

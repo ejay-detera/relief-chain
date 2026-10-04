@@ -6,7 +6,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { ThemedText } from '@/components/themed-text';
 import { PILOT_ASSET_CODE } from '@/constants/pilot-disclosure';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
-import { parseStroopAmount } from '@/types/blockchain';
+import { parseStroopAmount, type StroopAmount } from '@/types/blockchain';
 import type { BeneficiaryProgramEntitlement } from '@/types/projection';
 import type { EnrolledProgram } from '@/types/wallet';
 import { formatStroops } from '@/utils/format-stroops';
@@ -26,11 +26,26 @@ export function VoucherQrModal({
   entitlement,
   beneficiaryWallet,
 }: Props) {
-  const stroopBalance =
-    entitlement?.availableStroops ??
-    (program.allocatedAmountStroops ? parseStroopAmount(program.allocatedAmountStroops) : null);
+  const stroopBalance: StroopAmount | null = React.useMemo(() => {
+    if (entitlement) return entitlement.availableStroops;
+    if (program.remainingVoucherStroops != null) {
+      try {
+        return parseStroopAmount(program.remainingVoucherStroops);
+      } catch {
+        return null;
+      }
+    }
+    if (program.allocatedAmountStroops != null) {
+      try {
+        return parseStroopAmount(program.allocatedAmountStroops);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [entitlement, program.remainingVoucherStroops, program.allocatedAmountStroops]);
 
-  const balanceText = stroopBalance
+  const balanceText = stroopBalance != null
     ? `₱${formatStroops(stroopBalance)} ${PILOT_ASSET_CODE}`
     : 'Active Voucher';
 
