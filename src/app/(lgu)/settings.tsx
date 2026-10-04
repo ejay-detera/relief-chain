@@ -30,10 +30,7 @@ const SettingsScreen = () => {
               <Pressable onPress={() => router.push('/(lgu)/edit-profile' as any)} style={styles.menuRow}>
                 <View style={styles.menuRowLeft}>
                   <UserAvatar id={profile?.id} name={profile?.full_name} role="lgu" size={38} />
-                  <View>
-                    <ThemedText style={styles.menuRowTitle}>Edit Profile</ThemedText>
-                    <ThemedText style={styles.menuRowSubtitle}>{profile?.full_name ?? 'Organization account'}</ThemedText>
-                  </View>
+                  <ThemedText style={styles.menuRowTitle}>Edit Profile</ThemedText>
                 </View>
                 <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
               </Pressable>
@@ -45,10 +42,7 @@ const SettingsScreen = () => {
                   <View style={styles.menuIconCircle}>
                     <FontAwesome color={BrandColors.navy} name="shield" size={16} />
                   </View>
-                  <View>
-                    <ThemedText style={styles.menuRowTitle}>Security & MFA</ThemedText>
-                    <ThemedText style={styles.menuRowSubtitle}>Authenticator and step-up for financial actions</ThemedText>
-                  </View>
+                  <ThemedText style={styles.menuRowTitle}>Security & MFA</ThemedText>
                 </View>
                 <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
               </Pressable>
@@ -65,10 +59,7 @@ const SettingsScreen = () => {
                   <View style={styles.menuIconCircle}>
                     <FontAwesome color={BrandColors.navy} name="file-text" size={16} />
                   </View>
-                  <View>
-                    <ThemedText style={styles.menuRowTitle}>Audit & Compliance Reports</ThemedText>
-                    <ThemedText style={styles.menuRowSubtitle}>Generate program, financial, beneficiary & audit reports</ThemedText>
-                  </View>
+                  <ThemedText style={styles.menuRowTitle}>Audit & Compliance Reports</ThemedText>
                 </View>
                 <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
               </Pressable>
@@ -84,10 +75,7 @@ const SettingsScreen = () => {
                   <View style={styles.menuIconCircle}>
                     <FontAwesome color={BrandColors.navy} name="exchange" size={16} />
                   </View>
-                  <View>
-                    <ThemedText style={styles.menuRowTitle}>Transfer Organization Funds</ThemedText>
-                    <ThemedText style={styles.menuRowSubtitle}>Reallocate RCPHP treasury funds to another organization</ThemedText>
-                  </View>
+                  <ThemedText style={styles.menuRowTitle}>Transfer Organization Funds</ThemedText>
                 </View>
                 <FontAwesome color={BrandColors.grey} name="chevron-right" size={14} />
               </Pressable>
@@ -139,11 +127,5 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 14,
     color: BrandColors.navy,
-  },
-  menuRowSubtitle: {
-    fontFamily: 'PlusJakartaSans_400Regular',
-    fontSize: 12,
-    color: BrandColors.grey,
-    marginTop: 2,
   },
 });
