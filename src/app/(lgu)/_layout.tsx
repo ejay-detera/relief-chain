@@ -112,6 +112,20 @@ export default function LguLayout() {
             tabBarStyle: { display: 'none' },
           }}
         />
+        <Tabs.Screen
+          name="reports"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+        <Tabs.Screen
+          name="audit-report"
+          options={{
+            href: null,
+            tabBarStyle: { display: 'none' },
+          }}
+        />
       </Tabs>
     </CreateProgramProvider>
   );
