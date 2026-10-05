@@ -7,6 +7,7 @@ import { RequestCashOutModal, type CashOutSubmitOutcome } from '@/components/Cas
 import { CashOutAndRefunds } from '@/components/MerchantDashboard/CashOutAndRefunds';
 import { MerchantBottomNavigation } from '@/components/MerchantDashboard/MerchantBottomNavigation';
 import { MerchantDashboardHeader } from '@/components/MerchantDashboard/MerchantDashboardHeader';
+import { MerchantOfflineSyncWidget } from '@/components/MerchantDashboard/MerchantOfflineSyncWidget';
 import { RecentPayments } from '@/components/MerchantDashboard/RecentPayments';
 import { SalesSummaryCard } from '@/components/MerchantDashboard/SalesSummaryCard';
 import { WalletBalanceCard } from '@/components/MerchantDashboard/WalletBalanceCard';
@@ -144,6 +145,7 @@ const MerchantDashboardScreen = () => {
 
   return <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}><View style={styles.screen}>
     <MerchantDashboardHeader onShowQr={() => setIsQrVisible(true)} />
+    <MerchantOfflineSyncWidget merchantEntityId={merchantEntityId} />
     <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four }]} refreshControl={<RefreshControl onRefresh={handleRefresh} refreshing={refreshing} />} showsVerticalScrollIndicator={false}>
       <FadeInView delay={0}>
         <ThemedText style={styles.greetingText}>

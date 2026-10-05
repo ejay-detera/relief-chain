@@ -1,9 +1,24 @@
+import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { loadOrProvisionPilotWallet } from '@/services/stellar-wallet-service';
 import type { ActivePilotWalletRow, PilotWalletState } from '@/types/wallet';
+
+const MERCHANT_WALLET_CACHE_PREFIX = 'rc_merchant_wallet_cache_v1_';
+
+const secureStoreOptions: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+interface CachedMerchantBinding {
+  merchantEntityId: string;
+  state: PilotWalletState;
+  cachedAt: string;
+}
+
+const memoryWalletCache = new Map<string, CachedMerchantBinding>();
 
 export type MerchantWalletHook = Readonly<{
   state: PilotWalletState | null;
@@ -98,8 +113,49 @@ export function useMerchantWallet(): MerchantWalletHook {
       if (request !== requestRef.current) return;
 
       setState(resolved);
+
+      // Cache verified binding for offline persistence
+      if (resolved.status === 'ready') {
+        const cachePayload: CachedMerchantBinding = {
+          merchantEntityId: merchantId,
+          state: resolved,
+          cachedAt: new Date().toISOString(),
+        };
+        memoryWalletCache.set(userId, cachePayload);
+        try {
+          await SecureStore.setItemAsync(
+            `${MERCHANT_WALLET_CACHE_PREFIX}${userId}`,
+            JSON.stringify(cachePayload),
+            secureStoreOptions
+          );
+        } catch {
+          // non-critical
+        }
+      }
     } catch (err: unknown) {
       if (request !== requestRef.current) return;
+
+      // Offline fallback: restore cached verified wallet binding
+      try {
+        let cached = memoryWalletCache.get(userId);
+        if (!cached) {
+          const raw = await SecureStore.getItemAsync(
+            `${MERCHANT_WALLET_CACHE_PREFIX}${userId}`,
+            secureStoreOptions
+          );
+          if (raw) cached = JSON.parse(raw) as CachedMerchantBinding;
+        }
+
+        if (cached && cached.state && cached.state.status === 'ready') {
+          setMerchantEntityId(cached.merchantEntityId);
+          setState(cached.state);
+          setError(null);
+          return;
+        }
+      } catch {
+        // Fall through to error
+      }
+
       setState(null);
       setMerchantEntityId(null);
       setError(err instanceof Error ? err.message : 'Unable to load the merchant wallet binding.');

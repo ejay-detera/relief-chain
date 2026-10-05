@@ -78,9 +78,12 @@ export function useBeneficiaryBalanceCheck(
         const voucherTarget = extractVoucherTarget(scannedData);
         let finalBalances = result.data.balances;
 
-        if (voucherTarget?.programId) {
+        if (voucherTarget?.programId || voucherTarget?.programName) {
           const matched = result.data.balances.filter(
-            (b) => b.programId === voucherTarget.programId
+            (b) =>
+              (voucherTarget.programId && b.programId === voucherTarget.programId) ||
+              (voucherTarget.programName &&
+                b.programName.trim().toLowerCase() === voucherTarget.programName.trim().toLowerCase())
           );
           if (matched.length > 0) {
             finalBalances = matched;
@@ -102,6 +105,14 @@ export function useBeneficiaryBalanceCheck(
         setBeneficiary(beneficiaryData);
 
         const targetVoucher =
+          (voucherTarget?.programId || voucherTarget?.programName
+            ? finalBalances.find(
+                (b) =>
+                  (voucherTarget.programId && b.programId === voucherTarget.programId) ||
+                  (voucherTarget.programName &&
+                    b.programName.trim().toLowerCase() === voucherTarget.programName.trim().toLowerCase())
+              )
+            : null) ??
           finalBalances.find((b) => b.isAllowedForMerchant) ??
           finalBalances[0] ??
           null;

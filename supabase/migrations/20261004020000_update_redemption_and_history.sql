@@ -391,7 +391,7 @@ begin
     set available_balance_stroops = greatest(0, available_balance_stroops - p_amount_stroops),
         redeemed_stroops = redeemed_stroops + p_amount_stroops,
         confirmed_transaction_count = confirmed_transaction_count + 1,
-        latest_transaction_hash = v_tx_hash,
+        projection_version = projection_version + 1,
         updated_at = now()
     where beneficiary_identity_id = v_enrollment.beneficiary_identity_id
       and program_id = p_program_id;

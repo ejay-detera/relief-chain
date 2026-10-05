@@ -95,13 +95,22 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
     program.isCompleted ||
     program.currentStage === 'completed' ||
     (isApproved && program.voucherBalance != null && program.voucherBalance <= 0);
-  const isRedeemed = program.isRedeemed || program.currentStage === 'redeemed';
+  const isPartiallyRedeemed =
+    program.currentStageLabel === 'Partially Redeemed' ||
+    (isApproved &&
+      !isCompleted &&
+      program.allocatedAmountStroops != null &&
+      BigInt(currentStroops) < BigInt(program.allocatedAmountStroops) &&
+      BigInt(currentStroops) > 0n);
+  const isRedeemed = (program.isRedeemed || program.currentStage === 'redeemed') && !hasBalance;
   const stageLabel = isRejected
     ? 'Rejected'
     : !isApproved
     ? 'Pending'
     : isCompleted
     ? 'Completed'
+    : isPartiallyRedeemed
+    ? 'Partially Redeemed'
     : isRedeemed
     ? 'Redeemed'
     : program.currentStageLabel ?? 'Aid Released';
@@ -113,8 +122,9 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
           style={[
             styles.statusBadge,
             isCompleted && styles.statusCompleted,
-            isRedeemed && !isCompleted && styles.statusRedeemed,
-            isApproved && !isCompleted && !isRedeemed && styles.statusAidReleased,
+            isPartiallyRedeemed && !isCompleted && styles.statusRedeemed,
+            isRedeemed && !isCompleted && !isPartiallyRedeemed && styles.statusRedeemed,
+            isApproved && !isCompleted && !isRedeemed && !isPartiallyRedeemed && styles.statusAidReleased,
             isRejected && styles.statusRejected,
             !isApproved && !isRejected && styles.statusPending,
           ]}
@@ -123,8 +133,9 @@ export function ProgramVoucherCard({ program, entitlement, balanceState }: Props
             style={[
               styles.statusText,
               isCompleted && styles.statusTextCompleted,
-              isRedeemed && !isCompleted && styles.statusTextRedeemed,
-              isApproved && !isCompleted && !isRedeemed && styles.statusTextAidReleased,
+              isPartiallyRedeemed && !isCompleted && styles.statusTextRedeemed,
+              isRedeemed && !isCompleted && !isPartiallyRedeemed && styles.statusTextRedeemed,
+              isApproved && !isCompleted && !isRedeemed && !isPartiallyRedeemed && styles.statusTextAidReleased,
               isRejected && styles.statusTextRejected,
               !isApproved && !isRejected && styles.statusTextPending,
             ]}

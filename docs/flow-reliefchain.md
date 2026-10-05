@@ -246,7 +246,7 @@ sequenceDiagram
 | Dynamic requirements & program criteria (US8) | High | ✅ | `(beneficiary)/apply-program`, `ApplyProgram/`, `program-requirements-service.ts` |
 | Beneficiary CSV import & SMS invite queue (US8) | High | ✅ | `(lgu)/import-beneficiaries`, `sms-service.ts` |
 | SMS notifications | Should | 🟡 simulated queue | `sms-service.ts`, `pending_sms_invites` (external gateway uncontracted) |
-| Bluetooth offline sync | Should | 🟡 pending sync pill | `transaction-row.tsx` (marked 'Pending Sync' until on-chain confirmation; BLE protocol planned) |
+| Bluetooth & Offline sync | Should | ✅ Built (dual transport + queue + RPC) | `services/offline/`, `receive.tsx`, `sync_offline_redemption_batch` RPC, BLE + QR dual transport |
 | Donor portal | Could | ⬜ partial planned | — |
 | Mainnet / real money | — | ❌ | hard-disabled |
 | AI prediction | — | ❌ | not in scope |

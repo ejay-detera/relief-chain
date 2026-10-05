@@ -55,6 +55,7 @@ export type RedemptionRecord = {
   txHash: string | null;             // Stellar transaction hash; null until submitted
   status: 'Completed' | 'Pending' | 'Failed';
   direction: 'credit' | 'debit'; // credit = received (e.g. grant), debit = spent (e.g. merchant payment)
+  isOfflineSync?: boolean;
 };
 
 

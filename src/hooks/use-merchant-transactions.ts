@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { getStoredInvoices } from '@/services/merchant-invoice-storage';
+import { getPendingOfflineRedemptions } from '@/services/offline/offline-sync-queue';
 import { parseStroopAmount } from '@/types/blockchain';
 import type {
   MerchantTransaction,
@@ -259,7 +260,45 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
         };
       });
 
-      const allTransactions = [...mappedTransactions, ...mappedRedemptions].sort(
+      // 6. Merge local pending offline redemptions awaiting sync
+      let pendingOfflineMapped: MerchantTransaction[] = [];
+      try {
+        const pendingItems = await getPendingOfflineRedemptions(merchantEntityId);
+        const existingTxHashes = new Set(
+          mappedTransactions.map((t) => t.transactionHash).filter(Boolean)
+        );
+        pendingOfflineMapped = pendingItems
+          .filter((item) => (item.status === 'pending_sync' || item.status === 'syncing') && !existingTxHashes.has(item.transactionHash ?? null))
+          .map((item) => {
+            const amountNum = Number(item.envelope.amountPhp) || (Number(item.envelope.amountStroops) / 10_000_000);
+            let amountStroops = ZERO_STROOPS;
+            try {
+              amountStroops = parseStroopAmount(item.envelope.amountStroops);
+            } catch {
+              amountStroops = ZERO_STROOPS;
+            }
+            return {
+              id: item.id,
+              settlementId: item.id,
+              payerName: item.envelope.beneficiaryName,
+              programName: item.envelope.programName || 'Voucher Redemption (Offline)',
+              programId: item.envelope.programId,
+              occurredAt: formatTransactionDate(item.envelope.clientTimestamp),
+              rawDate: item.envelope.clientTimestamp,
+              amount: amountNum,
+              amountStroops,
+              status: 'pending' as const,
+              kind: 'voucher_redemption' as const,
+              transactionHash: null,
+              ledger: null,
+              correlationId: item.envelope.nonce,
+            };
+          });
+      } catch {
+        // Fall back gracefully
+      }
+
+      const allTransactions = [...mappedTransactions, ...mappedRedemptions, ...pendingOfflineMapped].sort(
         (a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()
       );
 
@@ -267,8 +306,32 @@ export function useMerchantTransactions(merchantEntityId: string | null): Mercha
     } catch (caught: unknown) {
       if (request !== requestRef.current) return;
       setError(caught instanceof Error ? caught.message : 'Unable to load past transactions.');
-      // Never fabricate sample or mock fallback data on error
-      setTransactions([]);
+      // When network fails (offline), display any pending local offline transactions
+      try {
+        const pendingItems = await getPendingOfflineRedemptions(merchantEntityId);
+        const fallbackMapped: MerchantTransaction[] = pendingItems.map((item) => {
+          const amountNum = Number(item.envelope.amountPhp) || (Number(item.envelope.amountStroops) / 10_000_000);
+          return {
+            id: item.id,
+            settlementId: item.id,
+            payerName: item.envelope.beneficiaryName,
+            programName: item.envelope.programName || 'Voucher Redemption (Offline)',
+            programId: item.envelope.programId,
+            occurredAt: formatTransactionDate(item.envelope.clientTimestamp),
+            rawDate: item.envelope.clientTimestamp,
+            amount: amountNum,
+            amountStroops: ZERO_STROOPS,
+            status: item.status === 'settled' ? ('confirmed' as const) : ('pending' as const),
+            kind: 'voucher_redemption' as const,
+            transactionHash: item.transactionHash || null,
+            ledger: null,
+            correlationId: item.envelope.nonce,
+          };
+        });
+        setTransactions(Object.freeze(fallbackMapped));
+      } catch {
+        setTransactions([]);
+      }
     } finally {
       if (request === requestRef.current) {
         setIsLoading(false);

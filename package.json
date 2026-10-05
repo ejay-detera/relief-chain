@@ -99,7 +99,8 @@
     "test:organization-merchants": "node --test src/services/organizationMerchantService.test.mjs",
     "test:merchant-program-application": "node --test src/services/merchantProgramApplication.test.mjs",
     "test:audit-reports": "node --experimental-strip-types --test src/services/reportService.test.mjs src/services/reportExportService.test.mjs",
-    "test:program-progress": "node --experimental-strip-types --test src/utils/program-progress.test.mjs"
+    "test:program-progress": "node --experimental-strip-types --test src/utils/program-progress.test.mjs",
+    "test:offline-sync": "node --experimental-strip-types --test src/services/offline/offline-sync-queue.test.mjs src/services/offline/manifest-presync.test.mjs"
   },
   "private": true
 }

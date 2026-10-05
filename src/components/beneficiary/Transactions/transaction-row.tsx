@@ -28,14 +28,11 @@ export function TransactionRow({ record }: Props) {
         <View style={styles.metaRow}>
           <ThemedText style={styles.date}>{record.date}</ThemedText>
           {isPending && (
-            // "Pending" here means the on-chain transaction has not yet been
-            // confirmed by Stellar reconciliation — it has no relation to
-            // Bluetooth offline sync, which has no implementation in this
-            // app. Labelled "Confirming On-Chain" rather than "Pending
-            // Sync" so it doesn't imply a capability that doesn't exist.
             <View style={styles.pendingSyncPill}>
               <FontAwesome name="refresh" size={9} color="#B45309" />
-              <ThemedText style={styles.pendingSyncText}>Confirming On-Chain</ThemedText>
+              <ThemedText style={styles.pendingSyncText}>
+                {record.isOfflineSync ? 'Pending Sync' : 'Confirming On-Chain'}
+              </ThemedText>
             </View>
           )}
         </View>

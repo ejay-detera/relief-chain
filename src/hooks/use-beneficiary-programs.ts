@@ -158,9 +158,8 @@ export function useBeneficiaryPrograms() {
             remainingVoucherStroops < allocationAmountStroops;
 
           const isFullyClaimed =
-            (hasBalanceDrop || isScanned) &&
-            ((remainingVoucherStroops != null && remainingVoucherStroops <= 0) ||
-              (rawVoucherBalance != null && rawVoucherBalance <= 0));
+            (remainingVoucherStroops != null && remainingVoucherStroops <= 0) ||
+            (rawVoucherBalance != null && rawVoucherBalance <= 0);
 
           let currentStage: EnrolledProgram['currentStage'] = 'registered';
           let currentStageLabel: string = 'Registered';
@@ -174,17 +173,25 @@ export function useBeneficiaryPrograms() {
             currentStage = 'pending_verification';
             currentStageLabel = 'Pending Verification';
           } else if (isApproved) {
-            if (isFullyClaimed || isDeadlineDue) {
+            if (isFullyClaimed) {
               currentStage = 'completed';
               currentStageLabel = 'Completed';
               isCompleted = true;
-            } else if (hasBalanceDrop || isScanned) {
-              currentStage = 'redeemed';
-              currentStageLabel = 'Redeemed';
               isRedeemed = true;
+            } else if (isDeadlineDue) {
+              currentStage = 'completed';
+              currentStageLabel = 'Expired';
+              isCompleted = true;
+            } else if (hasBalanceDrop) {
+              currentStage = 'aid_released';
+              currentStageLabel = 'Partially Redeemed';
+              isCompleted = false;
+              isRedeemed = false;
             } else {
               currentStage = 'aid_released';
               currentStageLabel = 'Aid Released';
+              isCompleted = false;
+              isRedeemed = false;
             }
           }
 

@@ -9,6 +9,7 @@ import {
   type CanonicalVoucherType,
 } from '../utils/voucher-category-matcher';
 import { normalizeMerchantName } from './merchantProgramsService';
+import { setCachedBeneficiaryRecord } from './offline/offline-balance-manager';
 import { notifyVoucherRedeemed, notifyVoucherScanned } from './voucher-sync-service';
 
 const toStroopAmount = (val: unknown): StroopAmount => {
@@ -201,17 +202,20 @@ export async function getCachedBeneficiaryLookup(
   }
 }
 
-/**
- * Saves beneficiary lookup results to SecureStore for offline fallback.
- */
 async function setCachedBeneficiaryLookup(result: BeneficiaryLookupResult): Promise<void> {
   try {
     const key = getCacheKey(result.beneficiaryWallet);
-    await SecureStore.setItemAsync(key, JSON.stringify(result), secureStoreOptions);
+    const serialized = JSON.stringify(result);
+    await SecureStore.setItemAsync(key, serialized, secureStoreOptions);
+    if (result.beneficiaryIdentityId && result.beneficiaryIdentityId !== result.beneficiaryWallet) {
+      const idKey = getCacheKey(result.beneficiaryIdentityId);
+      await SecureStore.setItemAsync(idKey, serialized, secureStoreOptions);
+    }
   } catch (err) {
     console.warn('[merchant-redemption-service] Error writing cache:', err);
   }
 }
+
 
 /**
  * Looks up beneficiary active assistance and voucher balances across all programs.
@@ -659,10 +663,115 @@ export async function lookupBeneficiaryBalances(params: {
   } catch (err) {
     // Network failure or offline: attempt to read cached entry (MER-01 Offline support)
     console.log('[merchant-redemption-service] Network query failed, trying offline cache:', err);
-    const cached = await getCachedBeneficiaryLookup(address);
+    let cached = await getCachedBeneficiaryLookup(address);
+    if (!cached && voucherTarget?.enrollmentId) {
+      cached = await getCachedBeneficiaryLookup(voucherTarget.enrollmentId);
+    }
+
     if (cached) {
+      // If the beneficiary presented a specific voucher payload, ensure that program exists in cached balances
+      if (voucherTarget?.isVoucherPayload && voucherTarget.programId) {
+        const hasProgram = cached.balances.some(
+          (b) =>
+            b.programId === voucherTarget.programId ||
+            (voucherTarget.programName &&
+              b.programName.trim().toLowerCase() === voucherTarget.programName.trim().toLowerCase())
+        );
+
+        if (!hasProgram) {
+          const stroops = toStroopAmount(voucherTarget.allocatedAmountStroops ?? 0);
+          const cat = voucherTarget.category || voucherTarget.voucherType || 'General';
+          const canonical = resolveCanonicalVoucherType(cat);
+          const categoryEligibility = canMerchantRedeemVoucher(merchantCats, cat);
+
+          const newVoucherItem: BeneficiaryVoucherBalanceItem = {
+            programId: voucherTarget.programId,
+            programName: voucherTarget.programName || 'Relief Program',
+            organizationId: '',
+            aidType: 'voucher',
+            voucherType: voucherTarget.voucherType || 'Aid Voucher',
+            category: cat,
+            canonicalType: canonical,
+            availableStroops: stroops,
+            availablePhp: formatStroops(stroops),
+            reconciledAt: null,
+            isAllowedForMerchant: categoryEligibility.allowed,
+            disallowedReason: categoryEligibility.reason,
+          };
+
+          cached = {
+            ...cached,
+            balances: [newVoucherItem, ...cached.balances],
+          };
+
+          void setCachedBeneficiaryLookup(cached);
+          if (params.merchantEntityId) {
+            void setCachedBeneficiaryRecord(params.merchantEntityId, address, cached);
+          }
+        }
+
+        // Isolate and return the targeted voucher so redemption form selects the exact scanned voucher
+        const targeted = cached.balances.filter(
+          (b) =>
+            b.programId === voucherTarget.programId ||
+            (voucherTarget.programName &&
+              b.programName.trim().toLowerCase() === voucherTarget.programName.trim().toLowerCase())
+        );
+
+        if (targeted.length > 0) {
+          return {
+            ok: true,
+            data: {
+              ...cached,
+              balances: targeted,
+            },
+          };
+        }
+      }
+
       return { ok: true, data: cached };
     }
+
+    // PILLAR B: Dynamic on-the-fly offline voucher admittance when un-cached
+    // If the scanned voucher QR includes embedded allocation and program info, admit it dynamically
+    if (voucherTarget?.isVoucherPayload && voucherTarget.programId) {
+      const stroops = toStroopAmount(voucherTarget.allocatedAmountStroops ?? 0);
+      const cat = voucherTarget.category || voucherTarget.voucherType || 'General';
+      const canonical = resolveCanonicalVoucherType(cat);
+      const categoryEligibility = canMerchantRedeemVoucher(merchantCats, cat);
+
+      const dynamicRecord: BeneficiaryLookupResult = {
+        beneficiaryIdentityId: voucherTarget.enrollmentId || address,
+        beneficiaryName: 'Beneficiary (Signed Offline Voucher)',
+        beneficiaryWallet: address,
+        isOffline: true,
+        syncedAt: new Date().toISOString(),
+        balances: [
+          {
+            programId: voucherTarget.programId,
+            programName: voucherTarget.programName || 'Relief Program',
+            organizationId: '',
+            aidType: 'voucher',
+            voucherType: voucherTarget.voucherType || 'Aid Voucher',
+            category: cat,
+            canonicalType: canonical,
+            availableStroops: stroops,
+            availablePhp: formatStroops(stroops),
+            reconciledAt: null,
+            isAllowedForMerchant: categoryEligibility.allowed,
+            disallowedReason: categoryEligibility.reason,
+          },
+        ],
+      };
+
+      // Persist to local cache immediately so offline-balance-manager can decrement it
+      void setCachedBeneficiaryLookup(dynamicRecord);
+      if (params.merchantEntityId) {
+        void setCachedBeneficiaryRecord(params.merchantEntityId, address, dynamicRecord);
+      }
+      return { ok: true, data: dynamicRecord };
+    }
+
     return {
       ok: false,
       error: 'Device is offline and beneficiary balance is not cached locally. Please connect to internet to sync.',
