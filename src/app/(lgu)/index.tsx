@@ -6,20 +6,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, BrandColors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useDisasterAnalytics } from '@/hooks/use-disaster-analytics';
 import { useOrganizationTreasury } from '@/hooks/use-organization-treasury';
 
 import { ActivityRow } from '@/components/Dashboard/ActivityRow';
 import { BudgetCard } from '@/components/Dashboard/BudgetCard';
+import { DisasterAnalyticsSection } from '@/components/Dashboard/DisasterAnalytics/DisasterAnalyticsSection';
 import { ProgramCard } from '@/components/Dashboard/ProgramCard';
-import { QuickActionGrid } from '@/components/Dashboard/QuickActionGrid';
 import { LogoHeader } from '@/components/LogoHeader/LogoHeader';
 import { FadeInView } from '@/components/shared/FadeInView';
 
-import { ActivityItem, Program, QuickAction } from '@/types/dashboard';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { ActivityItem, Program } from '@/types/dashboard';
+import { useFocusEffect } from 'expo-router';
 
 export default function HomeDashboard() {
-  const router = useRouter();
   const [programs] = useState<Program[]>([
     {
       id: '1',
@@ -43,6 +43,15 @@ export default function HomeDashboard() {
     refresh: refreshTreasury,
     organizationId,
   } = useOrganizationTreasury();
+
+  const {
+    analytics,
+    isLoading: isAnalyticsLoading,
+    filter: analyticsFilter,
+    setFilter: setAnalyticsFilter,
+    refresh: refreshAnalytics,
+    availablePrograms,
+  } = useDisasterAnalytics(organizationId);
 
   const fetchRecentVerifications = useCallback(async () => {
     try {
@@ -87,7 +96,7 @@ export default function HomeDashboard() {
             action: 'No verified beneficiaries yet',
             timestamp: '-',
             avatarVariant: 'person',
-          }
+          },
         ]);
       } else {
         setActivities(verificationActivities);
@@ -100,7 +109,8 @@ export default function HomeDashboard() {
   useFocusEffect(
     useCallback(() => {
       void fetchRecentVerifications();
-    }, [fetchRecentVerifications]),
+      void refreshAnalytics();
+    }, [fetchRecentVerifications, refreshAnalytics]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -108,9 +118,10 @@ export default function HomeDashboard() {
     await Promise.all([
       refreshTreasury(),
       fetchRecentVerifications(),
+      refreshAnalytics(),
     ]);
     setRefreshing(false);
-  }, [refreshTreasury, fetchRecentVerifications]);
+  }, [refreshTreasury, fetchRecentVerifications, refreshAnalytics]);
 
   const handleSync = useCallback(async () => {
     setIsSyncing(true);
@@ -131,6 +142,7 @@ export default function HomeDashboard() {
       await Promise.all([
         refreshTreasury(),
         fetchRecentVerifications(),
+        refreshAnalytics(),
       ]);
     } catch (err: any) {
       console.error('Refresh after reconciliation failed:', err);
@@ -138,40 +150,7 @@ export default function HomeDashboard() {
     } finally {
       setIsSyncing(false);
     }
-  }, [organizationId, refreshTreasury, fetchRecentVerifications]);
-
-  const actions: QuickAction[] = [
-    {
-      id: '1',
-      label: 'Create Program',
-      iconName: 'plus',
-      onPress: () => router.push('/(lgu)/create-program' as any),
-    },
-    {
-      id: '2',
-      label: 'Verify Beneficiaries',
-      iconName: 'search',
-      onPress: () => router.push('/(lgu)/beneficiaries' as any),
-    },
-    {
-      id: '3',
-      label: 'Distribute Aids',
-      iconName: 'heart',
-      onPress: () => router.push('/(lgu)/pay-scan' as any),
-    },
-    {
-      id: '4',
-      label: 'Reports',
-      iconName: 'file-text',
-      onPress: () => router.push('/(lgu)/reports' as any),
-    },
-    {
-      id: '5',
-      label: 'Transfer Funds',
-      iconName: 'exchange',
-      onPress: () => router.push('/(lgu)/transfer-funds' as any),
-    },
-  ];
+  }, [organizationId, refreshTreasury, fetchRecentVerifications, refreshAnalytics]);
 
   return (
     <ThemedView style={styles.container}>
@@ -206,8 +185,16 @@ export default function HomeDashboard() {
             />
           </FadeInView>
 
+          {/* Replaced quick action duplicate buttons with organization disaster analytics */}
           <FadeInView delay={80}>
-            <QuickActionGrid actions={actions} />
+            <DisasterAnalyticsSection
+              analytics={analytics}
+              isLoading={isAnalyticsLoading}
+              filter={analyticsFilter}
+              onFilterChange={setAnalyticsFilter}
+              onRefresh={refreshAnalytics}
+              availablePrograms={availablePrograms}
+            />
           </FadeInView>
 
           <FadeInView delay={120}>
