@@ -1,0 +1,33 @@
+{
+  "project_type": "Expo SDK 57 / React Native 0.86 app with Expo Router (typedRoutes, reactCompiler enabled), Supabase Edge Functions, Stellar testnet. Repo root c:/Users/gab/relief-chain. Windows PowerShell.",
+  "language": "TypeScript (strict, no `any`); tests are plain .mjs using node:test",
+  "build_system": "No build step for dev. Metro bundles via `expo`. Bundling proof: `$env:CI='1'; node node_modules/expo/bin/cli export --platform android --no-bytecode --no-minify --output-dir .validation-artifacts/android-export-after --clear` (~20s; unminified bundle contains route keys like `(merchant)/receive.tsx`). Delete the output dir afterwards. `expo export --platform web` is BROKEN at baseline (static render crashes in expo-secure-store under Node) - do not use it as a gate.",
+  "test_framework": "node:test + fast-check; no jest/vitest (do not add). `npm run test:unit` = `node --test scripts/tests/**/*.test.mjs` only. src/** tests run through their own npm scripts, e.g. `npm run test:navigation-back-behavior` (node --experimental-strip-types --test src/app/navigation-back-behavior.test.mjs).",
+  "build_command": "npm run type-check",
+  "test_command": "npm run test:unit",
+  "verification_instructions": "1) npm run type-check must pass (baseline passes). 2) npm run test:unit must have 0 failures (baseline 651 tests, 645 pass, 0 fail, 6 skipped). 3) Lint baseline is already RED: 421 problems (28 errors, 393 warnings); saved at .validation-artifacts/lint-baseline.json. Gate = no new problems: run `node node_modules/eslint/bin/eslint.js . --no-cache -f json -o .validation-artifacts/lint-after.json` and compare per-file/per-rule. Only expected delta: src/app/(merchant)/receive.tsx loses its 2 react-hooks/preserve-manual-memoization errors (line 70 merchantIdentifiers useMemo) and src/app/(merchant)/redeem.tsx gains exactly those same 2. 4) npm run test:navigation-back-behavior. 5) Android export bundle greps. 6) git status shows only intended files, nothing committed.",
+  "snapshot_or_generated_files": "None checked in. .validation-artifacts/ and .validation-mobile-smoke/ are gitignored. .expo/types/router.d.ts is generated/gitignored and does NOT list merchant routes, so new routes need `as Href` / `as never`.",
+  "environment_constraints": "AGENTS.md: NEVER commit, amend, or push. Never run dev servers/watchers in foreground. Never run `supabase db reset` or any hosted script, never load .env.hosted.local, never print secrets. Do not modify src/app/(beneficiary)/**, supabase/functions/**, shared/invoice-codec.ts, supabase/migrations/**, src/components/shared/qr-modal.tsx, app.config.js. PowerShell: use `;` not `&&`. PowerShell shows mojibake for non-ASCII (e.g. ₱, …); files are valid UTF-8. Use read_file (not Get-Content) to read before editing and never pipe git output into files.",
+  "contribution_requirements": "AGENTS.md: functional components + hooks; screens > ~150 lines must be thin shells (state in hooks, presentational sub-components in src/components/<Feature>/); shared types in src/types; use Spacing/BorderRadius/FloatingTabBarHeight/FloatingTabBarGap/MaxContentWidth/BrandColors from @/constants/theme (never hardcode those); Plus Jakarta Sans only (font family strings like 'PlusJakartaSans_700Bold'); light mode only; docs must be updated in the same change (docs/flow-reliefchain.md for status, docs/relief-chain.md for product facts, sprint change log §8); never document gated/simulated capability as working; no invented numbers/partners; read docs/ before code. Never sign server-side; keep prepare/submit split; invoice merchantId must be merchant_entities.id from useMerchantWallet().merchantEntityId; 10-minute TTL + one-time nonce, never extend/reuse; 'settled' only from reconciler evidence via useMerchantSettlementCheck; Stellar testnet only.",
+  "key_patterns": "Merchant tab screens (index.tsx, history.tsx, programs.tsx, profile.tsx) render <MerchantBottomNavigation active=\"...\" /> as the last child of the screen View; ScrollView bottom padding = insets.bottom + FloatingTabBarGap + FloatingTabBarHeight + Spacing.four. Route casts: router.push('/(merchant)/wallet-recovery' as never) and `as Href` (import { type Href } from 'expo-router'). Back handlers use `if (router.canGoBack()) router.back(); else router.replace(...)` (asserted by src/app/navigation-back-behavior.test.mjs). Source-grep tests in scripts/tests/retry-payment-orphan.test.mjs use `readRepo(rel)` (readFile from repo root) with assert.match. FadeInView wraps sections (mount-only animation).",
+  "relevant_files": [
+    "src/app/(merchant)/receive.tsx (currently the scanner; becomes the thin invoice shell)",
+    "src/app/(merchant)/_layout.tsx (Stack; add redeem)",
+    "git show f978c77^:\"src/app/(merchant)/receive.tsx\" (252-line old invoice screen, reference only)",
+    "src/components/MerchantDashboard/MerchantBottomNavigation.tsx",
+    "src/components/MerchantInvoice/{InvoiceAmountForm,InvoiceQrCard,InvoiceExpiryCountdown,InvoiceSettlementState,InvoiceSigningStatus,SettlementCheckButton}.tsx",
+    "src/services/invoice-service.ts (createSignedInvoice, line ~120)",
+    "src/services/merchant-invoice-storage.ts (saveInvoice, getStoredInvoiceByNonce, updateInvoiceStatus)",
+    "src/hooks/use-merchant-wallet.ts, src/hooks/use-merchant-settlement-check.ts",
+    "src/types/invoice.ts (MerchantInvoiceStep, InvoiceSettlementState, MerchantInvoiceDraft, InvoiceTransport, InvoiceV1)",
+    "src/app/(merchant)/history.tsx and index.tsx (pattern for nav + bottom padding)",
+    "src/app/(merchant)/payment-history.tsx (empty-state copy at line 69)",
+    "src/components/MerchantPaymentHistory/InvoiceDetailModal.tsx (pushes receive with {nonce})",
+    "scripts/tests/retry-payment-orphan.test.mjs (lines ~384-388), src/app/navigation-back-behavior.test.mjs",
+    "docs/flow-reliefchain.md, docs/sprint-reliefchain.md, docs/sad-reliefchain.md, docs/prd-reliefchain.md, docs/relief-chain.md",
+    "supabase/functions/prepare-payment/index.ts:83-84 (read only)",
+    "supabase/migrations/20261004010000_execute_voucher_redemption_and_flexible_lookup.sql and 20261004020000_update_redemption_and_history.sql (read only; DB-only random tx hash)"
+  ],
+  "directory_structure": "src/app/(merchant)/*.tsx routes; src/components/<Feature>/ UI; src/hooks/ hooks; src/services/ data access; src/types/ domain types; src/constants/theme.ts tokens; scripts/tests/*.test.mjs unit tests; docs/ documentation suite; .agents/tasks/ plan + FEAT artifacts (outside any commit).",
+  "plan_file": "c:/Users/gab/relief-chain/.agents/tasks/restore-merchant-invoice-plan.md (authoritative detail: sections 1-10)"
+}

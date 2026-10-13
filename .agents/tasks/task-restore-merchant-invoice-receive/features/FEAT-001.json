@@ -1,0 +1,28 @@
+{
+    "id":  "FEAT-001",
+    "type":  "refactor",
+    "description":  "Relocate the current camera-scanner / beneficiary lookup / voucher redemption / offline-sync screen intact from src/app/(merchant)/receive.tsx to a new route src/app/(merchant)/redeem.tsx and register it in the (merchant) Stack. receive.tsx is NOT edited in this feature (it remains the scanner until FEAT-002), so the build stays valid. Independent of FEAT-002 except that FEAT-002 overwrites receive.tsx afterwards and links to redeem.",
+    "status":  "completed",
+    "steps":  [
+                  "Read src/app/(merchant)/receive.tsx with read_file (do not use Get-Content: mojibake).",
+                  "Create src/app/(merchant)/redeem.tsx with identical content except: rename component MerchantReceiveScreen -\u003e MerchantRedeemScreen (declaration and default export) and change the two console.warn tags \u0027[receive] Lookup error:\u0027 and \u0027[receive] Online submit failed, falling back to offline queue:\u0027 to \u0027[redeem] ...\u0027. Do not change any logic, RPC call, import, style, or the existing handleBack (router.back() else router.replace(\u0027/(merchant)\u0027 as never)).",
+                  "Edit src/app/(merchant)/_layout.tsx: add \u003cStack.Screen name=\"redeem\" /\u003e after name=\"receive\" (inherit the existing animation: \u0027none\u0027 screenOptions).",
+                  "Verify byte-level equivalence: compare the two files (e.g. Compare-Object on Get-Content -Raw split lines, or git diff --no-index --stat) and confirm only the 3 intended lines differ.",
+                  "Run npm run type-check and the lint comparison (eslint JSON vs .validation-artifacts/lint-baseline.json): redeem.tsx must show exactly the same 2 react-hooks/preserve-manual-memoization errors the old receive.tsx had; no new problems anywhere.",
+                  "Do NOT commit. Set this FEAT\u0027s status to completed and record in findings anything later steps need."
+              ],
+    "acceptance_criteria":  [
+                                "src/app/(merchant)/redeem.tsx exists and differs from the pre-change receive.tsx only by the component name and the two log tags",
+                                "src/app/(merchant)/_layout.tsx registers name=\"redeem\" in the Stack",
+                                "npm run type-check exits 0",
+                                "ESLint output has no new problems vs .validation-artifacts/lint-baseline.json (redeem.tsx carries the same 2 pre-existing errors)",
+                                "src/app/(merchant)/receive.tsx is unchanged by this feature"
+                            ],
+    "verification":  [
+                         "npm run type-check",
+                         "node node_modules/eslint/bin/eslint.js . --no-cache -f json -o .validation-artifacts/lint-after-feat1.json  (then compare with lint-baseline.json)",
+                         "node --test scripts/tests/retry-payment-orphan.test.mjs"
+                     ],
+    "blocked_reason":  null,
+    "findings":  "Created src/app/(merchant)/redeem.tsx as a byte-level copy of receive.tsx (Copy-Item) with only 4 changed lines: component declaration + default export renamed to MerchantRedeemScreen, and log tags \u0027[redeem] Lookup error:\u0027 / \u0027[redeem] Online submit failed...\u0027. Registered \u003cStack.Screen name=\"redeem\" /\u003e after receive in (merchant)/_layout.tsx. receive.tsx untouched. type-check exit 0. ESLint: only delta vs baseline is redeem.tsx +2 react-hooks/preserve-manual-memoization errors (total 421 -\u003e 423; receive.tsx still has its own 2 until FEAT-002 overwrites it, then total returns to 421). retry-payment-orphan.test.mjs: 9/9 pass. GOTCHA for later steps: the str_replace/fs_write tools triggered an editor-side formatter that re-indented the 4-line import block in redeem.tsx (2-\u003e4 spaces) on every tool write; when exact-byte fidelity matters, write via PowerShell [IO.File]::WriteAllText with UTF8Encoding(false) (files use CRLF, no BOM) and re-diff with git diff --no-index -U0. Nothing committed."
+}

@@ -321,6 +321,8 @@ The merchant scans the beneficiary QR code, validates the voucher, confirms the 
 
 The source does not state whether the QR code identifies a person, account, voucher, claim, or signed transaction. It also does not define replay protection or lost-code recovery.
 
+As built, the merchant presents a signed invoice QR (Stellar testnet, cash rail) that the beneficiary scans and pays. Scanning a beneficiary QR is a separate, database-only redemption path that does not create a Stellar transaction.
+
 #### Step 7 — Continue locally when internet access is unavailable
 
 Accredited merchants and authorized personnel use Bluetooth to exchange and validate transaction records locally. This is intended to support uninterrupted relief operations in disaster-affected areas.

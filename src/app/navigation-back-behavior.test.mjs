@@ -56,6 +56,30 @@ test('MerchantBottomNavigation uses router.navigate to maintain stack history', 
   );
 });
 
+test('MerchantBottomNavigation routes the QR Scan tab to the invoice receive screen', () => {
+  const navPath = fileURLToPath(new URL('../components/MerchantDashboard/MerchantBottomNavigation.tsx', import.meta.url));
+  const source = readFileSync(navPath, 'utf8');
+
+  assert.match(
+    source,
+    /router\.navigate\('\/\(merchant\)\/receive'\)/,
+    'MerchantBottomNavigation must route QR Scan with router.navigate to /(merchant)/receive',
+  );
+  assert.match(
+    source,
+    /active === 'qr'/,
+    'MerchantBottomNavigation must support an active QR Scan item',
+  );
+});
+
+test('Merchant receive and redeem screens use safe canGoBack fallback navigation', () => {
+  const receive = readFileSync(fileURLToPath(new URL('./(merchant)/receive.tsx', import.meta.url)), 'utf8');
+  assert.match(receive, /router\.canGoBack\(\)/, 'Merchant receive must verify canGoBack');
+
+  const redeem = readFileSync(fileURLToPath(new URL('./(merchant)/redeem.tsx', import.meta.url)), 'utf8');
+  assert.match(redeem, /router\.canGoBack\(\)/, 'Merchant redeem must verify canGoBack');
+});
+
 test('Sub-screens use safe canGoBack fallback navigation', () => {
   const lguEditProfile = readFileSync(fileURLToPath(new URL('./(lgu)/edit-profile.tsx', import.meta.url)), 'utf8');
   assert.match(lguEditProfile, /router\.canGoBack\(\)/, 'LGU edit-profile must verify canGoBack');

@@ -59,7 +59,7 @@ One binary, three role surfaces, enforced by a redirect guard in `src/app/_layou
 | `(auth)` | `Stack` | `choose-account`, `sign-in`, `sign-up`, `verify-email`, `registration-success`, `forgot-password`, `application-review`, `terms-and-conditions` |
 | `(lgu)` | `Tabs` + `CreateProgramProvider` | `index`, `programs`, `pay-scan` (**Disbursements**), `beneficiaries`, `settings`; hidden `explore`, `create-program`, `edit-profile`, `security`, `program/[id]` |
 | `(beneficiary)` | `Tabs` (floating pill) | `index`, `my-assistance`, `pay-scan`, `find-organization`, `profile`; hidden `transactions`, `wallet-recovery` |
-| `(merchant)` | `Stack` (`animation: 'none'`) | `index`, `receive`, `profile`, `programs`, `security` — bottom nav is a component, not a navigator |
+| `(merchant)` | `Stack` (`animation: 'none'`) | `index`, `receive`, `redeem`, `history`, `payment-history`, `profile`, `edit-profile`, `programs`, `security`, `wallet-recovery`, `transactions` — bottom nav is a component, not a navigator |
 
 There is **no `src/app/index.tsx`**. Cold start renders `<Slot />` with no match until the redirect effect resolves, guarded by `hasRedirectedRef`. This is deliberate but fragile; it is listed in [`build-reliefchain.md`](build-reliefchain.md) §8.
 
@@ -168,7 +168,7 @@ sequenceDiagram
   participant R as reconcile-stellar
 
   B->>E: invoice + fundingSourceId + fundingSourceKind
-  Note over E: rejects fundingSourceKind != 'cash'
+  Note over E: accepts fundingSourceKind 'cash' or 'voucher' (index.ts:83-84)
   E->>E: parse + verify signature + expiry
   E->>D: identity · enrollment · verified wallet · accreditation · merchant wallet
   E->>E: fail closed if amount > MAX_SAFE_INTEGER
@@ -264,7 +264,7 @@ A hosted Supabase project exists as of 2026-09-24 — schema, 13 Edge Functions,
 | Constraint | Why it exists | Consequence |
 |---|---|---|
 | Testnet only, RCPHP only | Pilot safety | No real value; every demo must state this |
-| Cash funding source only | `prepare-payment` MVP gate | The programmable-voucher differentiator is not exercisable end-to-end |
+| Client creates cash invoices only | `prepare-payment` accepts `cash` and `voucher` (`index.ts:83-84`); contract-deployment prerequisites unchanged, not re-verified | The programmable-voucher differentiator is not exercisable end-to-end from the app |
 | No contract upgrade function | Deliberate design | A fix is a redeploy plus migration of program state |
 | UTC daily limits | `SECONDS_PER_DAY` bucketing | Limit windows do not align with Philippine local days |
 | No `src/app/index.tsx` | Redirect-driven entry | Initial route depends on an effect; guarded but fragile |

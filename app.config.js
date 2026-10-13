@@ -69,7 +69,7 @@ module.exports = {
     extra: {
       // EAS project configuration
       eas: {
-        projectId: 'e556fe79-19e7-4cda-9261-3397d4db374d',
+        projectId: '5a54cb64-d0d1-49bb-bab6-675275857bd8',
       },
       // Expose EXPO_PUBLIC_* environment variables to Constants.expoConfig.extra
       EXPO_PUBLIC_DEMO_MODE: process.env.EXPO_PUBLIC_DEMO_MODE || 'false',
