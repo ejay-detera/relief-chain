@@ -1,0 +1,71 @@
+[
+  { "id": "title", "dur": 4.5, "kicker": "", "title": "", "chips": [] },
+  {
+    "id": "dashboard", "clip": "dashboard", "act": "setup",
+    "kicker": "01 · LGU dashboard", "title": "The real app, end to end",
+    "chips": ["Program budget", "Reserved vs available", "Analytics"],
+    "vo": "This is the real Relief Chain app. The LGU dashboard shows the total program budget, what is reserved, and what is still available, with disaster response analytics below.",
+    "say": "This is the real Relief Chain app. The L G U dashboard shows the total program budget, what is reserved, and what is still available, with disaster response analytics below."
+  },
+  {
+    "id": "wizardBasics", "clip": "wizardBasics", "act": "setup",
+    "kicker": "02 · Create a program", "title": "Seven guided steps",
+    "chips": ["Disaster type", "Affected barangays", "Budget & aid per household", "Schedule"],
+    "vo": "Creating a relief program takes seven guided steps. The admin names the program, picks the disaster type and the affected barangays, sets the budget and the aid per household, then schedules the program and the distribution period."
+  },
+  {
+    "id": "wizardCsv", "clip": "wizardCsv", "act": "ben",
+    "kicker": "03 · Beneficiary CSV import", "title": "Upload the masterlist",
+    "chips": ["CSV file or paste", "Every row parsed", "Invalid rows skipped"],
+    "vo": "For a targeted program, the LGU uploads or pastes its masterlist as a CSV. The app parses every row. A row with an incomplete phone number is skipped, so seven rows go in and six valid beneficiaries come out. Identities are cross-checked again at registration, against existing beneficiaries and the same disaster campaign.",
+    "say": "For a targeted program, the L G U uploads or pastes its masterlist as a C S V. The app parses every row. A row with an incomplete phone number is skipped, so seven rows go in and six valid beneficiaries come out. Identities are cross-checked again at registration, against existing beneficiaries and the same disaster campaign."
+  },
+  {
+    "id": "wizardPublish", "clip": "wizardPublish", "act": "ben",
+    "kicker": "04 · Review & publish", "title": "Published and funded",
+    "chips": ["Cash aid", "Full review", "Activated on testnet"],
+    "vo": "The admin confirms cash assistance, reviews the full summary, and publishes. Program activation is prepared on the server and recorded on the Stellar testnet."
+  },
+  {
+    "id": "distributeSelect", "clip": "distributeSelect", "act": "pay",
+    "kicker": "05 · Distribute aid", "title": "5,031 households selected",
+    "chips": ["Verified beneficiaries", "500 RCPHP each", "Pre-validation"],
+    "vo": "Now the payout. The admin opens Distribute Aid, picks the program, and loads every verified beneficiary. Five thousand and thirty one households are selected at five hundred R C P H P each, and pre-validation checks the list before anything is signed."
+  },
+  {
+    "id": "distributeRun", "clip": "distributeRun", "act": "pay",
+    "kicker": "06 · Sign & distribute", "title": "Every transfer confirmed",
+    "chips": ["One authorization", "Batched transfers", "Reconciled on-chain"],
+    "note": "Demo data · simulated job · a 5,000-recipient run has not been load-tested on testnet yet",
+    "vo": "After a final review, the admin signs and authorizes once. Transfers go out in batches, and the status screen reconciles against on-chain evidence. All five thousand and thirty one transfers confirm, with zero failures."
+  },
+  {
+    "id": "beneficiary", "clip": "beneficiary", "act": "spend",
+    "kicker": "07 · Beneficiary", "title": "The aid arrives",
+    "chips": ["Reconciled balance", "Testnet label", "Active program"],
+    "vo": "On his phone, Juan sees his reconciled cash balance, clearly labeled as testnet with no real monetary value, and the program he belongs to."
+  },
+  {
+    "id": "merchantOffline", "clip": "merchantOffline", "act": "off",
+    "kicker": "08 · No internet", "title": "The store keeps working offline",
+    "chips": ["Network cut", "Offline mode", "Local verification", "Back online"],
+    "note": "Network cut in the browser · phone-to-phone offline transfer still needs device testing",
+    "vo": "When the network drops, the merchant app switches to offline mode with local verification, so the store can keep serving people. Offline redemptions are queued as pending sync, and when the signal returns, the app goes back online to sync them."
+  },
+  {
+    "id": "merchantHistory", "clip": "merchantHistory", "act": "off",
+    "kicker": "09 · Merchant history", "title": "Every settlement on record",
+    "chips": ["Confirmed settlements", "Refunds where allowed"],
+    "vo": "The merchant history lists every confirmed settlement, with refunds available where the rules allow."
+  },
+  {
+    "id": "audit", "clip": "audit", "act": "audit",
+    "kicker": "10 · Audit & compliance", "title": "Reconciled with the ledger",
+    "chips": ["Blockchain reconciled", "Export PDF / Excel", "Audit trail"],
+    "vo": "Finally, the audit and compliance report reconciles allocations and treasury balances against the blockchain ledger, with an audit trail, ready to export as P D F or Excel."
+  },
+  {
+    "id": "end", "act": "audit", "dur": 6, "kicker": "", "title": "", "chips": [],
+    "vo": "Relief Chain. Faster, more transparent aid, from masterlist to merchant."
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "name": "relief-chain-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Renders the Relief Chain demo storyboard into an MP4 (HTML + Playwright + ffmpeg). Isolated from the Expo app.",
+  "scripts": {
+    "build": "node build.mjs",
+    "stills": "node build.mjs --stills 2,12,40,90,150,200"
+  },
+  "dependencies": {
+    "ffmpeg-static": "5.3.0",
+    "playwright-core": "1.64.0"
+  }
+}

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relief Chain — Real App Demo Compositor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sarina&display=swap" rel="stylesheet" />
+<style>
+  :root{--green:#6FCA4B;--navy:#112E58;--yellow:#E4CF10;--light:#EEEDED;--grey:#979797;--blue:#6595DA}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1920px;height:1080px;overflow:hidden}
+  body{font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:#1b2430;background:#F7F7F6;position:relative}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.35}
+  .b1{width:700px;height:700px;background:var(--green);left:-200px;top:-260px}
+  .b2{width:800px;height:800px;background:var(--blue);right:-260px;bottom:-320px}
+  .b3{width:420px;height:420px;background:var(--yellow);left:820px;top:640px;opacity:.16}
+  .hdr{position:absolute;top:36px;left:110px;right:110px;display:flex;align-items:center;justify-content:space-between;z-index:5}
+  .logo{font-family:"Sarina",cursive;font-size:40px;color:var(--navy)}
+  .acts{display:flex;gap:10px}
+  .acts span{font-size:18px;font-weight:700;color:var(--grey);padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.75)}
+  .acts span.on{background:var(--navy);color:#fff}
+  .tn{font-size:17px;font-weight:700;background:var(--yellow);color:var(--navy);padding:8px 16px;border-radius:999px}
+
+  .scene{position:absolute;inset:0}
+  .left{position:absolute;left:110px;top:200px;width:980px}
+  .kicker{font-size:24px;font-weight:800;color:#3d8a22;letter-spacing:.14em;text-transform:uppercase}
+  h2{font-size:82px;line-height:1.04;color:var(--navy);margin:14px 0 26px;font-weight:800;letter-spacing:-.01em}
+  .chips{display:flex;flex-wrap:wrap;gap:14px;max-width:960px}
+  .chip{background:#fff;border:3px solid var(--green);border-radius:999px;padding:12px 24px;font-size:25px;font-weight:700;color:var(--navy)}
+  .snote{margin-top:28px;font-size:20px;color:#5b6472;background:#fffbe0;border-left:6px solid var(--yellow);padding:10px 16px;border-radius:10px;max-width:900px}
+
+  .phone{position:absolute;right:250px;top:120px;width:424px;height:916px;border:12px solid var(--navy);border-radius:58px;background:#fff;overflow:hidden;box-shadow:0 34px 90px rgba(17,46,88,.32)}
+  .phone video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff}
+  .badge{position:absolute;right:250px;top:1046px;transform:translateY(-100%);font-size:15px;font-weight:700;color:#3d8a22}
+
+  .title{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .title .lg{font-family:"Sarina",cursive;font-size:170px;color:var(--navy);line-height:1.2}
+  .title p{font-size:40px;color:#3c4656;margin:6px 0 26px;font-weight:600}
+  .end{position:absolute;inset:0;background:linear-gradient(135deg,var(--navy),#1d4c8f 60%,var(--blue));display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;z-index:6}
+  .end .lg{font-family:"Sarina",cursive;font-size:150px;line-height:1.2}
+  .end p{font-size:38px;margin:10px 0 30px;font-weight:600}
+
+  #sub{position:absolute;bottom:58px;left:110px;width:1040px;background:rgba(17,46,88,.92);color:#fff;font-size:29px;font-weight:600;padding:16px 26px;border-radius:18px;z-index:8;line-height:1.35}
+  .note{position:absolute;bottom:20px;left:110px;font-size:16px;color:#6b7280;z-index:8}
+  .pbar{position:absolute;left:0;bottom:0;height:8px;background:linear-gradient(90deg,var(--green),var(--blue));z-index:9;width:0}
+</style>
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+<div class="hdr">
+  <div class="logo">Relief Chain</div>
+  <div class="acts">
+    <span data-act="setup">Setup</span><span data-act="ben">Beneficiaries</span><span data-act="pay">Payout</span><span data-act="spend">Beneficiary</span><span data-act="off">Offline</span><span data-act="audit">Audit</span>
+  </div>
+  <div class="tn">Stellar testnet · RCPHP has no monetary value</div>
+</div>
+<div id="stage"></div>
+<div id="sub" style="opacity:0"></div>
+<div class="note">Recorded from the real Relief Chain app (web build) · demo data from a local mock backend · placeholder names</div>
+<div class="pbar" id="pbar"></div>
+
+<script>
+  const q = (s, r = document) => [...r.querySelectorAll(s)];
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const eo = (p) => 1 - Math.pow(1 - p, 3);
+  const eb = (p) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+  let TL = [], TOTAL = 0, subs = [];
+  const els = {};
+
+  window.__setup = async (tl) => {
+    TL = tl;
+    TOTAL = tl[tl.length - 1].start + tl[tl.length - 1].dur;
+    const stage = document.getElementById('stage');
+    for (const e of tl) {
+      const s = document.createElement('section');
+      s.className = 'scene';
+      s.dataset.act = e.act || 'setup';
+      if (e.id === 'title') {
+        s.innerHTML = `<div class="title"><div class="lg" data-at="0.15" data-fx="pop">Relief Chain</div>
+          <p data-at="0.7">Full system walkthrough of the real app</p>
+          <div class="chips" style="justify-content:center"><span class="chip" data-at="1.2">CSV import</span><span class="chip" data-at="1.45">5,031-household payout</span><span class="chip" data-at="1.7">Offline mode</span></div></div>`;
+      } else if (e.id === 'end') {
+        s.innerHTML = `<div class="end" data-at="0" data-fx="fade"><div class="lg" data-at="0.3" data-fx="pop">Relief Chain</div>
+          <p data-at="0.9">Faster, more transparent aid, from masterlist to merchant.</p>
+          <div class="tn" data-at="1.4" style="font-size:24px">Stellar testnet demo · RCPHP has no monetary value</div></div>`;
+      } else {
+        const chips = (e.chips || []).map((c, i) => `<span class="chip" data-at="${(1.2 + i * 0.35).toFixed(2)}">${c}</span>`).join('');
+        s.innerHTML = `<div class="left"><div class="kicker" data-at="0.1">${e.kicker}</div><h2 data-at="0.25">${e.title}</h2>
+          <div class="chips">${chips}</div>${e.note ? `<div class="snote" data-at="2.2">${e.note}</div>` : ''}</div>
+          <div class="phone" data-at="0" data-fx="right"><video muted playsinline preload="auto" src="${e.clipSrc}"></video></div>
+          <div class="badge" data-at="0.8">● Real app screen recording</div>`;
+      }
+      stage.appendChild(s);
+      els[e.id] = s;
+    }
+    // Subtitles: sentence chunks timed by length across each VO clip.
+    subs = [];
+    for (const e of tl) {
+      if (!e.text) continue;
+      const parts = (e.text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || []).map((x) => x.trim()).filter(Boolean);
+      const merged = [];
+      for (const p of parts) {
+        const prev = merged[merged.length - 1];
+        if (prev && (prev.length < 30 || p.length < 24) && prev.length + p.length < 110) merged[merged.length - 1] = prev + ' ' + p; else merged.push(p);
+      }
+      const total = merged.reduce((a, x) => a + x.length, 0);
+      let t = e.voStart;
+      for (const m of merged) { const d = e.voDur * m.length / total; subs.push({ start: t, end: t + d, text: m }); t += d; }
+    }
+    // Wait for every clip to be seekable.
+    await Promise.all(q('video').map((v) => new Promise((res) => {
+      if (v.readyState >= 2) return res();
+      v.addEventListener('loadeddata', res, { once: true });
+      v.addEventListener('error', res, { once: true });
+    })));
+    return q('video').map((v) => ({ src: v.src.split('/').pop(), ready: v.readyState, dur: v.duration }));
+  };
+
+  window.__cues = () => {
+    const cues = [];
+    TL.forEach((e, i) => {
+      if (i > 0) cues.push({ t: e.start, type: 'whoosh' });
+      q('[data-at]', els[e.id]).forEach((el) => {
+        if (el.classList.contains('chip')) cues.push({ t: e.start + parseFloat(el.dataset.at), type: 'pop' });
+      });
+      for (const tap of e.taps || []) cues.push({ t: tap, type: 'tap' });
+      for (const c of e.extraCues || []) cues.push(c);
+    });
+    return cues.sort((a, b) => a.t - b.t);
+  };
+
+  function fxv(kind, p) {
+    const e = eo(p);
+    switch (kind) {
+      case 'right': return [e, `translateX(${(1 - e) * 120}px)`];
+      case 'pop': return [Math.min(1, p * 2.5), `scale(${0.6 + 0.4 * eb(p)})`];
+      case 'fade': return [e, 'none'];
+      default: return [e, `translateY(${(1 - e) * 40}px)`];
+    }
+  }
+
+  const seek = (v, time) => new Promise((res) => {
+    if (!Number.isFinite(v.duration)) return res();
+    const target = Math.max(0, Math.min(v.duration - 0.04, time));
+    if (Math.abs(v.currentTime - target) < 0.001) return res();
+    const done = () => { v.removeEventListener('seeked', done); requestAnimationFrame(() => res()); };
+    v.addEventListener('seeked', done);
+    v.currentTime = target;
+  });
+
+  window.__render = async (t) => {
+    const waits = [];
+    TL.forEach((e, idx) => {
+      const s = els[e.id];
+      const local = t - e.start, D = e.dur, isLast = idx === TL.length - 1;
+      if (local < 0 || (local >= D && !isLast)) { s.style.display = 'none'; return; }
+      s.style.display = '';
+      const pin = idx === 0 ? 1 : clamp(local / 0.5);
+      const pout = isLast ? 1 : clamp((D - local) / 0.4);
+      s.style.opacity = Math.min(eo(pin), eo(pout));
+      q('[data-at]', s).forEach((el) => {
+        const [op, tr] = fxv(el.dataset.fx || 'up', clamp((local - parseFloat(el.dataset.at)) / 0.5));
+        el.style.opacity = op; el.style.transform = tr;
+      });
+      const v = s.querySelector('video');
+      if (v) waits.push(seek(v, e.clipStart + Math.min(e.clipDur, Math.max(0, local - e.clipDelay) * e.rate)));
+    });
+    const cur = TL.find((e) => t >= e.start && t < e.start + e.dur) || TL[TL.length - 1];
+    q('.acts span').forEach((a) => a.classList.toggle('on', a.dataset.act === els[cur.id].dataset.act));
+    document.getElementById('pbar').style.width = (100 * Math.min(1, t / TOTAL)) + '%';
+    const sub = subs.find((x) => t >= x.start - 0.05 && t < x.end + 0.1);
+    const se = document.getElementById('sub');
+    if (sub) { if (se.textContent !== sub.text) se.textContent = sub.text; se.style.opacity = 1; } else se.style.opacity = 0;
+    const last = TL[TL.length - 1];
+    const chrome = 1 - clamp((t - last.start) / 0.6);
+    document.querySelector('.hdr').style.opacity = chrome;
+    document.querySelector('.note').style.opacity = chrome;
+    q('.blob').forEach((b, i) => { b.style.transform = `translate(${Math.sin(t * 0.13 + i * 2) * 120}px, ${Math.cos(t * 0.11 + i) * 80}px)`; });
+    await Promise.all(waits);
+  };
+</script>
+</body>
+</html>

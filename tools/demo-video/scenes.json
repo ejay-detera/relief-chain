@@ -1,0 +1,57 @@
+[
+  { "id": "s0", "dur": 4 },
+  {
+    "id": "s1",
+    "vo": "This is the LGU's dashboard. A typhoon has hit, so the admin creates a relief program in seven steps: details, eligibility requirements, budget, and how aid is distributed. We choose Batch, so everyone approved is paid in one run.",
+    "say": "This is the L G U's dashboard. A typhoon has hit, so the admin creates a relief program in seven steps: details, eligibility requirements, budget, and how aid is distributed. We choose Batch, so everyone approved is paid in one run."
+  },
+  {
+    "id": "s2",
+    "vo": "Funding the program is a blockchain transaction. The admin signs on their own phone. The server never holds their key, and anyone can verify it on the public ledger."
+  },
+  {
+    "id": "s3",
+    "vo": "Barangays already keep masterlists. Instead of typing thousands of names one by one, the LGU uploads the CSV file as-is. This one has over five thousand rows.",
+    "say": "Barangays already keep masterlists. Instead of typing thousands of names one by one, the L G U uploads the C S V file as is. This one has over five thousand rows."
+  },
+  {
+    "id": "s4",
+    "vo": "Before any money moves, every row is cross-checked: duplicates inside the file, people already registered, and anyone already enrolled in this same disaster campaign. Bad rows, like an incomplete mobile number, are flagged with a reason. Nothing is silently dropped, and no one is counted twice."
+  },
+  {
+    "id": "s5",
+    "vo": "Each person is invited to claim a wallet. In this demo, the text messages are simulated. The wallet key stays only on the beneficiary's own phone. Once verified, the LGU approves them all for the program.",
+    "say": "Each person is invited to claim a wallet. In this demo, the text messages are simulated. The wallet key stays only on the beneficiary's own phone. Once verified, the L G U approves them all for the program."
+  },
+  {
+    "id": "s6",
+    "vo": "Now the payout. Five thousand beneficiaries, one run, one confirmation. Payments go out in batches of one hundred, with a limited number running in parallel. If one payment fails, the rest keep going, and retries can never pay anyone twice. The dashboard updates live as each payment confirms."
+  },
+  {
+    "id": "s7",
+    "vo": "On Juan's phone, the aid arrives, split by aid type, so he knows exactly what he can spend it on."
+  },
+  {
+    "id": "s8",
+    "vo": "At the store, the merchant shows a QR code. Juan scans it, his balance is checked, and the payment settles on the blockchain.",
+    "say": "At the store, the merchant shows a Q R code. Juan scans it, his balance is checked, and the payment settles on the blockchain."
+  },
+  {
+    "id": "s9",
+    "vo": "But after a typhoon, cell towers often go down. So we cut the internet completely on both phones. Airplane mode, no Wi-Fi, no data. Juan still pays the store, phone to phone. The payment is checked against his last synced balance, and saved on both phones as Pending Sync."
+  },
+  {
+    "id": "s10",
+    "vo": "When the signal returns, it syncs automatically, in order, and settles on the blockchain. If a balance was already spent elsewhere, it's flagged for an admin, never silently applied."
+  },
+  {
+    "id": "s11",
+    "vo": "The merchant sees every payment, online and offline, and can export the history. Cash-out is simulated in this demo."
+  },
+  {
+    "id": "s12",
+    "vo": "Back at the LGU, every step, from upload to payout to the offline payment, is in one audit report, reconciled with the blockchain. Relief Chain. Aid that reaches people, even when the internet doesn't.",
+    "say": "Back at the L G U, every step, from upload to payout to the offline payment, is in one audit report, reconciled with the blockchain. Relief Chain. Aid that reaches people, even when the internet doesn't.",
+    "extra": 3
+  }
+]

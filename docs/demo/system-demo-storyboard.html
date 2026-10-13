@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Relief Chain — Full Workflow Demo Video Storyboard (4:50)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sarina&display=swap" rel="stylesheet" />
+<style>
+  :root{--green:#6FCA4B;--navy:#112E58;--yellow:#E4CF10;--light:#EEEDED;--grey:#979797;--blue:#6595DA;--ink:#1b2430}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--ink);background:#f7f7f6;line-height:1.5}
+  .top{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;padding:28px 20px}
+  .top h1{font-family:"Sarina",cursive;font-weight:400;font-size:2rem;margin:0 0 6px}
+  .top p{margin:4px 0;max-width:820px}
+  .tag{display:inline-block;background:var(--yellow);color:var(--navy);font-weight:700;border-radius:999px;padding:4px 12px;font-size:.78rem;margin:8px 6px 0 0}
+  main{max-width:1240px;margin:0 auto;padding:20px}
+  h2{color:var(--navy);margin:28px 0 12px;font-size:1.3rem}
+  .timeline{display:flex;border-radius:12px;overflow:hidden;font-size:.66rem;font-weight:700;color:#fff}
+  .timeline div{padding:8px 3px;text-align:center}
+  .legend{display:flex;flex-wrap:wrap;gap:8px}
+  .badge{display:inline-block;font-size:.7rem;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+  .b-built{background:var(--green);color:#0d2a07}
+  .b-sim{background:var(--yellow);color:var(--navy)}
+  .b-part{background:var(--blue);color:#fff}
+  .b-nv{background:var(--grey);color:#fff}
+  .act{margin-top:24px;padding:9px 14px;background:var(--navy);color:#fff;border-radius:12px;font-weight:700;font-size:.92rem}
+  .act span{color:var(--yellow)}
+  .grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:12px}
+  .scene{background:#fff;border-radius:16px;padding:16px;box-shadow:0 1px 3px rgba(17,46,88,.12);display:flex;flex-direction:column;gap:9px;break-inside:avoid;page-break-inside:avoid}
+  .scene.focus{outline:3px solid var(--green)}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+  .num{font-weight:700;color:var(--green);font-size:.78rem}
+  .scene h3{margin:2px 0 0;color:var(--navy);font-size:1.02rem}
+  .meta{font-size:.76rem;color:#4a5563}
+  code{background:var(--light);padding:1px 5px;border-radius:5px;font-size:.72rem}
+  .shot{font-size:.76rem;color:var(--navy);background:var(--light);border-radius:8px;padding:6px 8px}
+  .shot ol{margin:2px 0 0;padding-left:18px}
+  .phones{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .phone{width:128px;height:222px;border:3px solid var(--navy);border-radius:22px;padding:11px 9px;background:#fff;display:flex;flex-direction:column;gap:5px;font-size:.58rem}
+  .phone .bar{height:8px;border-radius:4px;background:var(--light)}
+  .phone .ttl{font-weight:700;color:var(--navy);font-size:.66rem}
+  .phone .row{background:var(--light);border-radius:6px;padding:4px 6px}
+  .ok{border-left:4px solid var(--green)} .warn{border-left:4px solid var(--yellow)} .err{border-left:4px solid #c0392b}
+  .phone .btn{margin-top:auto;background:var(--green);color:#0d2a07;font-weight:700;text-align:center;border-radius:8px;padding:6px}
+  .prog{height:10px;border-radius:5px;background:var(--light);overflow:hidden}
+  .prog i{display:block;height:100%;width:70%;background:linear-gradient(90deg,var(--green),var(--blue))}
+  .phone.off{border-color:var(--grey)}
+  .offtag{background:var(--navy);color:#fff;text-align:center;border-radius:6px;padding:3px;font-weight:700}
+  .qr{height:64px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+  .vo{background:#f1f8ec;border-left:4px solid var(--green);border-radius:8px;padding:8px 10px;font-size:.88rem}
+  .vo b{color:#2f6b1a;font-size:.7rem;letter-spacing:.05em}
+  .cap{font-size:.76rem;border:1px dashed var(--blue);border-radius:8px;padding:5px 8px;color:var(--navy)}
+  .note-s{font-size:.76rem;background:#fff8d6;border-radius:8px;padding:6px 8px}
+  pre{background:var(--navy);color:#e8f2ff;padding:10px;border-radius:10px;overflow-x:auto;font-size:.7rem;margin:0}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:.84rem}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--light);vertical-align:top}
+  th{background:var(--navy);color:#fff}
+  .note{background:#fff;border-radius:12px;padding:12px 16px;border-left:6px solid var(--yellow);font-size:.88rem}
+  .note ul,.check{margin:0;padding-left:18px}
+  footer{text-align:center;color:var(--grey);font-size:.8rem;padding:24px}
+  @media (min-width:768px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media (min-width:1280px){.grid{grid-template-columns:repeat(3,1fr)}}
+  @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.grid{grid-template-columns:repeat(2,1fr)}.scene{box-shadow:none;border:1px solid var(--grey)}}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Relief Chain</h1>
+  <p><strong>Full Workflow Demo Video Storyboard</strong>: screen recordings with voice-over (VO). It covers the whole system end to end: program setup → CSV import and cross-checking → verification → a 5,000-person payout → merchant payment → payment with no internet → audit.</p>
+  <span class="tag">🎬 VIDEO + VOICE-OVER · 4:50</span><span class="tag">STELLAR TESTNET ONLY · RCPHP HAS NO MONETARY VALUE</span>
+</div>
+
+<main>
+  <h2>Timeline</h2>
+  <div class="timeline" role="img" aria-label="Timeline: setup 0:00 to 0:45, CSV and cross-check 0:45 to 2:15, payout 2:15 to 3:10, QR pay 3:10 to 3:30, offline 3:30 to 4:25, wrap-up 4:25 to 4:50">
+    <div style="flex:45;background:var(--grey)">Setup</div>
+    <div style="flex:90;background:var(--navy)">CSV + cross-check ★</div>
+    <div style="flex:55;background:var(--blue)">5,000 payout ★</div>
+    <div style="flex:20;background:#7a8899">QR</div>
+    <div style="flex:55;background:#0d2a07">No internet ★</div>
+    <div style="flex:25;background:var(--grey)">Wrap</div>
+  </div>
+
+  <h2>Legend</h2>
+  <div class="legend">
+    <span class="badge b-built">Built</span><span class="badge b-part">Verify on device</span><span class="badge b-sim">Simulated</span><span class="badge b-nv">Not validated</span>
+  </div>
+  <p class="meta">VO pace is about 2.5 words per second, and each line fits its slot. Speed up waits in the edit (2–8×). Use one external camera for the offline act so viewers can see airplane mode is really on.</p>
+
+  <!-- ACT 1 -->
+  <div class="act">Act 1 · <span>Program setup</span> (0:00–0:45)</div>
+  <div class="grid">
+    <article class="scene" aria-labelledby="s1">
+      <div class="head"><div><div class="num">SCENE 1 · 0:00–0:30</div><h3 id="s1">Create a relief program</h3></div><span class="badge b-built">Built</span></div>
+      <div class="meta">LGU · dashboard → <code>(lgu)/create-program</code> (7 steps)</div>
+      <div class="shot">🎥 LGU screen rec · dashboard 3s → wizard at 3× → Batch strategy at normal speed</div>
+      <div class="phones"><div class="phone" role="img" aria-label="Program wizard step 5 of 7, Batch strategy">
+        <div class="bar"></div><div class="ttl">New Program · 5/7</div><div class="row">Typhoon Relief (demo)</div><div class="row">Budget: 5,000,000</div><div class="row ok">Strategy: Batch</div><div class="btn">Next</div></div></div>
+      <div class="vo"><b>VO (~60 words)</b><br/>"This is the LGU's dashboard. A typhoon has hit, so the admin creates a relief program: details, eligibility requirements, budget, and how aid is distributed. We choose Batch, so everyone approved is paid in one run."</div>
+      <div class="cap">Caption: Stellar testnet demo · RCPHP has no monetary value</div>
+    </article>
+
+    <article class="scene" aria-labelledby="s2">
+      <div class="head"><div><div class="num">SCENE 2 · 0:30–0:45</div><h3 id="s2">Fund the program</h3></div><span class="badge b-built">Built</span></div>
+      <div class="meta"><code>(lgu)/transfer-funds</code> · Edge <code>transfer-organization-fund</code> · prepare → device signs → submit</div>
+      <div class="shot">🎥 Screen rec → 2s flash of the testnet explorer</div>
+      <div class="phones"><div class="phone" role="img" aria-label="Funds transfer confirmed">
+        <div class="bar"></div><div class="ttl">Transfer Funds</div><div class="row">5,000,000 RCPHP</div><div class="row ok">Confirmed ✓</div><div class="btn">View on explorer</div></div></div>
+      <div class="vo"><b>VO (~35 words)</b><br/>"Funding is a blockchain transaction. The admin signs on their own phone. The server never holds their key, and anyone can verify it."</div>
+    </article>
+  </div>
+
+  <!-- ACT 2 -->
+  <div class="act">Act 2 · <span>Bulk beneficiary upload and cross-checking</span> (0:45–2:15) ★</div>
+  <div class="grid">
+    <article class="scene focus" aria-labelledby="s3">
+      <div class="head"><div><div class="num">SCENE 3 · 0:45–1:15</div><h3 id="s3">Upload the masterlist CSV</h3></div><span class="badge b-built">Built</span></div>
+      <div class="meta"><code>(lgu)/import-beneficiaries</code></div>
+      <div class="shot">🎥 LGU screen rec · pick file → zoom on "5,200 rows"</div>
+      <div class="phones"><div class="phone" role="img" aria-label="CSV with 5,200 rows">
+        <div class="bar"></div><div class="ttl">Import Beneficiaries</div><div class="row">📄 brgy-masterlist.csv</div><div class="row">5,200 rows</div><div class="row ok">Columns matched</div><div class="btn">Validate</div></div></div>
+      <pre aria-label="Sample CSV with placeholder data">full_name,mobile,barangay,household_size
+Juan Dela Cruz,0917-000-0001,Brgy Sample 1,5
+Juan Dela Cruz,0917-000-0001,Brgy Sample 1,5
+Pedro Reyes,09170000,Brgy Sample 2,4</pre>
+      <div class="vo"><b>VO (~55 words)</b><br/>"Barangays already keep masterlists. Instead of typing thousands of names one by one, the LGU uploads the CSV as-is. This file has over five thousand rows."</div>
+    </article>
+
+    <article class="scene focus" aria-labelledby="s4">
+      <div class="head"><div><div class="num">SCENE 4 · 1:15–1:50</div><h3 id="s4">Cross-checking</h3></div><span class="badge b-built">Built</span></div>
+      <div class="meta">Duplicates via <code>beneficiary_identities</code> + <code>disaster_response_campaigns</code> scope triggers</div>
+      <div class="shot">🎥 Screen rec · highlight each flagged group for 3s</div>
+      <div class="phones"><div class="phone" role="img" aria-label="Cross-check results: clean, duplicates, same campaign, invalid">
+        <div class="bar"></div><div class="ttl">Validation Results</div><div class="row ok">5,031 clean</div><div class="row warn">121 duplicates in file</div><div class="row warn">34 already in campaign</div><div class="row err">14 invalid rows</div><div class="btn">Import 5,031</div></div></div>
+      <div class="vo"><b>VO (~75 words)</b><br/>"Before any money moves, every row is cross-checked: duplicates inside the file, people already registered, and anyone already enrolled in this same disaster campaign. Bad rows, like an incomplete mobile number, are flagged with a reason. Nothing is silently dropped, and no one is counted twice."</div>
+      <div class="cap">Caption: Counts from the demo file</div>
+    </article>
+
+    <article class="scene focus" aria-labelledby="s5">
+      <div class="head"><div><div class="num">SCENE 5 · 1:50–2:15</div><h3 id="s5">Invite, verify, approve</h3></div><span class="badge b-sim">SMS Simulated</span></div>
+      <div class="meta"><code>sms-service.ts</code> · <code>pending_sms_invites</code> · <code>BeneficiaryVerification/</code> · wallet provisioning</div>
+      <div class="shot">🎥 Split screen · LGU invite queue | beneficiary claiming wallet (2×)</div>
+      <div class="phones">
+        <div class="phone" role="img" aria-label="Invite queue and approvals"><div class="bar"></div><div class="ttl">Invite Queue</div><div class="row">5,031 queued</div><div class="row ok">Verified: 5,031</div><div class="btn">Approve all</div></div>
+        <div class="phone" role="img" aria-label="Beneficiary wallet created"><div class="bar"></div><div class="ttl">Welcome, Juan</div><div class="row ok">Identity verified</div><div class="row ok">Wallet created</div></div>
+      </div>
+      <div class="vo"><b>VO (~55 words)</b><br/>"Each person is invited to claim a wallet. The wallet key stays only on their own phone. Once verified, the LGU approves them all for the program."</div>
+      <div class="cap">Caption: SMS sending is simulated in this demo</div>
+    </article>
+  </div>
+
+  <!-- ACT 3 -->
+  <div class="act">Act 3 · <span>Pay 5,000 beneficiaries at once</span> (2:15–3:10) ★</div>
+  <div class="grid">
+    <article class="scene focus" aria-labelledby="s6">
+      <div class="head"><div><div class="num">SCENE 6 · 2:15–3:00</div><h3 id="s6">One run, live progress</h3></div><span class="badge b-nv">5,000 scale: Not validated</span></div>
+      <div class="meta"><code>DistributeAid/</code> · <code>prepare-disbursement</code> → <code>submit-disbursement</code> · <code>ProgramProgress</code> realtime</div>
+      <div class="shot">🎥 LGU screen rec · confirm → time-lapse the progress bar (8×) → caption with real elapsed time</div>
+      <div class="phones">
+        <div class="phone" role="img" aria-label="Distribute aid to 5,031"><div class="bar"></div><div class="ttl">Distribute Aid</div><div class="row">5,031 recipients</div><div class="row">500 RCPHP each</div><div class="btn">Sign &amp; send</div></div>
+        <div class="phone" role="img" aria-label="Progress 70 percent"><div class="bar"></div><div class="ttl">Distributing…</div><div class="prog"><i></i></div><div class="row ok">Confirmed: 3,522</div><div class="row">Pending: 1,509</div><div class="row warn">Retrying: 3</div></div>
+      </div>
+      <div class="vo"><b>VO (~100 words)</b><br/>"Now the payout. Five thousand beneficiaries, one run, one confirmation. Payments go out in batches of one hundred, with a limited number running in parallel so the network isn't overwhelmed. If one payment fails, the rest keep going, and retries can never pay anyone twice. The dashboard updates live as each payment confirms on-chain."</div>
+      <div class="note-s"><b>Before recording:</b> rehearse the 5,000 run on testnet. If it doesn't finish cleanly, record 2,000+ and change the number in the VO.</div>
+    </article>
+
+    <article class="scene" aria-labelledby="s7">
+      <div class="head"><div><div class="num">SCENE 7 · 3:00–3:10</div><h3 id="s7">Beneficiary receives aid</h3></div><span class="badge b-built">Built</span></div>
+      <div class="meta">Beneficiary wallet · <code>(beneficiary)/notifications</code></div>
+      <div class="shot">🎥 Beneficiary screen rec · notification drops in</div>
+      <div class="phones"><div class="phone" role="img" aria-label="Beneficiary receives 500 RCPHP"><div class="bar"></div><div class="ttl">My Wallet</div><div class="row ok">+500 RCPHP</div><div class="row">Food 300 · Cash 200</div></div></div>
+      <div class="vo"><b>VO (~20 words)</b><br/>"On Juan's phone, the aid arrives, split by aid type."</div>
+    </article>
+  </div>
+
+  <!-- ACT 4 -->
+  <div class="act">Act 4 · <span>Spend: online, then with NO internet</span> (3:10–4:25) ★</div>
+  <div class="grid">
+    <article class="scene" aria-labelledby="s8">
+      <div class="head"><div><div class="num">SCENE 8 · 3:10–3:30</div><h3 id="s8">QR payment (online)</h3></div><span class="badge b-built">Built</span></div>
+      <div class="meta"><code>MerchantInvoice/InvoiceQrCard.tsx</code> · <code>PayScan/ScannerView.tsx</code></div>
+      <div class="shot">🎥 Split screen · merchant | beneficiary</div>
+      <div class="phones">
+        <div class="phone" role="img" aria-label="Merchant QR invoice"><div class="bar"></div><div class="ttl">Invoice · 100</div><div class="row qr">▦</div><div class="row ok">Paid ✓</div></div>
+        <div class="phone" role="img" aria-label="Beneficiary confirms payment"><div class="bar"></div><div class="ttl">Scan &amp; Pay</div><div class="row ok">Balance OK</div><div class="btn">Confirm</div></div>
+      </div>
+      <div class="vo"><b>VO (~45 words)</b><br/>"At the store, the merchant shows a QR code. Juan scans it, his balance is checked, and the payment settles on-chain."</div>
+    </article>
+
+    <article class="scene focus" aria-labelledby="s9">
+      <div class="head"><div><div class="num">SCENE 9 · 3:30–4:10</div><h3 id="s9">Beneficiary → merchant, no internet</h3></div><span class="badge b-part">Verify on device</span></div>
+      <div class="meta"><code>offline-balance-manager.ts</code> · <code>qr-transport.ts</code> / <code>ble-transport.ts</code> · merchant <code>receive.tsx</code> · <code>offline-sync-queue.ts</code></div>
+      <div class="shot">📷 External camera on both phones (status bars in frame):<ol><li>Airplane mode ON, Wi-Fi and data OFF</li><li>Merchant opens Receive, Juan pays phone to phone</li><li>"Pending Sync" on both screens</li></ol></div>
+      <div class="phones">
+        <div class="phone off" role="img" aria-label="Beneficiary offline pending sync"><div class="offtag">✈ OFFLINE</div><div class="ttl">Paid 150</div><div class="row ok">Local balance ✓</div><div class="row warn">Pending Sync</div></div>
+        <div class="phone off" role="img" aria-label="Merchant received offline"><div class="offtag">✈ OFFLINE</div><div class="ttl">Received 150</div><div class="row warn">Pending Sync</div></div>
+      </div>
+      <div class="vo"><b>VO (~95 words)</b><br/>"But after a typhoon, cell towers often go down. So we cut the internet completely on both phones: airplane mode, no Wi-Fi, no data. Juan still pays the store, phone to phone. The payment is checked against his last-synced balance and saved on both phones as Pending Sync, so it's honest about not being confirmed yet."</div>
+      <div class="note-s"><b>Transport:</b> use Bluetooth only if it passes rehearsal on two real phones. Otherwise use QR and keep the VO as "phone to phone."</div>
+    </article>
+
+    <article class="scene focus" aria-labelledby="s10">
+      <div class="head"><div><div class="num">SCENE 10 · 4:10–4:25</div><h3 id="s10">Back online, auto-sync</h3></div><span class="badge b-part">Verify on device</span></div>
+      <div class="meta"><code>sync-engine.ts</code> → RPC <code>sync_offline_redemption_batch</code></div>
+      <div class="shot">📷 Airplane mode OFF → 🎥 status flips to "Confirmed"</div>
+      <div class="phones"><div class="phone" role="img" aria-label="Synced, confirmed on-chain"><div class="bar"></div><div class="ttl">Synced</div><div class="row ok">Confirmed on-chain</div><div class="row">0 conflicts</div></div></div>
+      <div class="vo"><b>VO (~40 words)</b><br/>"When the signal returns, it syncs automatically and settles on the blockchain. If a balance was already spent elsewhere, it's flagged for an admin, never silently applied."</div>
+    </article>
+  </div>
+
+  <!-- ACT 5 -->
+  <div class="act">Act 5 · <span>Merchant history and audit</span> (4:25–4:50)</div>
+  <div class="grid">
+    <article class="scene" aria-labelledby="s11">
+      <div class="head"><div><div class="num">SCENE 11 · 4:25–4:35</div><h3 id="s11">Merchant history</h3></div><span class="badge b-sim">Cash-out Simulated</span></div>
+      <div class="meta">Merchant History (MER-03): redemptions, settlements, refunds, CSV export</div>
+      <div class="shot">🎥 Merchant screen rec · quick scroll</div>
+      <div class="vo"><b>VO (~25 words)</b><br/>"The merchant sees every payment, online and offline, and can export it. Cash-out is simulated in this demo."</div>
+    </article>
+
+    <article class="scene" aria-labelledby="s12">
+      <div class="head"><div><div class="num">SCENE 12 · 4:35–4:50</div><h3 id="s12">Audit close</h3></div><span class="badge b-built">Built</span></div>
+      <div class="meta">Audit &amp; Compliance Reports · blockchain reconciliation</div>
+      <div class="shot">🎥 LGU audit report → explorer → end card with logo</div>
+      <div class="vo"><b>VO (~35 words)</b><br/>"Every step, from upload to payout to the offline payment, is in one audit report, reconciled with the blockchain. Relief Chain: aid that reaches people, even when the internet doesn't."</div>
+    </article>
+  </div>
+
+  <h2>Shot list</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Scene</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>0:00–0:45</td><td>1–2 · Create program, fund</td><td>LGU screen rec + explorer</td></tr>
+      <tr><td>0:45–2:15</td><td>3–5 · CSV upload, cross-check, invite/verify/approve ★</td><td>LGU screen rec, split with beneficiary</td></tr>
+      <tr><td>2:15–3:10</td><td>6–7 · 5,000 payout, beneficiary receives ★</td><td>LGU time-lapse + beneficiary</td></tr>
+      <tr><td>3:10–3:30</td><td>8 · Online QR payment</td><td>Split screen</td></tr>
+      <tr><td>3:30–4:25</td><td>9–10 · Offline payment + sync ★</td><td>External camera + screen rec inset</td></tr>
+      <tr><td>4:25–4:50</td><td>11–12 · Merchant history, audit, end card</td><td>Screen rec + explorer</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Before recording</h2>
+  <ul class="check">
+    <li>☐ Hosted env loaded (<code>. .\scripts\load-hosted-env.ps1</code>), not local Docker. <code>npm run check:release-env</code> passes.</li>
+    <li>☐ Placeholder CSV with 5,000+ rows and planted duplicates and errors. Treasury funded for the full payout.</li>
+    <li>☐ 5,000 payout rehearsed on testnet. Fall back to 2,000+ if it times out or fails.</li>
+    <li>☐ Offline flow rehearsed on two physical phones in airplane mode. Bluetooth or QR decided.</li>
+    <li>☐ Beneficiary phone synced right before Scene 9.</li>
+    <li>☐ Notifications and personal info hidden on all recording phones.</li>
+  </ul>
+
+  <h2>Honesty notes</h2>
+  <div class="note"><ul>
+    <li>Testnet demo. Never say "live" or "in production."</li>
+    <li>5,000 scale: the code has batching (100 per batch, up to 10 in parallel), per-recipient isolation, and idempotent retries. There's no dated test at 2,000 or 5,000. A long run may hit the Edge Function wall-clock limit; it's built to resume via retry. Don't quote speed or throughput.</li>
+    <li>Offline: code exists in <code>src/services/offline/</code>, but <code>package.json</code> has no Bluetooth library and the docs disagree on its status. Confirm on device.</li>
+    <li>SMS invites and merchant cash-out are simulated.</li>
+    <li>All names, numbers, and stores are placeholders. No partners are implied.</li>
+  </ul></div>
+</main>
+<footer>Relief Chain · Full Workflow Demo Video Storyboard · Testnet demo · October 2026</footer>
+</body>
+</html>

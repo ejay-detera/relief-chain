@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Relief Chain — Demo Video Frames</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sarina&display=swap" rel="stylesheet" />
+<style>
+  :root{--green:#6FCA4B;--navy:#112E58;--yellow:#E4CF10;--light:#EEEDED;--grey:#979797;--blue:#6595DA;--ink:#1b2430;--red:#d4473a}
+  *{box-sizing:border-box}
+  html,body{margin:0;width:1920px;height:1080px;overflow:hidden}
+  body{font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--ink);background:#F7F7F6;position:relative}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.35}
+  .b1{width:700px;height:700px;background:var(--green);left:-200px;top:-260px}
+  .b2{width:800px;height:800px;background:var(--blue);right:-260px;bottom:-320px}
+  .b3{width:420px;height:420px;background:var(--yellow);left:900px;top:600px;opacity:.18}
+
+  .hdr{position:absolute;top:40px;left:120px;right:120px;display:flex;align-items:center;justify-content:space-between;z-index:5}
+  .logo{font-family:"Sarina",cursive;font-size:42px;color:var(--navy)}
+  .acts{display:flex;gap:10px}
+  .acts span{font-size:19px;font-weight:700;color:var(--grey);padding:9px 18px;border-radius:999px;background:rgba(255,255,255,.7);transition:none}
+  .acts span.on{background:var(--navy);color:#fff}
+  .tn{font-size:18px;font-weight:700;background:var(--yellow);color:var(--navy);padding:9px 18px;border-radius:999px}
+
+  .scene{position:absolute;inset:0;padding:130px 130px 250px;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:70px}
+  .scene.center{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+  .kicker{font-size:24px;font-weight:800;color:#3d8a22;letter-spacing:.14em;text-transform:uppercase}
+  h2{font-size:78px;line-height:1.04;color:var(--navy);margin:14px 0 22px;font-weight:800;letter-spacing:-.01em}
+  .lead{font-size:30px;color:#3c4656;max-width:780px;margin:0}
+  .chips{display:flex;flex-wrap:wrap;gap:14px;margin-top:30px}
+  .chip{background:#fff;border:3px solid var(--green);border-radius:999px;padding:12px 24px;font-size:24px;font-weight:700;color:var(--navy)}
+  .chip.sim{border-color:var(--yellow);background:#fffbe0}
+  .chip.nv{border-color:var(--grey);color:#555}
+  .foot{font-size:19px;color:#6b7280;margin-top:22px}
+  .right{display:flex;justify-content:center;align-items:center;gap:44px;position:relative}
+
+  .phone{width:350px;height:680px;border:12px solid var(--navy);border-radius:56px;background:#fff;position:relative;overflow:hidden;box-shadow:0 30px 80px rgba(17,46,88,.28);flex:none}
+  .phone.sm{width:320px;height:640px}
+  .phone.offline{border-color:#4b5563}
+  .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:26px;background:var(--navy);border-radius:14px;z-index:3}
+  .sb{position:absolute;top:12px;left:26px;right:26px;display:flex;justify-content:space-between;align-items:center;font-size:17px;font-weight:700;color:var(--navy);z-index:2}
+  .sb .ics{display:flex;gap:8px;align-items:center}
+  .sig{display:flex;gap:2px;align-items:flex-end;height:16px}
+  .sig i{display:block;width:4px;background:var(--navy);border-radius:1px}
+  .sig i:nth-child(1){height:5px}.sig i:nth-child(2){height:8px}.sig i:nth-child(3){height:12px}.sig i:nth-child(4){height:16px}
+  .bat{width:28px;height:14px;border:2px solid var(--navy);border-radius:4px;position:relative}
+  .bat::after{content:"";position:absolute;inset:2px;right:6px;background:var(--navy);border-radius:1px}
+  .air{color:var(--navy);font-size:19px}
+  .screen{position:absolute;inset:0;padding:60px 24px 24px;display:flex;flex-direction:column;gap:13px}
+  .ttl{font-size:28px;font-weight:800;color:var(--navy)}
+  .sub2{font-size:18px;color:#6b7280;margin-top:-8px}
+  .row{background:var(--light);border-radius:16px;padding:14px 18px;font-size:21px;font-weight:600;color:var(--ink)}
+  .row small{display:block;font-size:15px;font-weight:600;color:#6b7280}
+  .ok{border-left:8px solid var(--green)} .warn{border-left:8px solid var(--yellow)} .err{border-left:8px solid var(--red)} .nav{border-left:8px solid var(--navy)}
+  .btn{margin-top:auto;background:var(--green);color:#0d2a07;font-weight:800;text-align:center;border-radius:18px;padding:18px;font-size:24px;position:relative;overflow:hidden}
+  .btn.navy{background:var(--navy);color:#fff}
+  .ripple{position:absolute;left:50%;top:50%;width:120px;height:120px;border-radius:50%;background:#fff;opacity:0;pointer-events:none}
+  .num{font-size:52px;font-weight:800;color:var(--navy);line-height:1}
+  .prog{height:22px;border-radius:11px;background:var(--light);overflow:hidden}
+  .prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:11px}
+  .dots{display:flex;gap:10px}
+  .dots i{width:30px;height:10px;border-radius:5px;background:var(--light)}
+  .dots i.f{background:var(--green)}
+  .opts{display:flex;gap:8px}
+  .opts span{flex:1;text-align:center;padding:12px 4px;border-radius:12px;background:var(--light);font-size:17px;font-weight:700;color:#555}
+  .swap{display:grid}
+  .swap > *{grid-area:1/1}
+  .caret::after{content:"|";color:var(--green);margin-left:2px}
+  .offtag{background:var(--navy);color:#fff;text-align:center;border-radius:14px;padding:10px;font-weight:800;font-size:20px}
+  .tag{display:inline-block;font-size:15px;font-weight:800;padding:4px 10px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .t-ok{background:var(--green);color:#0d2a07}.t-warn{background:var(--yellow);color:var(--navy)}.t-err{background:var(--red);color:#fff}.t-sim{background:var(--yellow);color:var(--navy)}
+
+  .card{background:#fff;border-radius:24px;box-shadow:0 18px 50px rgba(17,46,88,.16);padding:22px 26px}
+  .filecard{width:300px;position:absolute;left:-40px;top:120px;z-index:4}
+  .filecard .ic{font-size:60px;line-height:1}
+  .sheet{font-family:Consolas,monospace;font-size:15px;color:#334;line-height:1.7;margin-top:8px}
+  .csv{position:relative;margin-top:26px;width:820px}
+  .csv .r{height:64px;display:flex;align-items:center;justify-content:space-between;font-family:Consolas,monospace;font-size:22px;padding:0 16px;border-bottom:1px solid var(--light)}
+  .csv .hl{position:absolute;left:0;right:0;height:64px;background:rgba(101,149,218,.18);border-left:6px solid var(--blue);border-radius:6px}
+  .big{font-size:170px;font-weight:800;color:var(--navy);line-height:1;letter-spacing:-.03em}
+  .batchgrid{display:grid;grid-template-columns:repeat(17,34px);gap:9px;margin-top:26px}
+  .batchgrid i{width:34px;height:34px;border-radius:8px;background:#dfe3e8}
+  .batchgrid i.on{background:var(--green);box-shadow:0 0 0 3px rgba(111,202,75,.25)}
+  .notif{position:absolute;left:14px;right:14px;top:50px;background:#fff;border-radius:20px;padding:14px 16px;box-shadow:0 12px 30px rgba(0,0,0,.18);font-size:18px;z-index:4;border-left:8px solid var(--green)}
+  .notif b{display:block;color:var(--navy);font-size:16px}
+  .qr{width:260px;height:260px;margin:4px auto;display:grid;grid-template-columns:repeat(21,1fr);gap:0;background:#fff;padding:8px;border-radius:12px;border:3px solid var(--light)}
+  .qr i{background:#fff}.qr i.k{background:var(--navy)}
+  .scanbox{position:relative;height:260px;border-radius:18px;background:#1f2a37;overflow:hidden;margin:4px 0}
+  .scanbox .fr{position:absolute;inset:30px;border:4px solid var(--green);border-radius:14px}
+  .scanbox .ln{position:absolute;left:34px;right:34px;height:4px;background:var(--green);box-shadow:0 0 18px var(--green)}
+  .switch{width:74px;height:40px;border-radius:20px;background:#cfd4da;position:relative;flex:none}
+  .switch b{position:absolute;top:4px;left:4px;width:32px;height:32px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+  .switch.on{background:var(--navy)}
+  .setrow{display:flex;justify-content:space-between;align-items:center}
+  .beam{position:absolute;left:50%;top:50%;width:170px;height:24px;transform:translate(-50%,-50%);z-index:4}
+  .beam i{position:absolute;top:4px;width:16px;height:16px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green)}
+  .spin{width:56px;height:56px;border-radius:50%;border:7px solid var(--light);border-top-color:var(--green);margin:6px auto}
+  .check{display:flex;align-items:center;gap:16px;font-size:30px;font-weight:700;color:var(--navy);padding:16px 0;border-bottom:2px solid var(--light)}
+  .check .c{width:44px;height:44px;border-radius:50%;background:var(--green);color:#0d2a07;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
+  .endcard{position:absolute;inset:0;background:linear-gradient(135deg,var(--navy),#1d4c8f 60%,var(--blue));display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;z-index:6;text-align:center}
+  .endcard .lg{font-family:"Sarina",cursive;font-size:150px;line-height:1.2}
+  .endcard p{font-size:40px;margin:10px 0 30px;font-weight:600}
+  .title .lg{font-family:"Sarina",cursive;font-size:170px;color:var(--navy);line-height:1.2}
+  .title p{font-size:42px;color:#3c4656;margin:6px 0 26px;font-weight:600}
+
+  #sub{position:absolute;bottom:56px;left:50%;transform:translateX(-50%);max-width:1500px;background:rgba(17,46,88,.92);color:#fff;font-size:29px;font-weight:600;padding:16px 30px;border-radius:18px;text-align:center;z-index:8;line-height:1.35}
+  .note{position:absolute;bottom:22px;left:120px;font-size:17px;color:#6b7280;z-index:8}
+  .pbar{position:absolute;left:0;bottom:0;height:8px;background:linear-gradient(90deg,var(--green),var(--blue));z-index:9;width:0}
+</style>
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+
+<div class="hdr">
+  <div class="logo">Relief Chain</div>
+  <div class="acts">
+    <span data-act="setup">Setup</span><span data-act="ben">Beneficiaries</span><span data-act="pay">Payout</span><span data-act="spend">Spend</span><span data-act="off">No internet</span><span data-act="audit">Audit</span>
+  </div>
+  <div class="tn">Stellar testnet · RCPHP has no monetary value</div>
+</div>
+
+<!-- S0 TITLE -->
+<section class="scene center title" data-id="s0" data-act="setup">
+  <div class="lg" data-at=".02" data-fx="pop" data-sfx="pop">Relief Chain</div>
+  <p data-at=".2" data-sfx="tick">Full workflow demo: from masterlist to merchant, even offline</p>
+  <div class="chips" style="justify-content:center">
+    <span class="chip" data-at=".35">CSV import + cross-check</span>
+    <span class="chip" data-at=".42">5,000-person payout</span>
+    <span class="chip" data-at=".49">Payments with no internet</span>
+  </div>
+</section>
+
+<!-- S1 CREATE PROGRAM -->
+<section class="scene" data-id="s1" data-act="setup">
+  <div>
+    <div class="kicker" data-at=".02">01 · Program setup</div>
+    <h2 data-at=".05">Create a relief program</h2>
+    <p class="lead" data-at=".1">Seven short steps: details, eligibility, budget, and how aid is distributed.</p>
+    <div class="chips"><span class="chip" data-at=".5">7-step wizard</span><span class="chip" data-at=".76">Batch distribution</span></div>
+  </div>
+  <div class="right">
+    <div class="phone" data-at=".03" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>9:41</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen" data-until=".3">
+        <div class="ttl">LGU Dashboard</div><div class="sub2">Good morning, Admin</div>
+        <div class="row nav">Treasury<br/><span class="num" style="font-size:38px">5,000,000</span> <small>RCPHP</small></div>
+        <div class="row">Active programs <b style="float:right">0</b></div>
+        <div class="row">Beneficiaries <b style="float:right">0</b></div>
+        <div class="btn">+ New Program<span class="ripple" data-at=".24" data-fx="ripple" data-sfx="tap"></span></div>
+      </div>
+      <div class="screen" data-at=".3" data-fx="fade">
+        <div class="ttl">New Program</div>
+        <div class="dots"><i class="f" data-at=".32" data-fx="pop" data-sfx="tick"></i><i class="f" data-at=".42" data-fx="pop" data-sfx="tick"></i><i class="f" data-at=".5" data-fx="pop" data-sfx="tick"></i><i class="f" data-at=".58" data-fx="pop" data-sfx="tick"></i><i class="f" data-at=".66" data-fx="pop" data-sfx="tick"></i><i class="f" data-at=".74" data-fx="pop" data-sfx="tick"></i><i class="f" data-at=".84" data-fx="pop" data-sfx="tick"></i></div>
+        <div class="row"><small>Program name</small><span data-type data-t=".34" data-sfx="type">Typhoon Relief (demo)</span></div>
+        <div class="row"><small>Budget (RCPHP)</small><span data-type data-t=".48" data-sfx="type">5,000,000</span></div>
+        <div class="row"><small>Eligibility</small><span data-type data-t=".58" data-sfx="type">Affected households</span></div>
+        <div class="row"><small>Distribution strategy</small>
+          <div class="opts" style="margin-top:8px"><span>Manual</span><span class="swap" style="padding:0;background:none"><span style="padding:12px 4px">Batch</span><span data-at=".76" data-fx="pop" data-sfx="tap" style="padding:12px 4px;background:var(--navy);color:#fff;border-radius:12px">Batch ✓</span></span><span>Automatic</span></div>
+        </div>
+        <div class="btn">Publish<span class="ripple" data-at=".88" data-fx="ripple" data-sfx="success"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S2 FUND -->
+<section class="scene" data-id="s2" data-act="setup">
+  <div>
+    <div class="kicker" data-at=".02">02 · Funding</div>
+    <h2 data-at=".05">Fund it on-chain</h2>
+    <p class="lead" data-at=".1">The admin signs on their own phone. The server never holds the key.</p>
+    <div class="chips"><span class="chip" data-at=".4">Signed on device</span><span class="chip" data-at=".55">No server-side keys</span><span class="chip" data-at=".72">Verifiable on the ledger</span></div>
+  </div>
+  <div class="right">
+    <div class="phone" data-at=".02" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>9:43</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Transfer Funds</div>
+        <div class="row"><small>To program</small>Typhoon Relief (demo)</div>
+        <div class="row nav"><small>Amount (RCPHP)</small><span class="num" data-count="5000000" data-t=".1" data-span=".22" data-sfx="count">0</span></div>
+        <div class="row" data-at=".42" data-sfx="pop">🔒 Signing on this device…</div>
+        <div class="row ok" data-at=".6" data-fx="pop" data-sfx="success">Confirmed on testnet ✓</div>
+        <div class="row" data-at=".7"><small>Transaction</small><span data-type data-t=".7">a3f9 4be1 … 7c21</span></div>
+        <div class="btn">Sign &amp; send<span class="ripple" data-at=".36" data-fx="ripple" data-sfx="tap"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S3 CSV UPLOAD -->
+<section class="scene" data-id="s3" data-act="ben">
+  <div>
+    <div class="kicker" data-at=".02">03 · Bulk beneficiary upload</div>
+    <h2 data-at=".05">Upload the barangay masterlist</h2>
+    <p class="lead" data-at=".1">No retyping thousands of names. The CSV goes in as-is.</p>
+    <div class="chips"><span class="chip" data-at=".35">CSV file</span><span class="chip" data-at=".58">5,200 rows</span><span class="chip" data-at=".74">Columns auto-matched</span></div>
+  </div>
+  <div class="right">
+    <div class="card filecard" data-at=".3" data-fx="fly" data-sfx="whoosh">
+      <div class="ic">📄</div><b style="font-size:22px;color:var(--navy)">brgy-masterlist.csv</b>
+      <div class="sheet">full_name,mobile,barangay<br/>Juan Dela Cruz,0917-000-0001,…<br/>Maria Santos,0917-000-0002,…<br/>Juan Dela Cruz,0917-000-0001,…<br/>Pedro Reyes,09170000,…</div>
+    </div>
+    <div class="phone" data-at=".02" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>10:02</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Import Beneficiaries</div><div class="sub2">Upload a CSV masterlist</div>
+        <div class="row" style="border:3px dashed var(--grey);background:#fff;text-align:center;padding:26px"><span class="swap"><span data-until=".38">Drop file here</span><span data-at=".4" data-fx="pop" data-sfx="pop">📄 brgy-masterlist.csv</span></span></div>
+        <div class="row nav" data-at=".45"><small>Rows detected</small><span class="num" data-count="5200" data-t=".47" data-span=".2" data-sfx="count">0</span></div>
+        <div class="row ok" data-at=".72" data-fx="pop" data-sfx="success">Columns matched ✓<small>name · mobile · barangay · household</small></div>
+        <div class="btn">Validate<span class="ripple" data-at=".9" data-fx="ripple" data-sfx="tap"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S4 CROSS-CHECK -->
+<section class="scene" data-id="s4" data-act="ben">
+  <div>
+    <div class="kicker" data-at=".02">04 · Cross-checking</div>
+    <h2 data-at=".04" style="font-size:68px">Every row is checked before money moves</h2>
+    <div class="card csv" data-at=".07">
+      <div class="hl" data-rows="5" data-t=".12" data-span=".5"></div>
+      <div class="r"><span>Juan Dela Cruz · 0917-000-0001</span><span class="tag t-ok" data-at=".17" data-fx="pop" data-sfx="tick">Clean</span></div>
+      <div class="r"><span>Maria Santos · 0917-000-0002</span><span class="tag t-ok" data-at=".27" data-fx="pop" data-sfx="tick">Clean</span></div>
+      <div class="r"><span>Juan Dela Cruz · 0917-000-0001</span><span class="tag t-warn" data-at=".37" data-fx="pop" data-sfx="pop">Duplicate in file</span></div>
+      <div class="r"><span>Ana Lim · 0917-000-0007</span><span class="tag t-warn" data-at=".47" data-fx="pop" data-sfx="pop">Already in campaign</span></div>
+      <div class="r"><span>Pedro Reyes · 09170000</span><span class="tag t-err" data-at=".57" data-fx="pop" data-sfx="pop">Invalid mobile</span></div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="phone" data-at=".02" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>10:03</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Validation Results</div><div class="sub2">5,200 rows checked</div>
+        <div class="row ok" data-at=".62" data-fx="left" data-sfx="pop"><small>Clean</small><span class="num" data-count="5031" data-t=".62" data-span=".12">0</span></div>
+        <div class="row warn" data-at=".68" data-fx="left" data-sfx="pop"><small>Duplicates in file</small><span class="num" style="font-size:40px" data-count="121" data-t=".68" data-span=".1">0</span></div>
+        <div class="row warn" data-at=".74" data-fx="left" data-sfx="pop"><small>Already in this campaign</small><span class="num" style="font-size:40px" data-count="34" data-t=".74" data-span=".1">0</span></div>
+        <div class="row err" data-at=".8" data-fx="left" data-sfx="pop"><small>Invalid rows (with reason)</small><span class="num" style="font-size:40px" data-count="14" data-t=".8" data-span=".08">0</span></div>
+        <div class="btn">Import 5,031 clean<span class="ripple" data-at=".92" data-fx="ripple" data-sfx="success"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S5 INVITE / VERIFY / APPROVE -->
+<section class="scene" data-id="s5" data-act="ben">
+  <div>
+    <div class="kicker" data-at=".02">05 · Invite, verify, approve</div>
+    <h2 data-at=".05">Everyone claims a wallet</h2>
+    <p class="lead" data-at=".1">The wallet key stays only on the beneficiary's phone.</p>
+    <div class="chips"><span class="chip sim" data-at=".2">SMS invites: simulated</span><span class="chip" data-at=".5">Identity verified</span><span class="chip" data-at=".78">Approved in bulk</span></div>
+  </div>
+  <div class="right">
+    <div class="phone sm" data-at=".02" data-fx="up">
+      <div class="notch"></div><div class="sb"><span>10:05</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Invite Queue</div>
+        <div class="row nav"><small>Invites queued</small><span class="num" style="font-size:44px" data-count="5031" data-t=".12" data-span=".25" data-sfx="count">0</span></div>
+        <div class="row warn" style="font-size:18px">SMS gateway: simulated</div>
+        <div class="swap" style="margin-top:auto"><div class="btn">Approve all verified<span class="ripple" data-at=".72" data-fx="ripple" data-sfx="tap"></span></div><div class="btn navy" data-at=".78" data-fx="pop" data-sfx="success">Approved 5,031 ✓</div></div>
+      </div>
+    </div>
+    <div class="phone sm" data-at=".3" data-fx="up" data-sfx="whoosh">
+      <div class="notch"></div><div class="sb"><span>10:06</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Welcome, Juan</div><div class="sub2">Beneficiary</div>
+        <div class="row ok" data-at=".42" data-fx="pop" data-sfx="pop">Identity verified ✓</div>
+        <div class="row ok" data-at=".54" data-fx="pop" data-sfx="pop">🔑 Wallet created<small>Key stored on this phone only</small></div>
+        <div class="row" data-at=".62">Status: Approved for Typhoon Relief</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S6 PAYOUT -->
+<section class="scene" data-id="s6" data-act="pay">
+  <div>
+    <div class="kicker" data-at=".02">06 · Mass payout</div>
+    <div class="big" data-at=".04" data-fx="pop" data-sfx="pop"><span data-count="5031" data-t=".05" data-span=".12">0</span></div>
+    <h2 data-at=".08" style="font-size:56px;margin-top:6px">beneficiaries, one run</h2>
+    <div class="batchgrid" data-batches="51" data-t=".24" data-span=".56" data-sfx="batch"></div>
+    <p class="foot" data-at=".24">51 batches of up to 100 · per-recipient retry · no double pay</p>
+    <p class="foot" data-at=".3" style="margin-top:6px">Illustration · a 5,000-recipient run has not been load-tested yet</p>
+  </div>
+  <div class="right">
+    <div class="phone" data-at=".02" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>11:00</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Distribute Aid</div>
+        <div class="row"><small>Recipients · each</small>5,031 · 500 RCPHP</div>
+        <div class="swap"><div class="btn" style="margin:0">Sign &amp; send<span class="ripple" data-at=".18" data-fx="ripple" data-sfx="tap"></span></div><div class="btn navy" style="margin:0" data-at=".22" data-fx="fade">Distributing…</div></div>
+        <div class="prog" data-at=".22"><i data-prog="100" data-t=".24" data-span=".56"></i></div>
+        <div class="row ok" data-at=".24"><small>Confirmed on-chain</small><span class="num" style="font-size:44px" data-count="5031" data-ease="linear" data-t=".24" data-span=".56">0</span></div>
+        <div class="row" data-at=".24"><small>Pending</small><span class="num" style="font-size:36px" data-count="0" data-from="5031" data-ease="linear" data-t=".24" data-span=".56">5,031</span></div>
+        <div class="row warn" data-at=".42" data-until=".7"><small>Retrying safely</small>3 payments</div>
+        <div class="row ok" data-at=".82" data-fx="pop" data-sfx="success">All payments confirmed ✓</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S7 RECEIVE -->
+<section class="scene" data-id="s7" data-act="pay">
+  <div>
+    <div class="kicker" data-at=".02">07 · Beneficiary</div>
+    <h2 data-at=".05">The aid arrives</h2>
+    <p class="lead" data-at=".1">Split by aid type, so Juan knows what he can spend it on.</p>
+  </div>
+  <div class="right">
+    <div class="phone" data-at=".02" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>11:02</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="notif" data-at=".12" data-fx="drop" data-sfx="ding" data-until=".7"><b>Relief Chain</b>You received 500 RCPHP from Typhoon Relief</div>
+      <div class="screen">
+        <div class="ttl">My Wallet</div><div class="sub2">Juan Dela Cruz</div>
+        <div class="row nav"><small>Available balance</small><span class="num" data-count="500" data-t=".22" data-span=".25" data-sfx="count">0</span> <small style="display:inline">RCPHP</small></div>
+        <div class="row ok" data-at=".45" data-fx="left">Food <b style="float:right">300</b></div>
+        <div class="row ok" data-at=".52" data-fx="left">Cash <b style="float:right">200</b></div>
+        <div class="btn">Pay merchant</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S8 QR PAY ONLINE -->
+<section class="scene" data-id="s8" data-act="spend">
+  <div>
+    <div class="kicker" data-at=".02">08 · At the store</div>
+    <h2 data-at=".05">Scan, check, pay</h2>
+    <div class="chips"><span class="chip" data-at=".25">QR invoice</span><span class="chip" data-at=".5">Balance checked</span><span class="chip" data-at=".75">Settles on-chain</span></div>
+  </div>
+  <div class="right">
+    <div class="phone sm" data-at=".02" data-fx="up">
+      <div class="notch"></div><div class="sb"><span>13:20</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Invoice</div><div class="sub2">Sari-sari Store (demo) · 100 RCPHP</div>
+        <div class="qr"></div>
+        <div class="swap"><div class="row warn" data-until=".76">Waiting for payment…</div><div class="row ok" data-at=".78" data-fx="pop" data-sfx="success">Paid ✓ 100 RCPHP</div></div>
+      </div>
+    </div>
+    <div class="phone sm" data-at=".08" data-fx="up">
+      <div class="notch"></div><div class="sb"><span>13:20</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Scan &amp; Pay</div>
+        <div class="scanbox"><div class="fr"></div><div class="ln" data-scan></div></div>
+        <div class="row ok" data-at=".42" data-fx="pop" data-sfx="beep">Balance OK ✓<small>Sari-sari Store (demo) · 100</small></div>
+        <div class="btn">Confirm<span class="ripple" data-at=".66" data-fx="ripple" data-sfx="tap"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S9 OFFLINE PAY -->
+<section class="scene" data-id="s9" data-act="off">
+  <div>
+    <div class="kicker" data-at=".02">09 · No internet</div>
+    <h2 data-at=".05">Towers down. Payments still work.</h2>
+    <div class="chips"><span class="chip" data-at=".14">✈ Airplane mode</span><span class="chip" data-at=".2">No Wi-Fi</span><span class="chip" data-at=".26">No data</span><span class="chip" data-at=".6">Phone to phone</span><span class="chip" data-at=".8">Pending Sync</span></div>
+    <p class="foot" data-at=".3">Uses the last-synced balance · transport: QR or Bluetooth (confirm on device)</p>
+  </div>
+  <div class="right" style="gap:170px">
+    <div class="beam" data-beam data-t=".52" data-end=".72" data-sfx="transfer"></div>
+    <div class="phone sm" data-at=".02" data-fx="up">
+      <div class="notch"></div><div class="sb"><span>15:40</span><span class="ics"><span class="air" data-at=".14" data-fx="pop" data-sfx="toggle">✈</span><span class="sig" data-until=".13"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Beneficiary</div>
+        <div class="row setrow">Airplane mode <span class="switch" data-switch="on" data-t=".1"><b></b></span></div>
+        <div class="swap"><div class="row ok" data-until=".15">Online</div><div class="offtag" data-at=".17" data-fx="pop">✈ OFFLINE MODE</div></div>
+        <div class="row"><small>Last-synced balance</small>400 RCPHP</div>
+        <div class="row" data-at=".45">Pay 150 RCPHP → Store</div>
+        <div class="row ok" data-at=".58" data-fx="pop">Local balance check ✓</div>
+        <div class="row warn" data-at=".78" data-fx="pop" data-sfx="pop">⏳ Pending Sync</div>
+      </div>
+    </div>
+    <div class="phone sm" data-at=".05" data-fx="up">
+      <div class="notch"></div><div class="sb"><span>15:40</span><span class="ics"><span class="air" data-at=".2" data-fx="pop" data-sfx="toggle">✈</span><span class="sig" data-until=".19"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Merchant · Receive</div>
+        <div class="row setrow">Airplane mode <span class="switch" data-switch="on" data-t=".18"><b></b></span></div>
+        <div class="swap"><div class="row ok" data-until=".21">Online</div><div class="offtag" data-at=".23" data-fx="pop">✈ OFFLINE MODE</div></div>
+        <div class="row" data-at=".4">Waiting for payment…</div>
+        <div class="row ok" data-at=".72" data-fx="pop" data-sfx="pop">Received 150 RCPHP</div>
+        <div class="row warn" data-at=".8" data-fx="pop">⏳ Pending Sync</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S10 SYNC -->
+<section class="scene" data-id="s10" data-act="off">
+  <div>
+    <div class="kicker" data-at=".02">10 · Back online</div>
+    <h2 data-at=".05">Auto-sync, in order</h2>
+    <div class="chips"><span class="chip" data-at=".3">Syncs automatically</span><span class="chip" data-at=".5">Settles on-chain</span><span class="chip" data-at=".7">Conflicts → admin review</span></div>
+  </div>
+  <div class="right">
+    <div class="phone" data-at=".02" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>17:05</span><span class="ics"><span class="air" data-until=".12">✈</span><span class="sig" data-at=".14" data-fx="pop" data-sfx="toggle"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">Beneficiary</div>
+        <div class="row setrow">Airplane mode <span class="switch" data-switch="off" data-t=".1"><b></b></span></div>
+        <div class="swap"><div class="offtag" data-until=".16">✈ OFFLINE MODE</div><div class="row ok" data-at=".18" data-fx="pop">Online</div></div>
+        <div class="swap" data-at=".22" data-until=".46"><div><div class="spin" data-spin></div><div style="text-align:center;font-size:20px;font-weight:700;color:var(--navy)">Syncing 1 payment…</div></div></div>
+        <div class="swap"><div class="row warn" data-until=".46">⏳ Pending Sync · 150</div><div class="row ok" data-at=".48" data-fx="pop" data-sfx="success">Confirmed on-chain ✓ · 150</div></div>
+        <div class="row" data-at=".56"><small>Balance</small>250 RCPHP</div>
+        <div class="row" data-at=".64">Conflicts for review: 0</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S11 MERCHANT HISTORY -->
+<section class="scene" data-id="s11" data-act="audit">
+  <div>
+    <div class="kicker" data-at=".02">11 · Merchant</div>
+    <h2 data-at=".05">Every payment, online and offline</h2>
+    <div class="chips"><span class="chip" data-at=".5">CSV export</span><span class="chip sim" data-at=".7">Cash-out: simulated</span></div>
+  </div>
+  <div class="right">
+    <div class="phone" data-at=".02" data-fx="right">
+      <div class="notch"></div><div class="sb"><span>17:10</span><span class="ics"><span class="sig"><i></i><i></i><i></i><i></i></span><span class="bat"></span></span></div>
+      <div class="screen">
+        <div class="ttl">History</div>
+        <div class="row ok" data-at=".12" data-fx="left" data-sfx="tick">QR · 100 RCPHP<small>Confirmed</small></div>
+        <div class="row ok" data-at=".2" data-fx="left" data-sfx="tick">Offline · 150 RCPHP<small>Synced · confirmed</small></div>
+        <div class="row" data-at=".28" data-fx="left" data-sfx="tick">Settlement report<small>Today</small></div>
+        <div class="row warn" data-at=".66" data-fx="pop">Cash-out (simulated)</div>
+        <div class="btn">Export CSV<span class="ripple" data-at=".46" data-fx="ripple" data-sfx="tap"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S12 AUDIT + END -->
+<section class="scene" data-id="s12" data-act="audit">
+  <div>
+    <div class="kicker" data-at=".02">12 · Audit</div>
+    <h2 data-at=".05">One report, reconciled with the blockchain</h2>
+  </div>
+  <div class="right">
+    <div class="card" style="width:720px" data-at=".04" data-fx="right">
+      <div style="font-size:24px;font-weight:800;color:#3d8a22;letter-spacing:.1em">AUDIT &amp; COMPLIANCE REPORT</div>
+      <div class="check" data-at=".12" data-fx="left" data-sfx="tick"><span class="c">✓</span>CSV upload &amp; cross-checks</div>
+      <div class="check" data-at=".2" data-fx="left" data-sfx="tick"><span class="c">✓</span>Payout to 5,031 reconciled</div>
+      <div class="check" data-at=".28" data-fx="left" data-sfx="tick"><span class="c">✓</span>Merchant payments reconciled</div>
+      <div class="check" data-at=".36" data-fx="left" data-sfx="tick"><span class="c">✓</span>Offline payment synced &amp; reconciled</div>
+    </div>
+  </div>
+  <div class="endcard" data-at=".66" data-fx="fade" data-sfx="chime">
+    <div class="lg" data-at=".68" data-fx="pop">Relief Chain</div>
+    <p data-at=".72">Aid that reaches people, even when the internet doesn't.</p>
+    <div class="tn" data-at=".76" style="font-size:24px">Stellar testnet demo · RCPHP has no monetary value</div>
+  </div>
+</section>
+
+<div id="sub" style="opacity:0"></div>
+<div class="note">Illustrative walkthrough · mock screens · placeholder names and numbers</div>
+<div class="pbar" id="pbar"></div>
+
+<script>
+  const CPS = 22;
+  const q = (sel, root = document) => [...root.querySelectorAll(sel)];
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const eo = (p) => 1 - Math.pow(1 - p, 3);
+  const eb = (p) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+  const fmt = (n) => Math.round(n).toLocaleString('en-US');
+  let TL = [], TOTAL = 0, subs = [];
+  const sceneEls = {};
+
+  function buildQr(el) {
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const N = 21;
+    const finder = (r, c) => {
+      const inBox = (r0, c0) => r >= r0 && r < r0 + 7 && c >= c0 && c < c0 + 7;
+      for (const [r0, c0] of [[0, 0], [0, 14], [14, 0]]) {
+        if (inBox(r0, c0)) {
+          const rr = r - r0, cc = c - c0;
+          return rr === 0 || rr === 6 || cc === 0 || cc === 6 || (rr >= 2 && rr <= 4 && cc >= 2 && cc <= 4) ? 1 : 0;
+        }
+      }
+      return -1;
+    };
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const i = document.createElement('i');
+      const f = finder(r, c);
+      if (f === 1 || (f === -1 && rnd() > 0.52)) i.className = 'k';
+      el.appendChild(i);
+    }
+  }
+
+  window.__setup = (tl) => {
+    TL = tl;
+    const last = tl[tl.length - 1];
+    TOTAL = last.start + last.dur;
+    q('.scene').forEach((s) => { sceneEls[s.dataset.id] = s; });
+    q('[data-type]').forEach((el) => { el.dataset.full = el.textContent; el.textContent = ''; });
+    q('[data-batches]').forEach((el) => { for (let i = 0; i < +el.dataset.batches; i++) el.appendChild(document.createElement('i')); });
+    q('.qr').forEach(buildQr);
+    q('[data-beam]').forEach((el) => { for (let i = 0; i < 8; i++) el.appendChild(document.createElement('i')); });
+    subs = [];
+    tl.forEach((e) => {
+      if (!e.text) return;
+      const parts = (e.text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || []).map((s) => s.trim()).filter(Boolean);
+      const merged = [];
+      parts.forEach((p) => {
+        const prev = merged[merged.length - 1];
+        if (prev && (prev.length < 30 || p.length < 24) && prev.length + p.length < 100) merged[merged.length - 1] = prev + ' ' + p;
+        else merged.push(p);
+      });
+      const total = merged.reduce((a, s) => a + s.length, 0);
+      let t = e.voStart;
+      merged.forEach((s) => { const d = e.voDur * s.length / total; subs.push({ start: t, end: t + d, text: s }); t += d; });
+    });
+    return { total: TOTAL, scenes: Object.keys(sceneEls).length };
+  };
+
+  const startOf = (el) => parseFloat(el.dataset.at ?? el.dataset.t ?? '0');
+
+  window.__cues = () => {
+    const cues = [];
+    TL.forEach((e, idx) => {
+      const s = sceneEls[e.id];
+      if (!s) return;
+      if (idx > 0) cues.push({ t: e.start, type: 'whoosh', span: 0, n: 0 });
+      q('[data-sfx]', s).forEach((el) => {
+        const t = e.start + startOf(el) * e.dur;
+        let span = 0;
+        if (el.dataset.type !== undefined) span = el.dataset.full.length / CPS;
+        else if (el.dataset.span) span = parseFloat(el.dataset.span) * e.dur;
+        else if (el.dataset.end) span = (parseFloat(el.dataset.end) - parseFloat(el.dataset.t)) * e.dur;
+        cues.push({ t, type: el.dataset.sfx, span, n: el.dataset.batches ? +el.dataset.batches : 0 });
+      });
+    });
+    return cues.sort((a, b) => a.t - b.t);
+  };
+
+  function fxv(kind, p) {
+    const e = eo(p);
+    switch (kind) {
+      case 'left': return [e, `translateX(${(1 - e) * -60}px)`];
+      case 'right': return [e, `translateX(${(1 - e) * 80}px)`];
+      case 'pop': return [Math.min(1, p * 2.5), `scale(${0.6 + 0.4 * eb(p)})`];
+      case 'fade': return [e, 'none'];
+      case 'drop': return [e, `translateY(${(1 - e) * -90}px)`];
+      case 'ripple': return [p <= 0 || p >= 1 ? 0 : 0.5 * (1 - p), `translate(-50%,-50%) scale(${0.2 + 3 * p})`];
+      case 'fly': return [1 - clamp((p - 0.6) / 0.4), `translate(${e * 330}px, ${e * 60}px) scale(${1 - 0.55 * e}) rotate(${e * 8}deg)`];
+      default: return [e, `translateY(${(1 - e) * 40}px)`];
+    }
+  }
+
+  function renderScene(s, local, D) {
+    q('[data-at],[data-until]', s).forEach((el) => {
+      let op = 1, tr = 'none';
+      if (el.dataset.at !== undefined) {
+        const kind = el.dataset.fx || 'up';
+        const len = kind === 'fly' ? 0.9 : kind === 'ripple' ? 0.55 : 0.5;
+        [op, tr] = fxv(kind, clamp((local - parseFloat(el.dataset.at) * D) / len));
+      }
+      if (el.dataset.until !== undefined) op *= 1 - clamp((local - parseFloat(el.dataset.until) * D) / 0.3);
+      el.style.opacity = op;
+      el.style.transform = tr;
+    });
+    q('[data-count]', s).forEach((el) => {
+      const a = parseFloat(el.dataset.t || 0) * D, sp = parseFloat(el.dataset.span || 0.2) * D;
+      const raw = clamp((local - a) / sp);
+      const p = el.dataset.ease === 'linear' ? raw : eo(raw);
+      const from = parseFloat(el.dataset.from || 0), to = parseFloat(el.dataset.count);
+      el.textContent = fmt(from + (to - from) * p);
+    });
+    q('[data-prog]', s).forEach((el) => {
+      const a = parseFloat(el.dataset.t) * D, sp = parseFloat(el.dataset.span) * D;
+      el.style.width = (parseFloat(el.dataset.prog) * clamp((local - a) / sp)) + '%';
+    });
+    q('[data-type]', s).forEach((el) => {
+      const a = parseFloat(el.dataset.t || 0) * D;
+      const full = el.dataset.full;
+      const n = Math.max(0, Math.floor((local - a) * CPS));
+      el.textContent = full.slice(0, Math.min(n, full.length));
+      el.classList.toggle('caret', n > 0 && n < full.length + 10 && Math.floor(local * 2.5) % 2 === 0);
+    });
+    q('[data-batches]', s).forEach((el) => {
+      const a = parseFloat(el.dataset.t) * D, sp = parseFloat(el.dataset.span) * D;
+      const kids = el.children;
+      for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('on', local >= a + sp * (i / kids.length));
+    });
+    q('[data-switch]', s).forEach((el) => {
+      let p = eo(clamp((local - parseFloat(el.dataset.t) * D) / 0.3));
+      if (el.dataset.switch === 'off') p = 1 - p;
+      el.querySelector('b').style.transform = `translateX(${p * 34}px)`;
+      el.classList.toggle('on', p > 0.5);
+    });
+    q('[data-spin]', s).forEach((el) => { el.style.transform = `rotate(${local * 320}deg)`; });
+    q('[data-scan]', s).forEach((el) => { el.style.top = (14 + 72 * (0.5 + 0.5 * Math.sin(local * 3.2))) + '%'; });
+    q('[data-rows]', s).forEach((el) => {
+      const a = parseFloat(el.dataset.t) * D, sp = parseFloat(el.dataset.span) * D, rows = +el.dataset.rows;
+      const p = clamp((local - a) / sp);
+      el.style.opacity = local >= a && local <= a + sp + 0.4 ? 1 : 0;
+      el.style.top = (Math.min(rows - 1, p * rows) * 64 + 22) + 'px';
+    });
+    q('[data-beam]', s).forEach((el) => {
+      const a = parseFloat(el.dataset.t) * D, b = parseFloat(el.dataset.end) * D;
+      el.style.opacity = local >= a && local <= b ? 1 : 0;
+      [...el.children].forEach((d, i) => {
+        const ph = (((local - a) * 1.1) + i / 8) % 1;
+        d.style.left = (ph * 154) + 'px';
+        d.style.opacity = Math.sin(ph * Math.PI);
+      });
+    });
+  }
+
+  window.__render = (t) => {
+    TL.forEach((e, idx) => {
+      const s = sceneEls[e.id];
+      const local = t - e.start, D = e.dur, isLast = idx === TL.length - 1;
+      if (local < 0 || (local >= D && !isLast)) { s.style.display = 'none'; return; }
+      s.style.display = '';
+      const pin = idx === 0 ? 1 : clamp(local / 0.5);
+      const pout = isLast ? 1 : clamp((D - local) / 0.4);
+      s.style.opacity = Math.min(eo(pin), eo(pout));
+      s.style.transform = `translateX(${(1 - eo(pin)) * 80 - (1 - eo(pout)) * 80}px)`;
+      renderScene(s, local, D);
+    });
+    const cur = TL.find((e) => t >= e.start && t < e.start + e.dur) || TL[TL.length - 1];
+    const act = sceneEls[cur.id].dataset.act;
+    q('.acts span').forEach((a) => a.classList.toggle('on', a.dataset.act === act));
+    document.getElementById('pbar').style.width = (100 * Math.min(1, t / TOTAL)) + '%';
+    const sub = subs.find((x) => t >= x.start - 0.05 && t < x.end + 0.1);
+    const se = document.getElementById('sub');
+    if (sub) { if (se.textContent !== sub.text) se.textContent = sub.text; se.style.opacity = 1; } else se.style.opacity = 0;
+    const lastE = TL[TL.length - 1];
+    const chrome = 1 - clamp((t - (lastE.start + 0.66 * lastE.dur)) / 0.5);
+    document.querySelector('.hdr').style.opacity = chrome;
+    document.querySelector('.note').style.opacity = chrome;
+    q('.blob').forEach((b, i) => { b.style.transform = `translate(${Math.sin(t * 0.13 + i * 2) * 120}px, ${Math.cos(t * 0.11 + i) * 80}px)`; });
+  };
+</script>
+</body>
+</html>
