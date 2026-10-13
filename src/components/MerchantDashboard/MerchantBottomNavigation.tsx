@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, FloatingTabBarGap, FloatingTabBarHeight } from '@/constants/theme';
 
-export type MerchantNavigationActiveItem = 'dashboard' | 'programs' | 'history' | 'profile';
+export type MerchantNavigationActiveItem = 'dashboard' | 'programs' | 'qr' | 'history' | 'profile';
 type Props = { active: MerchantNavigationActiveItem };
 
 export const MerchantBottomNavigation = ({ active }: Props) => {
@@ -19,7 +19,7 @@ export const MerchantBottomNavigation = ({ active }: Props) => {
     <Pressable accessibilityLabel="Programs" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/programs')} style={[styles.item, active === 'programs' && styles.active]}>
       <MaterialCommunityIcons color="#FFFFFF" name="hand-heart-outline" size={22} /><ThemedText style={styles.label}>Programs</ThemedText>
     </Pressable>
-    <Pressable accessibilityLabel="QR Scan" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/receive')} style={styles.item}>
+    <Pressable accessibilityLabel="QR Scan" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/receive')} style={[styles.item, active === 'qr' && styles.active]}>
       <MaterialCommunityIcons color="#FFFFFF" name="qrcode-scan" size={22} /><ThemedText style={styles.label}>QR Scan</ThemedText>
     </Pressable>
     <Pressable accessibilityLabel="History" accessibilityRole="button" onPress={() => router.navigate('/(merchant)/history')} style={[styles.item, active === 'history' && styles.active]}>

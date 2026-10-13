@@ -1,0 +1,7 @@
+{
+  "task_id": "task-restore-merchant-invoice-receive",
+  "task_description": "Restore the merchant invoice 'Receive payment' screen (amount entry, Generate QR Code, 10-minute countdown, settlement state) at src/app/(merchant)/receive.tsx under the QR Scan bottom-nav tab with the nav bar active; relocate the current camera scanner/redemption/offline-sync screen intact to src/app/(merchant)/redeem.tsx; retarget the stale source-grep test; update docs. Full plan: c:/Users/gab/relief-chain/.agents/tasks/restore-merchant-invoice-plan.md",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}

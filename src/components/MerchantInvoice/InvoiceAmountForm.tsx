@@ -10,9 +10,10 @@ import { stroopsFromDecimalInput } from '@/utils/format-stroops';
 type Props = {
   isSubmitting: boolean;
   onSubmit: (draft: MerchantInvoiceDraft) => void;
+  autoFocus?: boolean;
 };
 
-export const InvoiceAmountForm = ({ isSubmitting, onSubmit }: Props) => {
+export const InvoiceAmountForm = ({ isSubmitting, onSubmit, autoFocus = true }: Props) => {
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +42,7 @@ export const InvoiceAmountForm = ({ isSubmitting, onSubmit }: Props) => {
           <ThemedText style={styles.currencyPrefix}>₱</ThemedText>
           <TextInput
             accessibilityLabel="Invoice amount"
-            autoFocus
+            autoFocus={autoFocus}
             keyboardType="decimal-pad"
             onChangeText={(text) => {
               setAmount(text);

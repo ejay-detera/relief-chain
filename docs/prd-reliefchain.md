@@ -58,7 +58,7 @@ ReliefChain is a disaster relief distribution platform for governments and human
 
 - **Who:** Operator of an accredited grocery, pharmacy, hardware, or school-supply store. Role `merchant`.
 - **Jobs:** Register and get accredited to a program, generate a signed QR invoice, accept redemption, view settlements and metrics, request cash-out, handle refunds.
-- **Surfaces:** `src/app/(merchant)/` — `index`, `receive`, `profile`, `programs`, `security` (a `Stack`, with bottom navigation supplied by `src/components/MerchantDashboard/MerchantBottomNavigation.tsx`).
+- **Surfaces:** `src/app/(merchant)/` — `index`, `receive`, `redeem`, `history`, `payment-history`, `profile`, `edit-profile`, `programs`, `security`, `wallet-recovery`, `transactions` (a `Stack`, with bottom navigation supplied by `src/components/MerchantDashboard/MerchantBottomNavigation.tsx`).
 
 ### Roadmap — Donor / Public Auditor ⬜
 

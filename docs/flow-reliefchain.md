@@ -66,14 +66,16 @@ flowchart TB
   BN --> BN10["✅ Dynamic Requirements Application"]
 
   MR --> MR1["✅ Dashboard + metrics"]
-  MR --> MR2["✅ Receive — signed QR invoice"]
+  MR --> MR2["✅ Receive — signed QR invoice (QR Scan tab, (merchant)/receive)"]
   MR --> MR3["✅ Programs — accreditation"]
   MR --> MR4["✅ Profile · security"]
   MR --> MR5["🟡 Cash-out — externally simulated"]
   MR --> MR6["✅ Dedicated History (MER-03) — redemptions · settlements · refunds · CSV export"]
+  MR --> MR7["🟡 Scan and redeem a voucher ((merchant)/redeem) — database-only"]
 
   style LG7 fill:#3d3520
   style MR5 fill:#3d3520
+  style MR7 fill:#3d3520
 ```
 
 ---
@@ -109,7 +111,7 @@ flowchart LR
   end
 
   subgraph D [D — Redemption]
-    D1["✅ Merchant signed QR invoice"]
+    D1["✅ Merchant signed QR invoice (merchant/receive)"]
     D2["✅ Beneficiary scan + decode"]
     D3["✅ prepare-payment validation chain"]
     D4["✅ Biometric approval + fallback"]
@@ -219,7 +221,7 @@ sequenceDiagram
 | Wallet provisioning + proof | Must | ✅ | `prepare/submit-wallet-provision`, `complete_wallet_proof()` |
 | Wallet rotation + recovery | Should | ✅ | `wallet_rotation_intents` (beneficiary), `WalletRecovery/` + `(beneficiary)/wallet-recovery`, contract `rotate_entitlement`; merchant replacement via `prepare/submit-merchant-provision` supersession + `(merchant)/wallet-recovery` |
 | Batch disbursement (cash rail) | Must | ✅ | `DistributeAid/`, `prepare/submit-disbursement` |
-| QR invoice generation | Must | ✅ | `MerchantInvoice/InvoiceQrCard.tsx`, `shared/invoice-codec.ts` |
+| QR invoice generation | Must | ✅ | `(merchant)/receive` (QR Scan tab), `use-merchant-invoice-flow.ts`, `MerchantInvoice/InvoiceQrCard.tsx`, `shared/invoice-codec.ts` |
 | QR scan + validation | Must | ✅ | `PayScan/ScannerView.tsx`, `invoice-scan-service.ts` |
 | Payment prepare/submit | Must | ✅ | `prepare-payment`, `submit-payment` |
 | Biometric approval + fallback | Must | ✅ | `utils/biometric-auth.ts` |
@@ -234,7 +236,7 @@ sequenceDiagram
 | Merchant metrics | Should | ✅ | `merchant_metrics`, hardened RPC |
 | Merchant redemption & refund history (MER-03) | Medium | ✅ | `(merchant)/history`, `MerchantHistory/`, `use-merchant-transactions.ts` |
 | Org dashboard + financials | Must | ✅ | `(lgu)/index.tsx`, `use-organization-financials.ts` |
-| Voucher escrow contract | Must | 🟡 gated | `contracts/voucher/`; blocked by cash-only gate in `prepare-payment` |
+| Voucher escrow contract | Must | 🟡 gated | `contracts/voucher/`; `prepare-payment` accepts `cash` and `voucher` (`index.ts:83-84`) but the client only creates cash invoices; contract-deployment prerequisites are unchanged and not re-verified here |
 | Merchant cash-out | Should | 🟡 simulated | `request-cashout`, `SimulatedCashOutNotice.tsx` |
 | Public transparency data | Should | 🟡 no UI | `public_financial_transparency`, `auditor_view_*` |
 | Application status & timeline (BEN-02) | Must | ✅ | `(beneficiary)/application-status`, `ApplicationStatus/`, `application-status-service.ts` |
@@ -246,7 +248,8 @@ sequenceDiagram
 | Dynamic requirements & program criteria (US8) | High | ✅ | `(beneficiary)/apply-program`, `ApplyProgram/`, `program-requirements-service.ts` |
 | Beneficiary CSV import & SMS invite queue (US8) | High | ✅ | `(lgu)/import-beneficiaries`, `sms-service.ts` |
 | SMS notifications | Should | 🟡 simulated queue | `sms-service.ts`, `pending_sms_invites` (external gateway uncontracted) |
-| Bluetooth & Offline sync | Should | ✅ Built (dual transport + queue + RPC) | `services/offline/`, `receive.tsx`, `sync_offline_redemption_batch` RPC, BLE + QR dual transport |
+| Bluetooth & Offline sync | Should | ✅ Built (dual transport + queue + RPC) | `services/offline/`, `(merchant)/redeem.tsx`, `sync_offline_redemption_batch` RPC, BLE + QR dual transport |
+| Merchant scan-and-redeem a voucher (MER-01/02) | Should | 🟡 database-only | `(merchant)/redeem.tsx`, `merchant-redemption-service.ts`; `execute_voucher_redemption` (latest definition: `20261004020000_update_redemption_and_history.sql`) checks accreditation, enrollment, and balance, then updates `enrollments.voucher_balance`, the balance projection, `redemptions`, and `merchant_metrics`. Its `tx_hash` is a random database-generated value, not a Stellar transaction; it does not settle on-chain |
 | Donor portal | Could | ⬜ partial planned | — |
 | Mainnet / real money | — | ❌ | hard-disabled |
 | AI prediction | — | ❌ | not in scope |
@@ -261,7 +264,7 @@ sequenceDiagram
 flowchart TB
   INV["✅ Merchant signed invoice (InvoiceV1)"] --> GATE{"prepare-payment<br/>fundingSourceKind"}
   GATE -->|"'cash' ✅"| CASH["✅ Cash rail<br/>SAC transfer to merchant wallet"]
-  GATE -->|"anything else ❌ rejected"| BLOCK["'Only cash funding source<br/>is supported in MVP.'"]
+  GATE -->|"anything else ❌ rejected"| BLOCK["'Only cash and voucher funding sources<br/>are supported.' (index.ts:83-84)"]
   BLOCK -.->|"unlock work"| VOUCH
   VOUCH["🟡 Voucher rail — VoucherContract.redeem"]
   VOUCH --> VCHK["✅ auth · lifecycle · expiry<br/>✅ contract/sac/network/asset binding<br/>✅ merchant + Ed25519 signature<br/>✅ per-tx · remaining · daily limit<br/>✅ one-time nonce<br/>✅ conservation invariants"]
@@ -272,9 +275,9 @@ flowchart TB
   style VCHK fill:#3d3520
 ```
 
-**Why this matters.** The programmable-voucher claim is the product's headline differentiator, and the enforcement logic genuinely exists and is unit-tested — including conservation invariants and atomic revert. It simply is not reachable from the app while the MVP gate stands. State it that way, precisely, rather than implying either more or less than is true.
+**Why this matters.** The programmable-voucher claim is the product's headline differentiator, and the enforcement logic genuinely exists and is unit-tested — including conservation invariants and atomic revert. The server accepts `voucher` as a funding source, but the client only creates cash invoices and the contract-deployment prerequisites below are unchanged and not re-verified, so it is not reachable from the app today. State it that way, precisely, rather than implying either more or less than is true.
 
-**To unlock:** provision `STELLAR_CONTRACT_ADMIN_SECRET` (not created by `bootstrap-topology.mjs`), deploy a contract instance per activated voucher program, add funding-source selection in the client, then lift the gate in `supabase/functions/prepare-payment/index.ts`.
+**To unlock:** provision `STELLAR_CONTRACT_ADMIN_SECRET` (not created by `bootstrap-topology.mjs`), deploy a contract instance per activated voucher program, add funding-source selection in the client, then create voucher invoices from the client (`prepare-payment` already accepts `voucher`).
 
 ---
 

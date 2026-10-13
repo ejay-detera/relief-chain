@@ -381,7 +381,74 @@ test('pay-scan silently ignores partial payloads and keeps fail-closed decode', 
 });
 
 test('merchant receive keeps the verified-signer creation gate', async () => {
-  const source = await readRepo('src/app/(merchant)/receive.tsx');
+  // The receive screen is a thin shell; the creation gate lives in the hook.
+  const source = await readRepo('src/hooks/use-merchant-invoice-flow.ts');
   assert.match(source, /isVerifiedMerchantWallet/, 'must gate creation on verified readiness');
   assert.match(source, /Complete wallet recovery/, 'must keep the recovery guidance copy');
+  assert.match(
+    source,
+    /createSignedInvoice\(\{[^}]*merchantId:\s*merchantEntityId\b/s,
+    'createSignedInvoice must receive the merchant entity id as merchantId',
+  );
+  const screen = await readRepo('src/app/(merchant)/receive.tsx');
+  assert.match(screen, /useMerchantInvoiceFlow/, 'receive screen must compose the invoice flow hook');
+});
+
+// Walks `@/...` imports breadth-first from an entry file (src-relative).
+async function collectReachableSources(entryRel) {
+  const resolveAlias = async (spec) => {
+    const base = path.posix.join('src', spec.slice(2));
+    for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
+      if (await existsRepo(candidate)) return candidate;
+    }
+    return null;
+  };
+  const seen = new Set([entryRel]);
+  const queue = [entryRel];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const source = await readRepo(current);
+    for (const match of source.matchAll(/from\s+['"](@\/[^'"]+)['"]/g)) {
+      const resolved = await resolveAlias(match[1]);
+      if (resolved && !seen.has(resolved)) {
+        seen.add(resolved);
+        queue.push(resolved);
+      }
+    }
+  }
+  return seen;
+}
+
+test('merchant receive route reaches createSignedInvoice and stays registered and navigable', async () => {
+  const reachable = await collectReachableSources('src/app/(merchant)/receive.tsx');
+  assert.ok(
+    reachable.has('src/services/invoice-service.ts'),
+    'invoice-service (createSignedInvoice) must be reachable from the receive route',
+  );
+
+  const layout = await readRepo('src/app/(merchant)/_layout.tsx');
+  assert.match(layout, /name="receive"/, 'merchant Stack must register receive');
+  assert.match(layout, /name="redeem"/, 'merchant Stack must register redeem');
+
+  const nav = await readRepo('src/components/MerchantDashboard/MerchantBottomNavigation.tsx');
+  assert.match(
+    nav,
+    /accessibilityLabel="QR Scan"[^\r\n]*router\.navigate\('\/\(merchant\)\/receive'\)/,
+    'QR Scan nav item must route to /(merchant)/receive',
+  );
+});
+
+test('merchant redeem route preserves the scanner, redemption and offline queue', async () => {
+  const redeem = await readRepo('src/app/(merchant)/redeem.tsx');
+  assert.match(redeem, /useOfflineSync/, 'redeem must keep offline sync');
+  assert.match(redeem, /executeVoucherRedemption/, 'redeem must keep the voucher redemption call');
+  assert.match(redeem, /BeneficiaryScannerView/, 'redeem must keep the beneficiary scanner');
+  assert.match(redeem, /RC-OFF-V1:/, 'redeem must keep the offline voucher payload prefix');
+
+  const receive = await readRepo('src/app/(merchant)/receive.tsx');
+  assert.doesNotMatch(
+    receive,
+    /MerchantRedemption/,
+    'receive must not import the redemption components (scanner lives in redeem)',
+  );
 });

@@ -66,7 +66,7 @@ const MerchantPaymentHistoryScreen = () => {
             </ThemedText>
             <ThemedText style={styles.emptySubtitle}>
               {filter === 'all'
-                ? 'Create a new invoice in the scanner to receive payments.'
+                ? 'Create a new invoice on the QR Scan tab to receive payments.'
                 : `No ${filter} invoices found.`}
             </ThemedText>
             <Pressable accessibilityRole="button" onPress={() => router.push('/(merchant)/receive')} style={styles.emptyButton}>
