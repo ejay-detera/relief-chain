@@ -13,7 +13,6 @@ type OrganizationProgramListProps = {
   organizations: OrganizationProgram[];
   isLoading: boolean;
   error: Error | null;
-  applyDisabled: boolean;
   onApply: (program: OrganizationProgram) => void;
   onViewStatus: (program: OrganizationProgram) => void;
   onRetry: () => void;
@@ -27,7 +26,6 @@ export function OrganizationProgramList({
   organizations,
   isLoading,
   error,
-  applyDisabled,
   onApply,
   onViewStatus,
   onRetry,
@@ -63,7 +61,6 @@ export function OrganizationProgramList({
       {organizations.map((program, index) => (
         <FadeInView delay={Math.min(index, 4) * 40} key={program.id}>
           <OrganizationProgramCard
-            disabled={applyDisabled}
             onApply={onApply}
             onViewStatus={onViewStatus}
             program={program}

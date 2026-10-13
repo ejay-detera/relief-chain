@@ -76,7 +76,7 @@ From the written proposal. These are the product's premises, **not** independent
 
 ```mermaid
 flowchart LR
-  A["1. Onboard<br/>✅ org review · beneficiary verification<br/>✅ duplicate detection · merchant accreditation"]
+  A["1. Onboard<br/>✅ org review · 🟡 beneficiary verification (MVP auto-verify)<br/>✅ duplicate detection · merchant accreditation"]
   B["2. Define<br/>✅ program · budget · eligibility<br/>✅ DB-validated policy"]
   C["3. Distribute<br/>✅ batch disbursement<br/>✅ per-recipient tracking"]
   D["4. Redeem<br/>✅ merchant QR · scan · biometric approval<br/>✅ on-chain settlement"]
@@ -145,8 +145,10 @@ Organizations self-register and pass a review state machine before operating. Re
 ### BR-02 Relief program management ✅
 Create a program with budget, aid type, eligibility, geography, documents, schedule, and voucher policy. Financial policy is validated by a database trigger, not only by the client. Policy changes append immutable events.
 
-### BR-03 Beneficiary verification ✅
-Registration captures identity and household evidence. Verification and re-verification decisions are recorded append-only.
+### BR-03 Beneficiary verification 🟡
+Registration captures identity and household evidence. Re-verification decisions are recorded append-only.
+
+**MVP interim (simulated):** a new beneficiary account is automatically marked Verified at sign-up (no document, government-record, or organization check, and no real KYC). Organization-side verification of a beneficiary is not a functional path yet; organizations review the application and documents after the beneficiary applies. Re-verification evidence remains required for sensitive actions such as wallet rotation. Repo only: the auto-verification migration is not yet applied to the hosted project.
 
 **Evidence sources named in the proposal:** National ID, Barangay Certificate, DSWD records, household information. **These are captured as submitted evidence. There is no live government system integration** — no PhilSys, DSWD, SSS, PhilHealth, or BIR connection exists.
 
@@ -240,7 +242,7 @@ From the proposal, reproduced as **positioning, not validated market analysis**.
 | Capability | Traditional response | Generic digital wallet | ReliefChain |
 |---|:---:|:---:|:---:|
 | Relief program management | Limited | No | ✅ |
-| Beneficiary verification | Manual | No | ✅ |
+| Beneficiary verification | Manual | No | 🟡 MVP auto-verify at sign-up (simulated) |
 | Duplicate prevention | Manual | No | ✅ DB-enforced |
 | Blockchain distribution | No | Limited | ✅ testnet |
 | Purpose-restricted vouchers | No | No | 🟡 built, gated |

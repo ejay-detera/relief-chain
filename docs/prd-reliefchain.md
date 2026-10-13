@@ -75,7 +75,7 @@ MoSCoW priority is the product judgment. Status is the code reality.
 | 1 | Organization/LGU registration with review workflow | Must | ✅ | `registrations` table, `create_registration_on_lgu_signup()`, `guard_registration_status_transition`, `src/components/OrganizationRegistration/`, `ApplicationReview/` |
 | 2 | Relief program management | Must | ✅ | `create-program/` 7-step wizard, `src/services/programService.ts`, `programs` + `program_areas` + `program_barangays` + `program_merchants` + `program_policy_events`, `programs_validate_financial_policy` trigger |
 | 3 | Beneficiary registration | Must | ✅ | `src/components/BeneficiaryRegistration/`, `src/services/registrationService.ts`, resubmission via `src/utils/resubmission.ts` |
-| 4 | Beneficiary verification and re-verification | Must | ✅ | `src/components/BeneficiaryVerification/`, `(lgu)/beneficiaries.tsx`, `record_beneficiary_identity_reverification()`, append-only `beneficiary_identity_reverifications` |
+| 4 | Beneficiary verification and re-verification | Must | 🟡 | Initial verification: **MVP auto-verify at sign-up, simulated** (`handle_new_user()`, migration `20261005020000`, repo only, not applied to the hosted project); organization-driven initial verification is **not functional** (`(lgu)/beneficiaries.tsx` Verify is a silent RLS no-op). Re-verification is built: `record_beneficiary_identity_reverification()`, append-only `beneficiary_identity_reverifications` |
 | 5 | Duplicate detection (identity + campaign scope) | Must | ✅ | `beneficiary_identities`, `disaster_response_campaigns`, `enrollments_prepare_identity_scope`, `programs_sync_campaign_to_enrollments`, test `supabase/tests/database/beneficiary_identities.test.sql` |
 | 6 | Wallet provisioning with proof of possession | Must | ✅ | `prepare-wallet-provision` / `submit-wallet-provision`, `wallets`, `issue_wallet_proof_challenge()`, `complete_wallet_proof()`, `src/components/WalletProvision/` |
 | 7 | Cash-rail disbursement to beneficiaries | Must | ✅ | `src/components/DistributeAid/` 5-step wizard, `distribution-service.ts`, `use-distribution-job.ts`, `distribution_jobs` + `distribution_recipients`, `prepare-disbursement` / `submit-disbursement`, `mark_distribution_recipient_submitted()` |
@@ -172,7 +172,7 @@ Acceptance criteria are **not yet specified** because no implementation or proto
 
 **Program to redemption (✅, cash rail).**
 1. LGU creates and funds a program.
-2. Beneficiary registers; LGU verifies; enrollment is identity- and campaign-scoped.
+2. Beneficiary registers and, in the MVP, is automatically marked Verified at sign-up (simulated: no document, government-record, or organization check). The beneficiary can apply to any program they can discover, and the organization reviews the application and documents after submission. Enrollment is identity- and campaign-scoped.
 3. Beneficiary wallet is provisioned and bound by proof of possession.
 4. LGU disburses; reconciliation confirms.
 5. Merchant issues a signed QR invoice.
@@ -180,6 +180,8 @@ Acceptance criteria are **not yet specified** because no implementation or proto
 7. Settlement lands in the merchant's verified wallet; reconciliation and audit records are written.
 
 **Voucher escrow path (🟡).** Identical up to step 6, then routed through `VoucherContract.redeem` with invoice binding to `contract_id`, `sac`, `network == testnet`, and `asset_code`, plus merchant signature verification, per-transaction limit, remaining entitlement, rolling daily limit, and one-time nonce. Unreachable today because of the cash-only gate.
+
+**Applying and program coverage (🟡 interim).** Find Organization no longer disables Apply from the beneficiary's verification status; the database never required it. Beneficiaries can read the barangay and area coverage of programs they can already discover, so a program restricted to other barangays is shown as unavailable in their area instead of failing at submit (migration `20261006000000`). The auto-verification and coverage migrations are in the repo and are **not applied to the hosted project**.
 
 Full status matrix and diagrams: [`flow-reliefchain.md`](flow-reliefchain.md).
 

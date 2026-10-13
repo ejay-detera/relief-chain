@@ -188,7 +188,7 @@ Properties this buys: idempotency via `idempotency_keys` and `claim_financial_id
 
 | Boundary | Mechanism |
 |---|---|
-| Client → Postgres | Supabase Auth JWT + RLS; helpers `is_lgu()`, `is_super_admin()`; `handle_new_user()` creates `profiles` from signup role metadata |
+| Client → Postgres | Supabase Auth JWT + RLS; helpers `is_lgu()`, `is_super_admin()`; `handle_new_user()` creates `profiles` from signup role metadata and starts beneficiary profiles Verified (MVP-only, simulated; migration `20261005020000`, repo only, not applied to the hosted project) |
 | Client → Edge | Session verification in `_shared/auth.ts`; tenant checks in `_shared/tenant-authorization.ts`; `_shared/approval-policy.ts`; `_shared/rate-limit.ts` |
 | Edge → Postgres | Service-role binding via `createEdgeServiceBinding()` — privileged and therefore never exposed to the client |
 | Device → chain | `beneficiary.require_auth()` inside the contract; fee sponsorship can never substitute for it |

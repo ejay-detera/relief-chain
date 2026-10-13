@@ -47,7 +47,7 @@ flowchart TB
   LG --> LG1["✅ Dashboard — budget · programs · activity"]
   LG --> LG2["✅ Programs + program/[id]"]
   LG --> LG3["✅ Disbursements (route pay-scan)"]
-  LG --> LG4["✅ Management — Beneficiary verification & Merchant management · Redemption history (ORG-11, ORG-12)"]
+  LG --> LG4["✅ Management — Beneficiary list (Verify action not functional, see build §8) & Merchant management · Redemption history (ORG-11, ORG-12)"]
   LG --> LG5["✅ Settings · edit-profile · security"]
   LG --> LG6["✅ create-program — 7 steps"]
   LG --> LG7["⬜ analytics / report export UI"]
@@ -87,7 +87,7 @@ flowchart LR
   subgraph A [A — Onboarding and trust]
     A1["✅ LGU signup + registration review"]
     A2["✅ Beneficiary registration + resubmission"]
-    A3["✅ Identity verification / re-verification"]
+    A3["🟡 Initial verification: MVP auto-verify at sign-up (simulated) · ✅ re-verification"]
     A4["✅ Duplicate detection — identity + campaign scope"]
     A5["✅ Merchant registration + accreditation"]
     A6["✅ Wallet provisioning + proof of possession"]
@@ -174,8 +174,11 @@ sequenceDiagram
 
   B->>APP: register
   APP->>DB: registrations (pending, guarded)
-  L->>APP: verify beneficiary
-  APP->>DB: identity re-verification (append-only) · scoped enrollment
+  DB->>DB: MVP auto-verify at sign-up, simulated, no KYC · profile + identity created Verified
+  B->>APP: apply to a discoverable program
+  APP->>DB: scoped enrollment (Pending) · privacy + geography enforced by RLS
+  L->>APP: review application, approve
+  APP->>DB: identity re-verification evidence (append-only) for sensitive actions
 
   B->>E: prepare-wallet-provision
   E-->>B: unsigned package
@@ -213,7 +216,7 @@ sequenceDiagram
 | LGU signup + registration review gate | Must | ✅ | `registrations`, `create_registration_on_lgu_signup()`, `(auth)/application-review` |
 | Role-based routing guard | Must | ✅ | `src/app/_layout.tsx`, `auth-routing.ts`, `lgu-navigation-guard.ts` |
 | Beneficiary registration + resubmission | Must | ✅ | `BeneficiaryRegistration/`, `utils/resubmission.ts` |
-| Identity verification / re-verification | Must | ✅ | `BeneficiaryVerification/`, `record_beneficiary_identity_reverification()` |
+| Identity verification / re-verification | Must | 🟡 initial: MVP auto-verify (simulated) · re-verification ✅ | Initial verification is granted automatically at beneficiary sign-up (`handle_new_user()`, migration `20261005020000`; **repo only, not applied to the hosted project**); no document, government-record, or organization check is performed and there is no real KYC. Organization-driven initial verification is **not functional**: `(lgu)/beneficiaries.tsx` Verify is a profile UPDATE that RLS turns into a silent no-op ([build](build-reliefchain.md) §8 item 21). Re-verification evidence is built: `record_beneficiary_identity_reverification()`, append-only `beneficiary_identity_reverifications` |
 | Duplicate detection | Must | ✅ | `beneficiary_identities`, `disaster_response_campaigns`, scope triggers |
 | Merchant registration + accreditation | Must | ✅ | `MerchantRegistration/`, `merchant_accreditations` |
 | Program wizard (7 steps) | Must | ✅ | `(lgu)/create-program/*` |
@@ -246,6 +249,8 @@ sequenceDiagram
 | Beneficiary appeal & re-opening flow (BEN-06 / ORG-08) | Medium | ✅ | `(beneficiary)/submit-appeal`, `(beneficiary)/my-appeals`, `Appeals/`, `appeal-service.ts` |
 | In-app notification inbox (BEN-07) | Medium | ✅ | `(beneficiary)/notifications`, `NotificationsModal.tsx` |
 | Dynamic requirements & program criteria (US8) | High | ✅ | `(beneficiary)/apply-program`, `ApplyProgram/`, `program-requirements-service.ts` |
+| Find Organization: Apply open to any signed-in beneficiary; program coverage readable by beneficiaries | Must | 🟡 repo only; not applied to hosted | Apply is no longer disabled by verification status (`find-organization.tsx`, `FindOrganization/*`, client-only change); the organization reviews the application after submission. Beneficiaries can read barangay and area coverage of programs they can discover (migration `20261006000000`). Tests: `apply-gate.test.mjs`; pgTAP `beneficiary_program_geography_access.test.sql` (**not executed** locally, no Docker). Non-invited users can still see private programs ([build](build-reliefchain.md) §8 item 22) |
+| Organization verification of a beneficiary | Should | ⬜ not functional | The Verify / Reject action does not change another user's profile (RLS matches 0 rows) and no verifier-role path exists ([sprint](sprint-reliefchain.md) §7) |
 | Beneficiary CSV import & SMS invite queue (US8) | High | ✅ | `(lgu)/import-beneficiaries`, `sms-service.ts` |
 | SMS notifications | Should | 🟡 simulated queue | `sms-service.ts`, `pending_sms_invites` (external gateway uncontracted) |
 | Bluetooth & Offline sync | Should | ✅ Built (dual transport + queue + RPC) | `services/offline/`, `(merchant)/redeem.tsx`, `sync_offline_redemption_batch` RPC, BLE + QR dual transport |
@@ -327,7 +332,7 @@ flowchart TB
   D["Donor"]
   S["Stellar testnet"]
 
-  L -->|"✅ program · verify · disburse · monitor"| APP["ReliefChain"]
+  L -->|"✅ program · review applications · disburse · monitor"| APP["ReliefChain"]
   B -->|"✅ register · wallet · scan · approve"| APP
   M -->|"✅ invoice · settle · metrics · refund"| APP
   M -->|"🟡 request cash-out"| APP

@@ -7,7 +7,6 @@ import { OrganizationProgram } from '@/types/organization';
 
 type OrganizationProgramCardProps = {
   program: OrganizationProgram;
-  disabled: boolean;
   onApply: (program: OrganizationProgram) => void;
   /** Deep-links to the beneficiary's own application status for this program. */
   onViewStatus: (program: OrganizationProgram) => void;
@@ -19,9 +18,9 @@ const registrationLabelStyle = (status: OrganizationProgram['registrationStatus'
   return styles.registrationClosed;
 };
 
-export function OrganizationProgramCard({ program, disabled, onApply, onViewStatus }: OrganizationProgramCardProps) {
+export function OrganizationProgramCard({ program, onApply, onViewStatus }: OrganizationProgramCardProps) {
   const showRegistrationWindow = program.registrationOpen !== null || program.registrationClose !== null;
-  const isApplyDisabled = disabled || !program.canApply;
+  const isApplyDisabled = !program.canApply;
   const isLocationBlocked = !program.isEligibleByLocation;
   const isApproved = program.existingEnrollmentStatus === 'Approved';
   const isPending = program.existingEnrollmentStatus === 'Pending';

@@ -262,7 +262,6 @@ export default function FindOrganizationScreen() {
           </FadeInView>
 
           <OrganizationProgramList
-            applyDisabled={!isVerified}
             emptyActionLabel={emptyActionLabel}
             emptyDescription={emptyDescription}
             emptyTitle={emptyTitle}

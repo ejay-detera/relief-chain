@@ -161,7 +161,7 @@ What a buyer actually gets today, per role. Detail in [PRD](prd-reliefchain.md).
 
 ### 5.1 Organization (LGU / NGO) ✅
 
-Dashboard, Programs, Disbursements, Beneficiaries, Settings. Seven-step program creation wizard with database-validated financial policy. Beneficiary verification and re-verification with append-only decisions. Batch disbursement with per-recipient outcomes and retry. Budget and activity monitoring. MFA with step-up on sensitive financial actions.
+Dashboard, Programs, Disbursements, Beneficiaries, Settings. Seven-step program creation wizard with database-validated financial policy. Beneficiary re-verification evidence with append-only decisions (initial beneficiary verification is an MVP auto-verify at sign-up, simulated). Batch disbursement with per-recipient outcomes and retry. Budget and activity monitoring. MFA with step-up on sensitive financial actions.
 
 ### 5.2 Merchant ✅ / 🟡
 

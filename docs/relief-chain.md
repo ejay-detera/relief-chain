@@ -8,6 +8,8 @@
 >
 > **Factual-source boundary:** product facts in this document come from [`final-proposal.md`](final-proposal.md). Competition finals facts in §17 come from the finals rules supplied directly by the team (sections **F3** and **G**). These two sources are kept separate and are never merged into one another.
 >
+> **Team build decisions** (currently the MVP auto-verification note in §7.1 Step 2 and the Q4 row) are recorded separately, dated, and labelled as decisions. They are not proposal facts and are not evidence of production operation.
+>
 > This is a proposal-derived document, not evidence that the described capabilities are already implemented, integrated, deployed, certified, or operating in production. Where the proposal is silent, this document says **Open**, **TBD**, or **Not stated** rather than inventing an answer.
 
 ---
@@ -302,6 +304,8 @@ A government or humanitarian organization creates a disaster relief campaign. Th
 Beneficiaries are registered and checked using the proposal's listed evidence sources: National ID, Barangay Certificate, DSWD records, household information, and duplicate detection.
 
 The proposal does not define whether ReliefChain directly connects to any government record system. A named record source is not evidence of a live integration.
+
+**MVP build decision (team, 2026-10-14; not from the proposal).** In the MVP/demo build, a newly created beneficiary account is marked Verified automatically at sign-up. This is **simulated identity verification**: no document, government-record, or organization check is performed for that status, and no real KYC takes place. The decision is MVP-only, applies to beneficiary accounts only, is not switchable, and is expected to be replaced by a real verification policy (see Q4). Organization-side verification of a beneficiary is **not a functional path yet**. Organizations review a beneficiary's application and documents after the beneficiary submits an application, and re-verification evidence is still required for sensitive actions such as wallet rotation.
 
 #### Step 3 — Approve assistance
 
@@ -641,7 +645,7 @@ The following questions arise directly from gaps in the proposal. Their presence
 | Q1 | Current implementation status | Not stated | Prevents proposal features from being mistaken for shipped capabilities |
 | Q2 | MVP scope and feature priority | All ten items are called core features; no release cut is defined | Determines build sequence and acceptance criteria |
 | Q3 | Organizational tenancy and roles | Government and humanitarian operators are named; permissions are not | Required for isolation, approval, audit, and delegation |
-| Q4 | Beneficiary identity policy | Five verification inputs are named | Required to define mandatory evidence, exceptions, consent, and review |
+| Q4 | Beneficiary identity policy | Five verification inputs are named. MVP interim decision (team, 2026-10-14): beneficiaries are auto-verified at sign-up, simulated, with no real KYC; the real identity policy is still open | Required to define mandatory evidence, exceptions, consent, and review |
 | Q5 | External record integrations | National ID and DSWD records are named | Must distinguish manual evidence from authorized live integration |
 | Q6 | Duplicate detection | Capability named without rules | Requires matching logic, confidence thresholds, false-positive handling, and appeals |
 | Q7 | Voucher representation | Programmable digital voucher on Stellar/Soroban | Determines contracts, balances, transfers, revocation, expiry, and audit events |

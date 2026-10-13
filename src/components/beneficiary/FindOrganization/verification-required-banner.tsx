@@ -5,16 +5,17 @@ import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, BrandColors, Spacing } from '@/constants/theme';
 
 /**
- * Shown when the Beneficiary's `verification_status` is not "Verified", per
- * Requirement 3.2: directs them to complete identity verification before
- * applying to any Program.
+ * Informational notice shown when the Beneficiary's `verification_status` is
+ * not "Verified". It does not block applying: the database accepts applications
+ * from unverified beneficiaries, and the organization reviews the beneficiary's
+ * details and documents together with the application.
  */
 export function VerificationRequiredBanner() {
   return (
     <View style={styles.container}>
       <FontAwesome color={BrandColors.navy} name="info-circle" size={18} style={styles.icon} />
       <ThemedText style={styles.text}>
-        Complete identity verification to apply for assistance programs.
+        Your identity isn&apos;t verified yet. You can still apply. The organization reviews your details and documents with your application.
       </ThemedText>
     </View>
   );

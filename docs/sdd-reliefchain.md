@@ -131,9 +131,11 @@ sequenceDiagram
   DB->>DB: append program_policy_events (immutable)
   B->>DB: submit registration
   DB->>DB: registrations_pending_on_insert + status guard
-  L->>DB: verify beneficiary
-  DB->>DB: record_beneficiary_identity_reverification (append-only)
+  DB->>DB: MVP auto-verify at sign-up, simulated, no KYC - handle_new_user creates profile + identity Verified
+  B->>DB: apply to a discoverable program (enrollment Pending, privacy + geography enforced by RLS)
   DB->>DB: enrollments_prepare_identity_scope (campaign dedup)
+  L->>DB: review application, approve
+  DB->>DB: record_beneficiary_identity_reverification (append-only, sensitive actions)
   B->>E: prepare-wallet-provision
   E-->>B: unsigned package
   B->>E: submit-wallet-provision (device-signed)
